@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.0...v1.0.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **ci:** allow android workflow without secrets in if ([693aa90](https://github.com/rahmadwidiansyah/hajatmanager/commit/693aa906d4f2f791bee8d65dbb4f4b0f88dcef1b))
+
 # 1.0.0 (2026-09-11)
 
 

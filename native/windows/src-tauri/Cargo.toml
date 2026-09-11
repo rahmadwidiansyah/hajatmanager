@@ -1,6 +1,6 @@
 [package]
 name = "hajat-manager"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Hajat Manager — Windows native via Tauri (offline SQLite + 30m background sync + PIN 6 digit)"
 authors = ["Hajat Manager"]
