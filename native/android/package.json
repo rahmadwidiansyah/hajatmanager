@@ -17,7 +17,7 @@
     "@capacitor/network": "^6.0.2",
     "@capacitor/preferences": "^6.0.3",
     "@capacitor/app": "^6.0.1",
-    "@capacitor-community/sqlite": "^6.0.3",
+    "@capacitor-community/sqlite": "^6.0.2",
     "jeep-sqlite": "^2.8.0"
   },
   "devDependencies": {

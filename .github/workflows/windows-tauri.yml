@@ -39,7 +39,8 @@ jobs:
         run: npm ci
 
       - name: Install windows deps
-        run: npm ci --prefix native/windows
+        working-directory: native/windows
+        run: npm ci
 
       - name: Resolve version
         id: ver
@@ -60,7 +61,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
           AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
-        run: npm --prefix native/windows run tauri:build
+        working-directory: native/windows
+        run: npm run tauri:build
 
       - name: Collect EXE
         shell: bash

@@ -34,7 +34,8 @@ jobs:
         run: npm ci
 
       - name: Install android deps
-        run: npm ci --prefix native/android
+        working-directory: native/android
+        run: npm ci
 
       - name: Resolve version
         id: ver
@@ -46,12 +47,11 @@ jobs:
 
       - name: Build web (static export for WebView)
         env:
-          NATIVE_BUILD: 1
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
           AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
         run: |
           npx prisma generate || true
-          npm run build
+          bash scripts/build-native.sh
           ls -lh out 2>&1 | head -n 20
 
       - name: Capacitor sync (add android if missing)
@@ -60,6 +60,55 @@ jobs:
           if [ ! -d "android" ]; then npx cap add android; fi
           npx cap sync
           ls -la android 2>&1 | head -n 30
+
+      - name: Patch build.gradle for dual signing (unsigned + signed)
+        run: |
+          GRADLE="native/android/android/app/build.gradle"
+          if ! grep -q "keystoreProperties" "$GRADLE"; then
+            echo "Patching $GRADLE for keystore.properties..."
+            cat > /tmp/patch.py <<'PY'
+          import pathlib
+          p = pathlib.Path("native/android/android/app/build.gradle")
+          s = p.read_text()
+          if "keystoreProperties" not in s:
+              s = s.replace(
+                  "android {",
+                  "def keystorePropertiesFile = rootProject.file(\"app/keystore.properties\")\n"
+                  "def keystoreProperties = new Properties()\n"
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+                  "}\n\n"
+                  "android {"
+              )
+              s = s.replace(
+                  "    buildTypes {\n        release {\n            minifyEnabled false",
+                  "    signingConfigs {\n        release {\n            if (keystorePropertiesFile.exists()) {\n"
+                  "                keyAlias keystoreProperties['keyAlias']\n"
+                  "                keyPassword keystoreProperties['keyPassword']\n"
+                  "                storeFile file(keystoreProperties['storeFile'])\n"
+                  "                storePassword keystoreProperties['storePassword']\n"
+                  "            }\n        }\n    }\n    buildTypes {\n        release {\n            minifyEnabled false"
+              )
+              s = s.replace(
+                  "            minifyEnabled false\n            proguardFiles",
+                  "            minifyEnabled false\n            proguardFiles"
+              )
+              # inject signingConfig conditional
+              if "signingConfig signingConfigs.release" not in s:
+                  s = s.replace(
+                      "            minifyEnabled false",
+                      "            minifyEnabled false\n            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }"
+                  )
+              p.write_text(s)
+              print("patched")
+          else:
+              print("already patched")
+          PY
+            python3 /tmp/patch.py
+            cat "$GRADLE" | head -n 80
+          else
+            echo "already patched"
+          fi
 
       - name: Make gradlew executable
         run: chmod +x native/android/android/gradlew 2>/dev/null || chmod +x native/android/gradlew 2>/dev/null || true
