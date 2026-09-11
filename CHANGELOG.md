@@ -1,3 +1,17 @@
+# 1.0.0 (2026-09-11)
+
+
+### Bug Fixes
+
+* **native:** make EXE/APK sideload buildable ([1aaf69c](https://github.com/rahmadwidiansyah/hajatmanager/commit/1aaf69cd038daa8937e7b0bb6486fc5bea1b64bb))
+* **release:** install semantic-release plugins + use Node 22 ([80a683f](https://github.com/rahmadwidiansyah/hajatmanager/commit/80a683fbe8a6ba20e53ecc343284a54301d49e3c))
+* sync package-lock for hajat-manager rebrand ([d9e56ec](https://github.com/rahmadwidiansyah/hajatmanager/commit/d9e56ec8119dc727969a47b9846ece35e78e7fd1))
+
+
+### Features
+
+* rebrand to Hajat Manager + 3 workflows ([06d9ec9](https://github.com/rahmadwidiansyah/hajatmanager/commit/06d9ec9d48a9e0cc470444eca5aed1dddaccafa5))
+
 # Changelog — Hajat Manager
 
 Semua perubahan penting dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/).
