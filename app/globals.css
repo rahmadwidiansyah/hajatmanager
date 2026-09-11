@@ -1,26 +1,120 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #f8fafc;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f1f5f9;
+  --surface-container: #e8edf4;
+  --surface-container-high: #dde4ee;
+  --surface-container-highest: #d1dae8;
+  --on-surface: #0f172a;
+  --on-surface-variant: #475569;
+  --outline: #94a3b8;
+  --outline-variant: #cbd5e1;
+  --primary: #059669;
+  --on-primary: #ffffff;
+  --primary-container: #d1fae5;
+  --secondary: #64748b;
+  --secondary-container: #e2e8f0;
+  --tertiary: #0ea5e9;
+  --error: #dc2626;
+  --error-container: #fee2e2;
+  color-scheme: light;
+}
+
+html.dark, .dark {
+  --background: #0a0f1a;
+  --foreground: #e8eef5;
+  --surface: #0a0f1a;
+  --surface-container-lowest: #111827;
+  --surface-container-low: #161f2e;
+  --surface-container: #1e2a3a;
+  --surface-container-high: #263347;
+  --surface-container-highest: #2e3d54;
+  --on-surface: #e8eef5;
+  --on-surface-variant: #94a3b8;
+  --outline: #475569;
+  --outline-variant: #1e2a3a;
+  --primary: #34d399;
+  --on-primary: #022c22;
+  --primary-container: #064e3b;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-surface: var(--surface);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --font-sans: var(--font-plus-jakarta), var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+  --font-display: var(--font-plus-jakarta);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  font-variant-ligatures: common-ligatures;
 }
 
+html {
+  background: var(--background);
+}
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+/* Input baseline */
+input, textarea, select {
+  color: var(--on-surface);
+  background: var(--surface-container-lowest);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+}
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--on-surface) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface-container-lowest) inset !important;
+}
+
+/* Scrollbar minimal */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--outline);
+}
+
+.font-display-currency {
+  font-family: var(--font-geist-sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.font-label-numeric {
+  font-family: var(--font-geist-mono);
+  font-variant-numeric: tabular-nums;
 }

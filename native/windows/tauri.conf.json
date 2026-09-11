@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hajat Manager",
+  "version": "0.1.0",
+  "identifier": "com.hajatmanager.app",
+  "build": {
+    "beforeDevCommand": "npm run dev -- --port 3000",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "cd ../.. && NATIVE_BUILD=1 npm run build",
+    "frontendDist": "../../out"
+  },
+  "app": {
+    "windows": [{ "title": "Hajat Manager", "width": 1200, "height": 800, "resizable": true }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "Pencatat Kondangan offline-first",
+    "longDescription": "Windows native via Tauri — offline SQLite + 30m background sync + PIN 6 digit",
+    "windows": { "nsis": { "installMode": "currentUser" }, "webviewInstallMode": { "type": "embedBootstrapper" } },
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"]
+  },
+  "plugins": {
+    "sql": { "preload": [] },
+    "store": {}
+  }
+}

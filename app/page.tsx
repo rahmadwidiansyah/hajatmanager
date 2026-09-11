@@ -1,69 +1,91 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BookOpen, Zap, Users } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen flex flex-col bg-[var(--background)]">
+      {/* Nav */}
+      <header className="border-b border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] sticky top-0 z-30 backdrop-blur-sm bg-opacity-95">
+        <div className="mx-auto max-w-4xl px-5 h-14 flex items-center justify-between">
+          <span className="font-bold text-[15px] tracking-tight text-[var(--on-surface)]">Kondangan</span>
+          <nav className="flex gap-2 items-center">
+            <ThemeToggle />
+            <Link href="/login" className="h-9 px-4 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors flex items-center">
+              Masuk
+            </Link>
+            <Link href="/register" className="h-9 px-4 rounded-xl bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center">
+              Daftar
+            </Link>
+          </nav>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <main className="flex-1 mx-auto max-w-4xl px-5 py-16 w-full">
+        {/* Hero */}
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium border border-emerald-200 dark:border-emerald-800 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Multi-admin • Real-time sync
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-[var(--on-surface)] tracking-tight leading-tight">
+            Catat hajat<br className="hidden sm:block" /> lebih rapi
+          </h1>
+          <p className="mt-4 text-[var(--on-surface-variant)] text-lg max-w-xl mx-auto leading-relaxed">
+            Buku tamu digital, catat pemberian satset, rekap per desa &amp; metode, export Excel &amp; PDF.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3 justify-center">
+            <Link href="/register" className="h-11 px-6 rounded-xl bg-[var(--primary)] text-white font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity shadow-sm">
+              <Zap size={16} /> Mulai Sekarang
+            </Link>
+            <Link href="/login" className="h-11 px-6 rounded-xl border border-[var(--outline-variant)] text-[var(--on-surface)] text-sm flex items-center hover:bg-[var(--surface-container)] transition-colors">
+              Sudah punya akun
+            </Link>
+          </div>
+        </div>
+
+        {/* Feature cards */}
+        <div className="grid md:grid-cols-3 gap-4">
+          {[
+            {
+              icon: <BookOpen size={18} className="text-emerald-600" />,
+              title: "Buku Tamu",
+              desc: "Import undangan, jadi master suggest. Ketik 2 huruf → nama + alamat auto-fill.",
+            },
+            {
+              icon: <Zap size={18} className="text-emerald-600" />,
+              title: "Input Satset",
+              desc: "Chip alamat & nominal Top 4, wajib catatan bila duplikat, kode kasir per meja.",
+            },
+            {
+              icon: <Users size={18} className="text-emerald-600" />,
+              title: "Multi-Admin",
+              desc: "Tambah panitia tak terbatas, filter per meja & kasir, rekap & export kapan saja.",
+            },
+          ].map((f) => (
+            <div key={f.title} className="p-5 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-3">
+                {f.icon}
+              </div>
+              <h3 className="font-semibold text-sm text-[var(--on-surface)]">{f.title}</h3>
+              <p className="text-xs text-[var(--on-surface-variant)] mt-1.5 leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tags */}
+        <div className="mt-10 flex flex-wrap gap-2 justify-center">
+          {["Export Excel & PDF", "Auth Google & Email", "Audit Log", "PostgreSQL + Prisma"].map((t) => (
+            <span key={t} className="px-3 py-1 rounded-full text-xs text-[var(--on-surface-variant)] border border-[var(--outline-variant)] bg-[var(--surface-container-low)]">
+              {t}
+            </span>
+          ))}
         </div>
       </main>
+
+      <footer className="py-5 text-center text-xs text-[var(--on-surface-variant)] border-t border-[var(--outline-variant)]">
+        Hajat Manager — dibuat untuk hajatan Indonesia
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  username       String?      @unique
+  email          String       @unique
+  emailVerified  DateTime?
+  image          String?
+  avatar         String?
+  profilePicture String?
+  password       String?
+  appPinHash     String?
+  pinCreatedAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  eventMembers   EventMember[]
+  auditLogs      AuditLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Event {
+  id            String        @id @default(cuid())
+  namaAcara     String
+  namaTuanRumah String?
+  tanggal       DateTime
+  lokasi        String?
+  catatan       String?
+  mejaList      String[]      @default(["MEJA-1", "MEJA-2"])
+  mode          EventMode     @default(ONLINE)
+  isOffline     Boolean       @default(false)
+  localOnly     Boolean       @default(false)
+  lastSyncAt    DateTime?
+  serverId      String?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  members       EventMember[]
+  guestBooks    GuestBook[]
+  guests        Guest[]
+  auditLogs     AuditLog[]
+}
+
+model EventMember {
+  id      String    @id @default(cuid())
+  eventId String
+  userId  String
+  role    EventRole
+  event   Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([eventId])
+}
+
+model GuestBook {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  nama      String
+  alamat    String
+  createdAt DateTime @default(now())
+
+  @@index([eventId, nama])
+  @@index([eventId])
+}
+
+model Guest {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guestBookId String?
+  nama        String
+  alamat      String
+  nominal     Int
+  metode      Metode   @default(AMPLOP)
+  catatan     String?
+  petugasId   String
+  mejaLabel   String?
+  kodeInput   String?
+  deviceId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId, nama])
+  @@index([eventId, alamat])
+  @@index([eventId, createdAt])
+  @@index([petugasId])
+  @@index([eventId, mejaLabel])
+  @@index([petugasId, mejaLabel])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aksi      String
+  targetId  String?
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([eventId, createdAt])
+  @@index([userId])
+}
+
+enum EventRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+enum EventMode {
+  ONLINE
+  OFFLINE
+}
+
+enum Metode {
+  CASH
+  AMPLOP
+  QRIS
+  TRANSFER
+  BARANG
+}
