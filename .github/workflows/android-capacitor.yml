@@ -63,9 +63,14 @@ jobs:
       - name: Capacitor sync (add android if missing)
         working-directory: native/android
         run: |
-          if [ ! -d "android" ]; then npx cap add android; fi
+          if [ ! -f "android/gradlew" ]; then
+            echo "android/gradlew not found -> running cap add android"
+            npx cap add android
+          fi
           npx cap sync
           ls -la android 2>&1 | head -n 30
+          ls -lh android/gradlew 2>&1 | head
+          ls -lh android/app/build.gradle 2>&1 | head
 
       - name: Fix APK signing (fallback debug, local installable)
         run: bash scripts/fix-android-signing.sh
@@ -140,13 +145,24 @@ jobs:
           fi
 
       - name: Make gradlew executable
-        run: chmod +x native/android/android/gradlew 2>/dev/null || chmod +x native/android/gradlew 2>/dev/null || true
+        run: |
+          chmod +x native/android/android/gradlew 2>&1 || chmod +x native/android/gradlew 2>&1 || true
+          ls -lh native/android/android/gradlew native/android/gradlew 2>&1 | head
 
       - name: Build APK (unsigned)
-        working-directory: native/android/android
+        working-directory: native/android
         run: |
-          ./gradlew assembleRelease --stacktrace || ./gradlew assembleRelease
-          ls -lh app/build/outputs/apk/release/ 2>&1 | head -n 20
+          if [ -f "android/gradlew" ]; then
+            bash android/gradlew -p android assembleRelease --stacktrace || bash android/gradlew -p android assembleRelease
+          elif [ -f "gradlew" ]; then
+            bash ./gradlew assembleRelease --stacktrace || bash ./gradlew assembleRelease
+          else
+            echo "gradlew not found at android/gradlew or gradlew"
+            find . -name "gradlew*" -type f 2>&1 | head -n 20
+            ls -R 2>&1 | head -n 100
+            exit 1
+          fi
+          ls -lh android/app/build/outputs/apk/release/ 2>&1 | head -n 20 || ls -lh app/build/outputs/apk/release/ 2>&1 | head -n 20
 
       - name: Collect unsigned APK
         run: |
@@ -162,20 +178,23 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        working-directory: native/android/android
+        working-directory: native/android
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "no keystore secrets, skip signed build"; exit 0; fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
-          cat > app/keystore.properties <<EOF
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          cat > android/app/keystore.properties <<EOF
           storeFile=release.keystore
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
-          # Inject signingConfig if not present — gradle will pick keystore.properties if referenced
-          # Rebuild signed
-          ./gradlew assembleRelease --stacktrace || ./gradlew assembleRelease
-          ls -lh app/build/outputs/apk/release/ 2>&1 | head -n 20
+          # Rebuild signed (fallback debug already patched, now with release keystore)
+          if [ -f "android/gradlew" ]; then
+            bash android/gradlew -p android assembleRelease --stacktrace || bash android/gradlew -p android assembleRelease
+          else
+            bash ./gradlew assembleRelease --stacktrace || bash ./gradlew assembleRelease
+          fi
+          ls -lh android/app/build/outputs/apk/release/ 2>&1 | head -n 20 || ls -lh app/build/outputs/apk/release/ 2>&1 | head -n 20
 
       - name: Collect signed APK
         env:
