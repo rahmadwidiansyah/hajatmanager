@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.2...v1.0.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* **android:** robust gradlew handling + remove tracked build.gradle ([1e13d39](https://github.com/rahmadwidiansyah/hajatmanager/commit/1e13d392939eb8119197aad5aabe1c9363708730))
+
 ## [1.0.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.1...v1.0.2) (2026-09-12)
 
 
