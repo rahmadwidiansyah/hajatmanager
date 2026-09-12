@@ -105,10 +105,11 @@ jobs:
                   "            minifyEnabled false\n            proguardFiles"
               )
               # inject signingConfig dengan fallback debug agar APK lokal tetap signed (tidak "tidak valid")
+              # Gunakan rootProject.file langsung untuk hindari MissingPropertyException di closure BuildType
               if "signingConfig signingConfigs.release" not in s:
                   s = s.replace(
                       "            minifyEnabled false",
-                      "            minifyEnabled false\n            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
+                      "            minifyEnabled false\n            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
                   )
               # ensure v1/v2 ada jika sudah ada signingConfigs tapi belum ada v1SigningEnabled
               if "v1SigningEnabled" not in s and "keystoreProperties" in s:
@@ -116,11 +117,16 @@ jobs:
                       "                storePassword keystoreProperties['storePassword']",
                       "                storePassword keystoreProperties['storePassword']\n                v1SigningEnabled true\n                v2SigningEnabled true"
                   )
-              # upgrade legacy conditional to fallback debug
+              # upgrade legacy conditional to fallback debug (ganti variabel dengan direct file check)
               if "if (keystorePropertiesFile.exists()) {\n                signingConfig" in s:
                   s = s.replace(
                       "            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }",
-                      "            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
+                      "            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
+                  )
+              if "signingConfig keystorePropertiesFile.exists()" in s:
+                  s = s.replace(
+                      "signingConfig keystorePropertiesFile.exists()",
+                      "signingConfig rootProject.file(\"app/keystore.properties\").exists()"
                   )
               p.write_text(s)
               print("patched")

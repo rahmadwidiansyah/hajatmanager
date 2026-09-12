@@ -40,13 +40,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('native/windows/src-tauri/Cargo.lock') }}
 
       - name: Install deps
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+        run: npm ci
 
       - name: Install windows deps
         working-directory: native/windows
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+        run: npm ci
 
       - name: Resolve version
         id: ver

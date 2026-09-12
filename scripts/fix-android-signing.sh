@@ -22,28 +22,34 @@ if "v1SigningEnabled" not in s and "keystoreProperties" in s:
         "                storePassword keystoreProperties['storePassword']",
         "                storePassword keystoreProperties['storePassword']\n                v1SigningEnabled true\n                v2SigningEnabled true"
     )
-# Patch buildTypes fallback to debug
+# Patch buildTypes fallback to debug — gunakan rootProject.file langsung untuk hindari MissingPropertyException
 if "signingConfigs.debug" not in s:
     s = s.replace(
         "            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }",
-        "            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
+        "            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
     )
     if "signingConfigs.debug" not in s:
         # vanilla tanpa fallback
         s = s.replace(
             "            minifyEnabled false\n            proguardFiles",
-            "            minifyEnabled false\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n            signingConfig signingConfigs.debug"
+            "            minifyEnabled false\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
         )
         # if above duplicate, clean
         s = s.replace(
-            "            signingConfig signingConfigs.debug\n            proguardFiles getDefaultProguardFile",
+            "            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug\n            proguardFiles getDefaultProguardFile",
             "            proguardFiles getDefaultProguardFile"
         )
-        if "signingConfig keystorePropertiesFile.exists()" not in s:
+        if "signingConfig rootProject.file" not in s and "signingConfig keystorePropertiesFile" not in s:
             s = s.replace(
                 "            minifyEnabled false",
-                "            minifyEnabled false\n            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
+                "            minifyEnabled false\n            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
             )
+# Upgrade legacy variable reference to direct file check
+if "signingConfig keystorePropertiesFile.exists()" in s:
+    s = s.replace(
+        "signingConfig keystorePropertiesFile.exists()",
+        "signingConfig rootProject.file(\"app/keystore.properties\").exists()"
+    )
 p.write_text(s)
 print("patched build.gradle for fallback debug signing")
 PY
