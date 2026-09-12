@@ -1,3 +1,12 @@
+## [1.0.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.1...v1.0.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **android:** commit patched build.gradle with conditional signing ([3f204aa](https://github.com/rahmadwidiansyah/hajatmanager/commit/3f204aa9e0dc6d5d1658a33d6f0e219cf96c938f))
+* **deploy:** production GHCR 5080 + prisma 6.19.3 + native npm ci + APK signed ([b6ce097](https://github.com/rahmadwidiansyah/hajatmanager/commit/b6ce097b540c32e0f9ca9788c26e169d68b2869b))
+* **native:** gradle signing scope + windows PowerShell npm ci ([085c7cd](https://github.com/rahmadwidiansyah/hajatmanager/commit/085c7cd8d84f49c1ac684dde6e4ebd096f5ae55c))
+
 ## [1.0.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.0...v1.0.1) (2026-09-11)
 
 
