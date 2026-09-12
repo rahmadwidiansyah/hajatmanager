@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "cap:sync": "cap sync",
+    "cap:sync": "cap sync && bash ../../scripts/fix-android-signing.sh",
     "cap:open": "cap open android",
-    "cap:build": "cap sync && cd android && ./gradlew assembleRelease",
+    "cap:build": "cap sync && bash ../../scripts/fix-android-signing.sh && cd android && ./gradlew assembleRelease",
     "android:release": "npm run cap:build"
   },
   "dependencies": {

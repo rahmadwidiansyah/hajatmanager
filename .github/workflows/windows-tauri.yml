@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            native/windows/package-lock.json
+            native/android/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,11 +40,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('native/windows/src-tauri/Cargo.lock') }}
 
       - name: Install deps
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
       - name: Install windows deps
         working-directory: native/windows
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
       - name: Resolve version
         id: ver

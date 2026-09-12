@@ -14,35 +14,32 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
+      timeout: 5s
       retries: 5
     # tidak expose port ke host — hanya bisa diakses via network internal oleh service web
 
   web:
-    # Untuk homelab GHCR pull: ganti ke image: ghcr.io/rahmadwidiansyah/hajatmanager:latest
-    # dan jalankan: docker compose pull && docker compose up -d
-    # Untuk build lokal: build: .
+    # Production: GHCR image (pull tanpa build)
+    # Lokal build: tetap bisa `docker compose build` karena ada `build: .`
     build: .
-    # Kalau pakai GHCR, uncomment baris di bawah:
-    # image: ghcr.io/rahmadwidiansyah/hajatmanager:latest
+    image: ghcr.io/rahmadwidiansyah/hajatmanager:latest
     container_name: pencatat-web
     restart: unless-stopped
     ports:
-      - "3000:3000" # hanya 1 port yang expose ke host
-    env_file: .env
+      - "5080:3000"
+    env_file:
+      - .env
     environment:
+      NODE_ENV: production
       # override DATABASE_URL agar web di dalam docker bisa resolve hostname postgres via network internal
-      # TODO(hajat-manager): rename DB to hajat_manager saat migrasi homelab — keep pencatat_kondangan for now
       DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/pencatat_kondangan?schema=public"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - appnet
-    # volumes bind-mount hanya untuk dev (di-override via docker-compose.override.yml prod tidak pakai)
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+    # JANGAN tambahkan volumes bind-mount di production!
+    # volumes dev hanya di docker-compose.override.yml
 
 networks:
   appnet:

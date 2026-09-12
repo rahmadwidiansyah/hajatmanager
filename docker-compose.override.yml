@@ -1,7 +1,12 @@
-# Dev override — bind mount untuk hot reload (dipakai otomatis oleh `docker compose up`)
-# Untuk production GHCR pull: `docker compose -f docker-compose.yml up -d` tanpa override ini
+# Dev override — otomatis dipakai saat `docker compose up` tanpa -f
+# Production WAJIB: `docker compose -f docker-compose.yml up -d` (tanpa override)
 services:
   web:
+    build: .
+    # di dev tetap expose 5080 biar konsisten dengan prod, atau 3000 jika mau
+    # override ports agar dev juga 3000:3000 jika diperlukan:
+    # ports:
+    #   - "3000:3000"
     volumes:
       - .:/app
       - /app/node_modules

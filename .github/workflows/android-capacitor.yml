@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            native/windows/package-lock.json
+            native/android/package-lock.json
 
       - uses: actions/setup-java@v4
         with:
@@ -31,11 +35,13 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install deps
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
       - name: Install android deps
         working-directory: native/android
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
       - name: Resolve version
         id: ver
@@ -60,6 +66,9 @@ jobs:
           if [ ! -d "android" ]; then npx cap add android; fi
           npx cap sync
           ls -la android 2>&1 | head -n 30
+
+      - name: Fix APK signing (fallback debug, local installable)
+        run: bash scripts/fix-android-signing.sh
 
       - name: Patch build.gradle for dual signing (unsigned + signed)
         run: |
@@ -87,17 +96,31 @@ jobs:
                   "                keyPassword keystoreProperties['keyPassword']\n"
                   "                storeFile file(keystoreProperties['storeFile'])\n"
                   "                storePassword keystoreProperties['storePassword']\n"
+                  "                v1SigningEnabled true\n"
+                  "                v2SigningEnabled true\n"
                   "            }\n        }\n    }\n    buildTypes {\n        release {\n            minifyEnabled false"
               )
               s = s.replace(
                   "            minifyEnabled false\n            proguardFiles",
                   "            minifyEnabled false\n            proguardFiles"
               )
-              # inject signingConfig conditional
+              # inject signingConfig dengan fallback debug agar APK lokal tetap signed (tidak "tidak valid")
               if "signingConfig signingConfigs.release" not in s:
                   s = s.replace(
                       "            minifyEnabled false",
-                      "            minifyEnabled false\n            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }"
+                      "            minifyEnabled false\n            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
+                  )
+              # ensure v1/v2 ada jika sudah ada signingConfigs tapi belum ada v1SigningEnabled
+              if "v1SigningEnabled" not in s and "keystoreProperties" in s:
+                  s = s.replace(
+                      "                storePassword keystoreProperties['storePassword']",
+                      "                storePassword keystoreProperties['storePassword']\n                v1SigningEnabled true\n                v2SigningEnabled true"
+                  )
+              # upgrade legacy conditional to fallback debug
+              if "if (keystorePropertiesFile.exists()) {\n                signingConfig" in s:
+                  s = s.replace(
+                      "            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }",
+                      "            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug"
                   )
               p.write_text(s)
               print("patched")
