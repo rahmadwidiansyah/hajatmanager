@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,12 +24,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-[var(--background)] px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <BrandMark size={40} />
+          </div>
           <Link href="/" className="inline-block font-bold text-xl text-[var(--on-surface)] tracking-tight">
-            Kondangan
+            HajatManager
           </Link>
           <p className="mt-1.5 text-sm text-[var(--on-surface-variant)]">Masuk ke akun Anda</p>
         </div>
@@ -62,7 +66,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 placeholder="Email"
-                className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+                className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
               />
             </div>
             <div>
@@ -72,12 +76,12 @@ export default function LoginPage() {
                 type="password"
                 required
                 placeholder="Password"
-                className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+                className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
               />
             </div>
 
             {err && (
-              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
+              <p className="text-sm text-[var(--error)] bg-[var(--error-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
                 {err}
               </p>
             )}
@@ -85,7 +89,7 @@ export default function LoginPage() {
             <button
               disabled={loading}
               type="submit"
-              className="w-full h-11 rounded-xl bg-[var(--primary)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="w-full h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {loading ? "Memproses..." : "Masuk"}
             </button>

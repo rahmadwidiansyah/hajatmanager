@@ -40,7 +40,7 @@ export default async function DashboardPage() {
         }}
         displayName={session.user.name ?? session.user.email ?? ""}
       />
-      <main className="mx-auto max-w-5xl px-5 py-8">
+      <main className="page-shell py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-[var(--on-surface)]">Acara Saya</h1>
@@ -49,12 +49,14 @@ export default async function DashboardPage() {
           <CreateEvent />
         </div>
         {events.length === 0 ? (
-          <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-12 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-[var(--surface-container)] flex items-center justify-center mx-auto mb-4">
-              <CalendarDays size={22} className="text-[var(--on-surface-variant)]" />
+          <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-6 text-left flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-[var(--surface-container)] flex items-center justify-center shrink-0">
+              <CalendarDays size={20} className="text-[var(--on-surface-variant)]" />
             </div>
-            <p className="font-medium text-[var(--on-surface)]">Belum ada acara</p>
-            <p className="text-sm text-[var(--on-surface-variant)] mt-1">Buat acara pertama atau minta panitia menambahkanmu</p>
+            <div className="min-w-0">
+              <p className="font-medium text-[var(--on-surface)]">Belum ada acara</p>
+              <p className="text-sm text-[var(--on-surface-variant)] mt-1">Buat acara pertama atau minta panitia menambahkanmu</p>
+            </div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">

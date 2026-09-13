@@ -5,9 +5,9 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/utils";
 import { TopBar } from "@/components/stitch/TopBar";
 import { Avatar } from "@/components/ui/Avatar";
+import { roleChipClass, methodChipClass, methodDotClass } from "@/components/ui/color";
 import { AlertTriangle, CheckCircle, Trash2, Pencil, Search, FileSpreadsheet, RectangleVertical, RectangleHorizontal, X, WifiOff, CloudUpload } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// Performa: jsPDF + autotable hanya di-load saat Export (dynamic import), bukan di bundle utama.
 import { enqueueGuest, flushOfflineQueue, getPendingCount, startBackgroundSync, QUEUE_KEY, LAST_SYNC_KEY } from "@/lib/offline-sync";
 
 type Member = { id: string; role: string; user: { id: string; name: string; username?: string | null; email: string; image?: string | null; avatar?: string | null; profilePicture?: string | null } };
@@ -21,11 +21,24 @@ function toTitleCasePerKata(s: string) {
 }
 
 // Reusable class strings — mobile lebih ramping (h-10), desktop h-11
-const inputCls = "w-full h-10 sm:h-11 px-3 sm:px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow placeholder:text-[var(--on-surface-variant)]";
-const labelCls = "text-[11px] sm:text-xs font-medium text-[var(--on-surface-variant)] uppercase tracking-wide";
+const inputCls =
+  "w-full h-10 sm:h-11 px-3 sm:px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow placeholder:text-[var(--on-surface-variant)]";
+const labelCls = "text-xs font-medium text-[var(--on-surface-variant)] uppercase tracking-wide";
 const DEFAULT_NOMINALS = [50000, 100000, 200000] as const;
 
-function Chip({ children, active, highlighted, onClick, onMouseEnter, onMouseLeave, id }: { children: React.ReactNode; active?: boolean; highlighted?: boolean; onClick?: () => void; onMouseEnter?: () => void; onMouseLeave?: () => void; id?: string }) {
+function Chip({ children, active, highlighted, tone = "primary", onClick, onMouseEnter, onMouseLeave, id }: { children: React.ReactNode; active?: boolean; highlighted?: boolean; tone?: "primary" | "secondary" | "tertiary"; onClick?: () => void; onMouseEnter?: () => void; onMouseLeave?: () => void; id?: string }) {
+  const activeBg =
+    tone === "tertiary"
+      ? "bg-[var(--tertiary)] text-white border-[var(--tertiary)]"
+      : tone === "secondary"
+        ? "bg-[var(--warning)] text-white border-[var(--warning)]"
+        : "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]";
+  const activeContainer =
+    tone === "tertiary"
+      ? "bg-[var(--tertiary-container)] border-[var(--tertiary)] text-[var(--on-tertiary-container)]"
+      : tone === "secondary"
+        ? "bg-[var(--warning-container)] border-[var(--warning)] text-[var(--on-warning-container)]"
+        : "bg-[var(--primary-container)] border-[var(--primary)] text-[var(--on-primary-container)]";
   return (
     <button
       id={id}
@@ -34,12 +47,12 @@ function Chip({ children, active, highlighted, onClick, onMouseEnter, onMouseLea
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`h-8 px-3 rounded-xl text-xs font-medium border transition-colors ${
+      className={`h-8 px-3 rounded-lg text-xs font-medium border transition-colors ${
         active
-          ? "bg-emerald-600 text-white border-emerald-600"
+          ? activeBg
           : highlighted
-            ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-300"
-            : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)] hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 dark:hover:border-emerald-700 dark:hover:text-emerald-400"
+            ? `${activeContainer} ring-1 ring-[var(--primary)]`
+            : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)] hover:border-[var(--primary)] hover:text-[var(--on-primary-container)] hover:bg-[var(--primary-container)]"
       }`}
     >
       {children}
@@ -48,16 +61,39 @@ function Chip({ children, active, highlighted, onClick, onMouseEnter, onMouseLea
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  // P0: modal harus bisa scroll saat viewport pendek + keyboard muncul.
+  // - outer overflow-y-auto (bukan items-center murni) agar konten panjang tak kepotong
+  // - backdrop click + Escape untuk tutup, body scroll-lock
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="relative w-full max-w-md">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-[var(--scrim)]/50 backdrop-blur-sm p-4 flex justify-center items-start sm:items-center"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="relative w-full max-w-md my-4 sm:my-8 max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl">
         <button
           onClick={onClose}
-          className="absolute -top-10 right-0 w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+          aria-label="Tutup"
+          className="sticky top-2 ml-auto mr-2 flex w-8 h-8 rounded-full bg-[var(--surface-container)] text-[var(--on-surface-variant)] border border-[var(--outline-variant)] items-center justify-center hover:bg-[var(--surface-container-high)] transition-colors z-10"
         >
           <X size={16} />
         </button>
-        {children}
+        <div className="-mt-8">{children}</div>
       </div>
     </div>
   );
@@ -77,7 +113,7 @@ function Pagination({ page, totalPages, total, limit, onPage }: { page: number; 
           else if (page >= totalPages - 2) n = totalPages - 4 + i;
           else n = page - 2 + i;
           return (
-            <button key={n} onClick={() => onPage(n)} className={`w-7 h-7 rounded-lg border text-xs font-medium transition-colors ${page === n ? "bg-emerald-600 text-white border-emerald-600" : "bg-[var(--surface-container-lowest)] border-[var(--outline-variant)] text-[var(--on-surface)] hover:bg-[var(--surface-container)]"}`}>{n}</button>
+            <button key={n} onClick={() => onPage(n)} className={`w-7 h-7 rounded-lg border text-xs font-medium transition-colors ${page === n ? "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]" : "bg-[var(--surface-container-lowest)] border-[var(--outline-variant)] text-[var(--on-surface)] hover:bg-[var(--surface-container)]"}`}>{n}</button>
           );
         })}
         <button disabled={page === totalPages} onClick={() => onPage(Math.min(totalPages, page + 1))} className="h-7 px-2.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] disabled:opacity-40 text-xs hover:bg-[var(--surface-container)] transition-colors">Next →</button>
@@ -268,26 +304,15 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     setIsSyncing(false);
   };
 
+  // Push data pending ke server — mode acara (OFFLINE/ONLINE) TIDAK diubah.
+  // Tombol ini hanya sinkronisasi data tamu, bukan mengubah status acara.
   const handleSyncToServer = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      // flush queued guests
       const qRes = await flushOfflineQueue(eventId);
       if (qRes.error && qRes.error !== "offline") alert(qRes.error);
       setPendingCount(getPendingCount(eventId));
-      // if event is offline, try to push event itself to server to unlock members
-      if (isOfflineMode && event) {
-        const evRes = await fetch(`/api/sync/push`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ events: [{ id: event.id, namaAcara: event.namaAcara, namaTuanRumah: event.namaTuanRumah, tanggal: event.tanggal, lokasi: event.lokasi, catatan: event.catatan, mejaList: event.mejaList, mode: "ONLINE" }] }),
-        });
-        if (evRes.ok) {
-          await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "ONLINE" }) }).catch(() => {});
-          setIsOfflineMode(false);
-          loadEvent();
-        }
-      }
       await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
       setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
       try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
@@ -295,9 +320,13 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   };
 
   useEffect(() => {
+    // Performa: hanya fetch yang dibutuhkan tab awal. Sisanya lazy saat tab dibuka.
     loadEvent().then(() => setLoading(false));
-    loadGuests(); loadShortcuts(); loadBooks(); loadMembers(); loadRekap();
+    loadGuests(); loadShortcuts(); loadRekap();
     try { setPendingCount(getPendingCount(eventId)); const ls = localStorage.getItem(LAST_SYNC_KEY(eventId)); if (ls) setLastSyncAt(new Date(ls).toLocaleTimeString("id-ID")); } catch {}
+    if (initialTab === "buku") loadBooks();
+    if (initialTab === "setting") { loadMembers(); loadAudit(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     const off = startBackgroundSync(eventId, (r) => {
@@ -314,11 +343,26 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     window.addEventListener("offline-queue-changed", handler as EventListener);
     return () => { off(); window.removeEventListener("offline-queue-changed", handler as EventListener); };
   }, [eventId]);
-  useEffect(() => { loadGuests(); }, [search, sort, order, mejaFilter, kasirFilter, page]);
+  useEffect(() => {
+    // Debounce search tabel agar tak tembak API tiap keystroke (satset tapi hemat)
+    const t = setTimeout(() => { loadGuests(); }, search ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, sort, order, mejaFilter, kasirFilter, page]);
   useEffect(() => { setPage(1); }, [search, mejaFilter, kasirFilter]);
-  useEffect(() => { loadBooks(); }, [bookSearch, bookPage]);
+  useEffect(() => {
+    if (tab !== "buku") return;
+    const t = setTimeout(() => { loadBooks(); }, bookSearch ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookSearch, bookPage]);
   useEffect(() => { setBookPage(1); }, [bookSearch]);
-  useEffect(() => { if (tab === "rekap") loadRekap(); if (tab === "setting") loadAudit(); }, [tab]);
+  useEffect(() => {
+    if (tab === "rekap") loadRekap();
+    if (tab === "setting") { loadMembers(); loadAudit(); }
+    if (tab === "buku") loadBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
   useEffect(() => {
     if (tab !== "setting") return;
     const t = setTimeout(() => loadAudit(logSearch), 300);
@@ -503,6 +547,17 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   async function handleExport(type: "excel" | "pdf") {
     const orientation = exportOrientation;
+    // Dynamic import agar bundle awal tetap ringan — jsPDF hanya diunduh saat user klik Export PDF
+    let jsPDFCtor: typeof import("jspdf").default | null = null;
+    let autoTableFn: typeof import("jspdf-autotable").default | null = null;
+    if (type === "pdf") {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      jsPDFCtor = jsPDF;
+      autoTableFn = autoTable;
+    }
     if (exportType === "tamu") {
       const res = await fetch(`/api/events/${eventId}/guestbooks?limit=1000&export=true`);
       if (!res.ok) return;
@@ -526,15 +581,15 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       const padded: (GuestBook | null)[] = [...sorted];
       while (padded.length < totalRows) padded.push(null);
       const body = padded.map((g, idx) => { if (!g) return ["", "", ""]; return [String(idx + 1), g.nama, g.alamat]; });
-      const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
+      const doc = new jsPDFCtor!({ orientation, unit: "mm", format: "a4" });
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
       const margin = { top: 8, bottom: 12, left: 8, right: 8 };
-      autoTable(doc, {
+      autoTableFn!(doc, {
         startY: 18, head: [["No", "Nama", "Alamat"]], body, foot: [["", "TOTAL", `${totalTamu} tamu`]], showFoot: "lastPage", theme: "grid",
-        headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8, lineColor: [16, 185, 129] },
+        headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8, lineColor: [5, 150, 105] },
         bodyStyles: { fontSize: 8, cellPadding: 2.2, valign: "middle", lineColor: [210, 210, 210], lineWidth: 0.2 },
-        footStyles: { fillColor: [236, 253, 245], textColor: [6, 95, 70], fontStyle: "bold", fontSize: 8, halign: "left" },
+        footStyles: { fillColor: [209, 250, 229], textColor: [6, 78, 59], fontStyle: "bold", fontSize: 8, halign: "left" },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         columnStyles: { 0: { halign: "center", cellWidth: 12 }, 1: { cellWidth: pageW - margin.left - margin.right - 12 - (pageW * 0.35) }, 2: { cellWidth: pageW * 0.35 } },
         margin,
@@ -572,17 +627,17 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     const padded: (Guest | null)[] = [...sorted];
     while (padded.length < totalRows) padded.push(null);
     const body = padded.map((g, idx) => { if (!g) return ["", "", "", "", "", "", ""]; return [String(idx + 1), g.nama, g.alamat, formatRupiah(g.nominal), g.metode, g.mejaLabel || "-", g.catatan || "-"]; });
-    const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
+    const doc = new jsPDFCtor!({ orientation, unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const margin = { top: 8, bottom: 12, left: 6, right: 6 };
     const isLand = orientation === "landscape";
-    autoTable(doc, {
+    autoTableFn!(doc, {
       startY: 18, head: [["No", "Nama", "Alamat", "Nominal", "Metode", "Meja", "Catatan"]], body,
       foot: [["", "", "TOTAL", formatRupiah(totalNominalExport), "", `${totalTamuExport} tamu`, ""]], showFoot: "lastPage", theme: "grid",
-      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: "bold", halign: "center", fontSize: isLand ? 7 : 7.5, cellPadding: 2, lineColor: [16, 185, 129] },
+      headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: "bold", halign: "center", fontSize: isLand ? 7 : 7.5, cellPadding: 2, lineColor: [5, 150, 105] },
       bodyStyles: { fontSize: isLand ? 6.5 : 7, cellPadding: 1.8, valign: "middle", lineColor: [210, 210, 210], lineWidth: 0.2, overflow: "linebreak" },
-      footStyles: { fillColor: [236, 253, 245], textColor: [6, 95, 70], fontStyle: "bold", fontSize: 7, halign: "center" },
+      footStyles: { fillColor: [209, 250, 229], textColor: [6, 78, 59], fontStyle: "bold", fontSize: 7, halign: "center" },
       alternateRowStyles: { fillColor: [249, 250, 251] },
       columnStyles: { 0: { halign: "center", cellWidth: 9 }, 1: { cellWidth: isLand ? 38 : 32 }, 2: { cellWidth: isLand ? 38 : 28 }, 3: { halign: "right", cellWidth: isLand ? 28 : 26 }, 4: { halign: "center", cellWidth: 20 }, 5: { halign: "center", cellWidth: 18 }, 6: { cellWidth: "auto" } },
       margin,
@@ -610,15 +665,15 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       doc.text("Rincian per Metode", margin.left, curY);
       doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100);
       doc.text(`Total ${totalTamuExport} catatan · ${formatRupiah(totalNominalExport)}`, margin.left, curY + 4);
-      autoTable(doc, {
+      autoTableFn!(doc, {
         startY: curY + 7,
         head: [["Metode", "Jumlah", "Total", "Porsi"]],
         body: perMetodeEntries.map(([metode, v]) => [metode, `${v.jumlah}`, formatRupiah(v.total), `${totalNominalExport ? Math.round((v.total / totalNominalExport) * 100) : 0}%`]),
         foot: [["TOTAL", `${totalTamuExport}`, formatRupiah(totalNominalExport), "100%"]],
         showFoot: "lastPage", theme: "grid",
-        headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7, cellPadding: 2, lineColor: [16, 185, 129] },
+        headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7, cellPadding: 2, lineColor: [5, 150, 105] },
         bodyStyles: { fontSize: 7, cellPadding: 2.5, valign: "middle", lineColor: [210, 210, 210], lineWidth: 0.2, halign: "center" },
-        footStyles: { fillColor: [236, 253, 245], textColor: [6, 95, 70], fontStyle: "bold", fontSize: 7, halign: "center" },
+        footStyles: { fillColor: [209, 250, 229], textColor: [6, 78, 59], fontStyle: "bold", fontSize: 7, halign: "center" },
         columnStyles: { 0: { halign: "left", cellWidth: 32 }, 1: { halign: "center", cellWidth: 28 }, 2: { halign: "right", cellWidth: 42 }, 3: { halign: "center", cellWidth: 20 } },
         margin,
       });
@@ -708,12 +763,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   }, [tab, isEditor, loading, event, dupModal, exportModal, editBook, editGuest, selectedLog]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+    <div className="min-h-dvh bg-[var(--background)] flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
     </div>
   );
   if (!event) return (
-    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+    <div className="min-h-dvh bg-[var(--background)] flex items-center justify-center">
       <div className="text-center">
         <p className="text-[var(--on-surface-variant)]">Acara tidak ditemukan atau tidak punya akses</p>
         <Link href="/dashboard" className="mt-4 inline-block text-sm text-[var(--primary)] hover:underline">← Dashboard</Link>
@@ -731,8 +786,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   const isInputTab = tab === "pemberian";
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className={`mx-auto max-w-7xl ${isInputTab ? "px-2 py-1 sm:px-4 sm:py-4" : "px-4 py-4"}`}>
+    <div className="min-h-dvh bg-[var(--background)]">
+      <div className={`page-shell ${isInputTab ? "py-1 sm:py-4" : "py-4"}`}>
         <TopBar
           namaAcara={event.namaAcara}
           tanggal={event.tanggal}
@@ -767,52 +822,56 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         />
 
         {isOfflineMode && (
-          <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2`}>
-            <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 truncate">
-              <WifiOff size={12} className="shrink-0" /> <span className="truncate">{isInputTab ? "Offline" : "Mode Offline — data lokal."}</span>
-              {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] shrink-0">{pendingCount}</span>}
+          <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
+            <div className="flex items-center gap-1.5 text-[var(--on-warning-container)] truncate">
+              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? "Offline" : "Mode Offline — data lokal."}</span>
+              {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-xs shrink-0">{pendingCount}</span>}
             </div>
-            <button onClick={handleSyncToServer} disabled={isSyncing} className={`${isInputTab ? "h-7 px-2.5 text-xs" : "h-7 px-3 text-xs"} rounded-full bg-amber-600 text-white font-medium flex items-center gap-1 shrink-0 disabled:opacity-50`}>
-              <CloudUpload size={11} /> {isSyncing ? "…" : "Sync"}
+            <button onClick={handleSyncToServer} disabled={isSyncing} className={`${isInputTab ? "h-7 px-2.5 text-xs" : "h-7 px-3 text-xs"} rounded-full bg-[var(--warning)] text-white font-medium flex items-center gap-1 shrink-0 disabled:opacity-50`}>
+              <CloudUpload size={14} /> {isSyncing ? "…" : "Sync"}
             </button>
           </div>
         )}
         {!isOfflineMode && pendingCount > 0 && (
-          <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2`}>
-            <span className={`${isInputTab ? "text-[11px]" : "text-xs"} text-emerald-700 dark:text-emerald-300 truncate`}>{isInputTab ? `${pendingCount} pending` : `${pendingCount} data menunggu sync · 30m`}</span>
-            <button onClick={handleSyncToServer} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-emerald-600 text-white text-[11px] font-medium shrink-0 disabled:opacity-50">{isSyncing ? "…" : "Sync"}</button>
+          <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
+            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} pending` : `${pendingCount} data menunggu sync · 30m`}</span>
+            <button onClick={handleSyncToServer} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium shrink-0 disabled:opacity-50">{isSyncing ? "…" : "Sync"}</button>
           </div>
         )}
-        {/* Tabs — sticky di mobile saat input biar tidak ke-scroll */}
-        <div className={`overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 mb-2 sm:mb-4 sticky z-20 backdrop-blur supports-[backdrop-filter]:bg-[var(--background)]/80 ${isInputTab ? "top-[40px] sm:top-0 py-1" : "top-[56px] sm:top-0 py-1"}`}>
-          <div className={`flex gap-0.5 bg-[var(--surface-container)] p-1 rounded-xl w-fit min-w-full sm:min-w-0 ${isInputTab ? "p-0.5 sm:p-1" : ""}`}>
+        {/* Tabs — offset ikuti tinggi header 2-baris mobile (~76px) agar tak tertutup */}
+        <div className="sticky z-20 bg-[var(--background)]/90 backdrop-blur py-1 mb-2 sm:mb-4 top-[76px] sm:top-[64px]">
+          <div className="overflow-x-auto">
+            <div className={`flex gap-0.5 bg-[var(--surface-container)] p-1 rounded-xl w-fit min-w-full sm:min-w-0 ${isInputTab ? "p-0.5 sm:p-1" : ""}`}>
             {tabList.map((t) => {
               const disabled = false;
+              const isActive = tab === t.key;
               return (
                 <button
                   key={t.key}
                   onClick={() => updateTab(t.key)}
                   disabled={disabled}
-                  className={`flex-1 sm:flex-none rounded-lg font-medium transition-colors whitespace-nowrap ${isInputTab ? "px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm" : "px-4 py-2 text-sm"} ${tab === t.key ? "bg-[var(--surface-container-lowest)] text-[var(--on-surface)] shadow-sm" : "text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]"}`}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex-1 sm:flex-none rounded-lg font-medium transition-colors whitespace-nowrap ${isInputTab ? "px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm" : "px-4 py-2 text-sm"} ${isActive ? "bg-[var(--primary-container)] text-[var(--on-primary-container)] shadow-sm" : "text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]"}`}
                 >
                   {t.label}
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
 
         {/* ═══════════════════════ PEMBERIAN TAB ═══════════════════════ */}
         {tab === "pemberian" && (
           <div className="flex flex-col gap-2 sm:gap-4">
-            {/* Form input — ultra ramping di mobile */}
-            <div className="bg-[var(--surface-container-lowest)] rounded-xl sm:rounded-2xl border border-[var(--outline-variant)] p-2.5 sm:p-5">
+            {/* Form input — M3 shape tetap (bukan berubah per breakpoint) */}
+            <div className="bg-[var(--surface-container-lowest)] rounded-2xl border border-[var(--outline-variant)] p-3 sm:p-5 shadow-[var(--shadow-elevation-1)]">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                  <h2 className="text-[13px] sm:text-base font-semibold leading-none text-[var(--on-surface)]">Input Pemberian</h2>
-                  <p className="text-[11px] sm:text-xs leading-none mt-0.5 text-[var(--on-surface-variant)]">Meja {mejaLabel} · {userName}</p>
+                  <h2 className="text-sm sm:text-base font-semibold leading-none text-[var(--on-surface)]">Input Pemberian</h2>
+                  <p className="text-xs leading-none mt-1 text-[var(--on-surface-variant)]">Meja {mejaLabel} · {userName}</p>
                 </div>
-                <span className="text-xs text-[var(--on-surface-variant)] hidden sm:inline">Tab: Nama→Alamat→Nominal→Enter</span>
+                <span className="text-xs text-[var(--on-surface-variant)] hidden sm:inline">Nama→Alamat→Nominal→Enter</span>
               </div>
 
               <form onSubmit={handleSubmitPemberian} className="flex flex-col gap-3 sm:gap-4">
@@ -840,7 +899,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       required disabled={!isEditor} placeholder="Ketik min 2 huruf..." autoComplete="off" role="combobox" aria-expanded={suggestOpen && suggest.length > 0} aria-autocomplete="list" aria-controls={suggest.length ? "nama-suggest-list" : undefined} aria-activedescendant={suggestHighlighted >= 0 ? `suggest-opt-${suggestHighlighted}` : undefined}
                       className={`mt-1.5 ${inputCls}`} />
                     {suggestOpen && suggest.length > 0 && (
-                      <div id="nama-suggest-list" role="listbox" className="absolute z-20 w-full bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-xl shadow-lg mt-1 max-h-44 overflow-auto">
+                      <div id="nama-suggest-list" role="listbox" className="absolute z-40 w-full bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-xl shadow-[var(--shadow-elevation-2)] mt-1 max-h-44 overflow-auto overscroll-contain">
                         <div className="px-3 py-2 text-xs text-[var(--on-surface-variant)] border-b border-[var(--outline-variant)] flex justify-between">
                           <span>Buku Tamu ({suggest.length})</span><span>klik untuk pilih</span>
                         </div>
@@ -873,23 +932,23 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
                   {/* Nominal */}
                   <div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center gap-2">
                       <label className={labelCls}>Nominal *</label>
-                      {nominalStr && <span className="text-xs font-semibold text-emerald-600">{formatRupiah(parseInt(nominalStr, 10))}</span>}
+                      {nominalStr && <span className="text-xs font-semibold text-[var(--primary)] whitespace-nowrap">{formatRupiah(parseInt(nominalStr, 10))}</span>}
                     </div>
-                    <div className="relative mt-1.5">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
-                      <input ref={nominalInputRef} id="nominal-input" value={nominalStr} onChange={e => setNominalStr(e.target.value.replace(/\D/g, ""))} onFocus={() => setNominalHighlighted(-1)}
-                        onKeyDown={e => {
-                          if (!nominalOptions.length) return;
-                          if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); setNominalHighlighted(h => h < 0 ? 0 : Math.min(h + 1, nominalOptions.length - 1)); }
-                          else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); setNominalHighlighted(h => h < 0 ? nominalOptions.length - 1 : Math.max(h - 1, 0)); }
-                          else if (e.key === "Enter" && nominalHighlighted >= 0) { e.preventDefault(); setNominalStr(String(nominalOptions[nominalHighlighted])); }
-                          else if (e.key === "Escape") { setNominalHighlighted(-1); }
-                        }}
-                        aria-activedescendant={nominalHighlighted >= 0 ? `nominal-opt-${nominalHighlighted}` : undefined}
-                        required disabled={!isEditor} placeholder="100000" autoComplete="off" inputMode="numeric"
-                        className={`${inputCls} pl-9 font-semibold`} />
+<div className="flex mt-1.5 gap-2 items-center">
+                        <span className="text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
+                        <input ref={nominalInputRef} id="nominal-input" value={nominalStr} onChange={e => setNominalStr(e.target.value.replace(/\D/g, ""))} onFocus={() => setNominalHighlighted(-1)}
+                          onKeyDown={e => {
+                            if (!nominalOptions.length) return;
+                            if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); setNominalHighlighted(h => h < 0 ? 0 : Math.min(h + 1, nominalOptions.length - 1)); }
+                            else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); setNominalHighlighted(h => h < 0 ? nominalOptions.length - 1 : Math.max(h - 1, 0)); }
+                            else if (e.key === "Enter" && nominalHighlighted >= 0) { e.preventDefault(); setNominalStr(String(nominalOptions[nominalHighlighted])); }
+                            else if (e.key === "Escape") { setNominalHighlighted(-1); }
+                          }}
+                          aria-activedescendant={nominalHighlighted >= 0 ? `nominal-opt-${nominalHighlighted}` : undefined}
+                          required disabled={!isEditor} placeholder="100000" autoComplete="off" inputMode="numeric"
+                          className={`${inputCls} font-semibold`} />
                     </div>
                     <div role="group" aria-label="Pilihan nominal" className="mt-2 flex flex-wrap gap-1.5">
                       {nominalOptions.map((v, i) => (
@@ -907,8 +966,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     <label className={labelCls}>Metode</label>
                     <div className="mt-1.5 flex gap-1.5">
                       {["AMPLOP", "QRIS", "TRANSFER"].map(m => (
-                        <button key={m} type="button" onClick={() => setMetode(m)}
-                          className={`flex-1 h-11 rounded-xl text-xs font-medium border transition-colors ${metode === m ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)] hover:border-emerald-300"}`}>
+                        <button key={m} type="button" onClick={() => setMetode(m)} aria-pressed={metode === m}
+                          className={`flex-1 h-11 rounded-xl text-xs font-medium border transition-colors flex items-center justify-center gap-1.5 ${metode === m ? "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)] shadow-sm" : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)] hover:border-[var(--primary)]"}`}>
+                          <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${methodDotClass(m)} ${metode === m ? "bg-current" : ""}`} />
                           {m}
                         </button>
                       ))}
@@ -916,23 +976,23 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   </div>
                   <div className="md:col-span-5">
                     <label className={labelCls}>
-                      Catatan{liveDup && <span className="ml-1 text-amber-600 normal-case font-normal">(wajib isi, duplikat)</span>}
+                      Catatan{liveDup && <span className="ml-1 text-[var(--on-warning-container)] normal-case font-normal">(wajib isi, duplikat)</span>}
                     </label>
                     <input value={catatan} onChange={e => setCatatan(e.target.value)} disabled={!isEditor}
                       placeholder={liveDup ? "Wajib: bedakan dari data sebelumnya" : "Opsional"}
-                      className={`mt-1.5 ${inputCls} ${liveDup ? "border-amber-400 focus:ring-amber-500" : ""}`}
+                      className={`mt-1.5 ${inputCls} ${liveDup ? "border-[var(--warning)] focus:ring-[var(--warning)]" : ""}`}
                       maxLength={200} />
                   </div>
                   <div className="md:col-span-3 flex items-end">
                     {liveDup && (
-                      <div className="w-full mb-1 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400 flex gap-2">
+                      <div className="w-full mb-1 p-2.5 rounded-xl bg-[var(--warning-container)] border border-[var(--outline-variant)] text-xs text-[var(--on-warning-container)] flex gap-2">
                         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                         <span><strong>{liveDup.nama}</strong> sudah {liveDup.nominalFormatted}</span>
                       </div>
                     )}
                     {!liveDup && (
                       <button disabled={!isEditor} type="submit"
-                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                        className="w-full h-11 rounded-xl bg-[var(--primary)] hover:opacity-90 text-[var(--on-primary)] font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
                         <CheckCircle size={16} /> Simpan
                       </button>
                     )}
@@ -940,7 +1000,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 </div>
                 {liveDup && (
                   <button disabled={!isEditor} type="submit"
-                    className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                    className="w-full h-11 rounded-xl bg-[var(--primary)] hover:opacity-90 text-[var(--on-primary)] font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
                     <CheckCircle size={16} /> Simpan dengan Catatan
                   </button>
                 )}
@@ -953,7 +1013,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <div className="flex flex-wrap gap-2 items-center mb-3">
                 <div className="relative flex-1 min-w-[180px]">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)]" />
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama/alamat/kode..." className="w-full h-9 pl-8 pr-3 rounded-xl bg-[var(--surface-container)] border border-[var(--outline-variant)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow" />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama/alamat/kode..." className="w-full h-9 pl-8 pr-3 rounded-xl bg-[var(--surface-container)] border border-[var(--outline-variant)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-shadow" />
                 </div>
                 <select value={sort} onChange={e => setSort(e.target.value)} className="h-9 px-3 rounded-xl bg-[var(--surface-container)] border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] focus:outline-none">
                   <option value="createdAt">Waktu</option><option value="nama">Nama</option><option value="alamat">Alamat</option><option value="nominal">Nominal</option>
@@ -963,17 +1023,17 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 </select>
               </div>
 
-              {/* Filter meja & kasir */}
+              {/* Filter meja (tertiary/biru) & kasir (secondary/abu) agar tak semua hijau */}
               <div className="flex flex-wrap gap-1.5 items-center mb-3 text-xs">
                 <span className="text-[var(--on-surface-variant)] font-medium">Meja:</span>
-                <Chip active={!mejaFilter} onClick={() => setMejaFilter(null)}>Semua</Chip>
+                <Chip tone="tertiary" active={!mejaFilter} onClick={() => setMejaFilter(null)}>Semua</Chip>
                 {(event.mejaList || ["MEJA-1", "MEJA-2"]).map((m: string) => (
-                  <Chip key={m} active={mejaFilter === m} onClick={() => setMejaFilter(mejaFilter === m ? null : m)}>{m}</Chip>
+                  <Chip tone="tertiary" key={m} active={mejaFilter === m} onClick={() => setMejaFilter(mejaFilter === m ? null : m)}>{m}</Chip>
                 ))}
                 <span className="text-[var(--on-surface-variant)] font-medium ml-1">Kasir:</span>
-                <Chip active={!kasirFilter} onClick={() => setKasirFilter(null)}>Semua</Chip>
+                <Chip tone="secondary" active={!kasirFilter} onClick={() => setKasirFilter(null)}>Semua</Chip>
                 {members.map(mem => (
-                  <Chip key={mem.user.id} active={kasirFilter === mem.user.id} onClick={() => setKasirFilter(kasirFilter === mem.user.id ? null : mem.user.id)}>
+                  <Chip tone="secondary" key={mem.user.id} active={kasirFilter === mem.user.id} onClick={() => setKasirFilter(kasirFilter === mem.user.id ? null : mem.user.id)}>
                     {mem.user.name}
                   </Chip>
                 ))}
@@ -984,9 +1044,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
               <Pagination page={page} totalPages={totalPages} total={guestTotal} limit={LIMIT} onPage={setPage} />
 
-              {/* Desktop: tabel */}
-              <div className="mt-3 hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
+              {/* Desktop: tabel — min-w agar scroll horizontal, bukan gepeng */}
+              <div className="mt-3 hidden sm:block overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-[var(--outline-variant)] text-xs text-[var(--on-surface-variant)]">
                       <th className="text-left p-2 font-medium w-10">#</th>
@@ -1006,24 +1066,24 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                           <td className="p-2 text-center text-xs text-[var(--on-surface-variant)]">{(page - 1) * LIMIT + i + 1}</td>
                           <td className="p-2">
                             <div className="font-medium text-[var(--on-surface)]">{g.nama}</div>
-                            {g.catatan && <div className="text-xs text-amber-600 dark:text-amber-400">↳ {g.catatan}</div>}
+                            {g.catatan && <div className="text-xs text-[var(--on-warning-container)]">↳ {g.catatan}</div>}
                           </td>
                           <td className="p-2 text-[var(--on-surface-variant)] text-sm">{g.alamat}</td>
-                          <td className="p-2 text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{hideNominal ? "••••••" : formatRupiah(g.nominal)}</td>
+                          <td className="p-2 text-right font-bold text-[var(--primary)] tabular-nums">{hideNominal ? "••••••" : formatRupiah(g.nominal)}</td>
                           <td className="p-2 text-center">
-                            <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--surface-container)] text-xs text-[var(--on-surface-variant)] border border-[var(--outline-variant)]">{g.mejaLabel || "—"}</span>
+                            <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--tertiary-container)] text-[var(--on-tertiary-container)] text-xs border border-[var(--outline-variant)]">{g.mejaLabel || "—"}</span>
                           </td>
                           <td className="p-2">
-                            <div className="text-xs font-medium text-[var(--on-surface)] truncate max-w-[100px]">{kasir ? kasir.user.name : g.petugasId.slice(0, 6)}</div>
+                            <div className="inline-block px-2 py-0.5 rounded-full bg-[var(--warning-container)] text-[var(--on-warning-container)] text-xs font-medium truncate max-w-[100px] border border-[var(--outline-variant)]">{kasir ? kasir.user.name : g.petugasId.slice(0, 6)}</div>
                           </td>
                           {isEditor && (
                             <td className="p-2">
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEditGuest(g)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors">
-                                  <Pencil size={12} className="text-[var(--on-surface-variant)]" />
+                                <button onClick={() => openEditGuest(g)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors" aria-label="Edit">
+                                  <Pencil size={14} className="text-[var(--on-surface-variant)]" />
                                 </button>
-                                <button onClick={() => handleDeleteGuest(g.id)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 flex items-center justify-center transition-colors">
-                                  <Trash2 size={12} className="text-red-500" />
+                                <button onClick={() => handleDeleteGuest(g.id)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors" aria-label="Hapus">
+                                  <Trash2 size={14} className="text-[var(--error)]" />
                                 </button>
                               </div>
                             </td>
@@ -1056,23 +1116,23 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-[var(--on-surface)] text-sm truncate">{g.nama}</div>
                           <div className="text-xs text-[var(--on-surface-variant)] truncate">{g.alamat}</div>
-                          {g.catatan && <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">↳ {g.catatan}</div>}
+                          {g.catatan && <div className="text-xs text-[var(--on-warning-container)] mt-0.5">↳ {g.catatan}</div>}
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span className="inline-block px-1.5 py-0.5 rounded-full bg-[var(--surface-container)] text-[10px] text-[var(--on-surface-variant)] border border-[var(--outline-variant)]">{g.metode}</span>
-                            {g.mejaLabel && <span className="inline-block px-1.5 py-0.5 rounded-full bg-[var(--surface-container)] text-[10px] text-[var(--on-surface-variant)] border border-[var(--outline-variant)]">{g.mejaLabel}</span>}
-                            <span className="text-[10px] text-[var(--on-surface-variant)]">{kasir ? kasir.user.name : g.petugasId.slice(0, 6)}</span>
+                            <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs ${methodChipClass(g.metode)}`}>{g.metode}</span>
+                            {g.mejaLabel && <span className="inline-block px-1.5 py-0.5 rounded-full text-xs bg-[var(--tertiary-container)] text-[var(--on-tertiary-container)] border border-[var(--outline-variant)]">{g.mejaLabel}</span>}
+                            <span className="text-xs text-[var(--on-surface-variant)]">{kasir ? kasir.user.name : g.petugasId.slice(0, 6)}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums text-sm">{hideNominal ? "••••••" : formatRupiah(g.nominal)}</span>
+                        <span className="font-bold text-[var(--primary)] tabular-nums text-sm">{hideNominal ? "••••••" : formatRupiah(g.nominal)}</span>
                         {isEditor && (
                           <div className="flex gap-1">
-                            <button onClick={() => openEditGuest(g)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors">
-                              <Pencil size={12} className="text-[var(--on-surface-variant)]" />
+                            <button onClick={() => openEditGuest(g)} aria-label="Edit" className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors">
+                              <Pencil size={14} className="text-[var(--on-surface-variant)]" />
                             </button>
-                            <button onClick={() => handleDeleteGuest(g.id)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 flex items-center justify-center transition-colors">
-                              <Trash2 size={12} className="text-red-500" />
+                            <button onClick={() => handleDeleteGuest(g.id)} aria-label="Hapus" className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
+                              <Trash2 size={14} className="text-[var(--error)]" />
                             </button>
                           </div>
                         )}
@@ -1111,7 +1171,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   <input value={bookAlamat} onChange={e => setBookAlamat(e.target.value)} required disabled={!isEditor} placeholder="Alamat / desa" className={inputCls} />
                 </div>
                 <div className="md:col-span-2">
-                  <button disabled={!isEditor} type="submit" className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors disabled:opacity-50">
+                  <button disabled={!isEditor} type="submit" className="w-full h-11 rounded-xl bg-[var(--primary)] hover:opacity-90 text-[var(--on-primary)] font-medium text-sm transition-colors disabled:opacity-50">
                     Tambah
                   </button>
                 </div>
@@ -1147,10 +1207,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                           <td className="p-2">
                             <div className="flex items-center justify-center gap-1">
                               <button onClick={() => openEditBook(b)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors">
-                                <Pencil size={12} className="text-[var(--on-surface-variant)]" />
+                                <Pencil size={14} className="text-[var(--on-surface-variant)]" />
                               </button>
-                              <button onClick={async () => { if (!confirm("Hapus buku tamu ini?")) return; await fetch(`/api/guestbooks/${b.id}`, { method: "DELETE" }); loadBooks(); }} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 flex items-center justify-center transition-colors">
-                                <Trash2 size={12} className="text-red-500" />
+                              <button onClick={async () => { if (!confirm("Hapus buku tamu ini?")) return; await fetch(`/api/guestbooks/${b.id}`, { method: "DELETE" }); loadBooks(); }} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
+                                <Trash2 size={14} className="text-[var(--error)]" />
                               </button>
                             </div>
                           </td>
@@ -1179,34 +1239,36 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {/* ═══════════════════════ REKAP TAB ═══════════════════════ */}
         {tab === "rekap" && rekap && (
           <div className="flex flex-col gap-4">
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-6 text-center">
-                <p className="text-xs uppercase tracking-widest font-semibold text-[var(--on-surface-variant)]">Total Tamu</p>
+            {/* Stat cards — collapse di 320px agar Rp panjang tak meluber */}
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
+              <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-6 text-center min-w-0">
+                <p className="m3-section-title">Total Tamu</p>
                 <p className="mt-2 text-5xl font-bold text-[var(--on-surface)] tracking-tight tabular-nums">{rekap.totalTamu}</p>
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 text-center">
-                <p className="text-xs uppercase tracking-widest font-semibold text-emerald-700 dark:text-emerald-400">Total Pemberian</p>
-                <p className="mt-2 text-3xl sm:text-4xl font-bold text-emerald-700 dark:text-emerald-400 tracking-tight tabular-nums">{formatRupiah(rekap.totalNominal)}</p>
+              <div className="bg-[var(--primary-container)] border border-[var(--outline-variant)] rounded-2xl p-6 text-center min-w-0">
+                <p className="m3-section-title !text-[var(--on-primary-container)]">Total Pemberian</p>
+                <p className="mt-2 text-2xl min-[400px]:text-3xl sm:text-4xl font-bold text-[var(--on-primary-container)] tracking-tight tabular-nums break-words">{formatRupiah(rekap.totalNominal)}</p>
               </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {/* Per Meja */}
+              {/* Per Meja — tertiary/biru (lokasi fisik) */}
               <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
-                <h4 className="font-semibold text-[var(--on-surface)] mb-4">Per Meja</h4>
+                <h4 className="font-semibold text-[var(--on-surface)] mb-1">Per Meja</h4>
+                <p className="text-xs text-[var(--on-tertiary-container)] mb-4 inline-block px-2 py-0.5 rounded-full bg-[var(--tertiary-container)] border border-[var(--outline-variant)]">Lokasi fisik</p>
                 <div className="space-y-3">
-                  {rekap.perMeja.map(m => {
+                  {rekap.perMeja.map((m, idx) => {
                     const max = Math.max(...rekap.perMeja.map(x => x.total), 1);
                     const pct = Math.round((m.total / max) * 100);
+                    const isTop = idx === 0;
                     return (
                       <div key={m.mejaLabel}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-[var(--on-surface)]">{m.mejaLabel}</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatRupiah(m.total)}</span>
+                        <div className="flex justify-between text-sm mb-1 gap-2">
+                          <span className="font-medium text-[var(--on-surface)] truncate min-w-0">{m.mejaLabel}</span>
+                          <span className={`font-bold tabular-nums shrink-0 ${isTop ? "text-[var(--primary)]" : "text-[var(--on-tertiary-container)]"}`}>{formatRupiah(m.total)}</span>
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-[var(--surface-container)] overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full ${isTop ? "bg-[var(--primary)]" : "bg-[var(--tertiary)]"}`} style={{ width: `${pct}%` }} />
                         </div>
                         <div className="flex justify-between text-xs text-[var(--on-surface-variant)] mt-0.5">
                           <span>{m.jumlah} tamu</span><span>{pct}%</span>
@@ -1218,21 +1280,23 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 </div>
               </div>
 
-              {/* Per Kasir */}
+              {/* Per Kasir — amber hangat (orang/petugas) */}
               <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
-                <h4 className="font-semibold text-[var(--on-surface)] mb-4">Per Kasir</h4>
+                <h4 className="font-semibold text-[var(--on-surface)] mb-1">Per Kasir</h4>
+                <p className="text-xs text-[var(--on-warning-container)] mb-4 inline-block px-2 py-0.5 rounded-full bg-[var(--warning-container)] border border-[var(--outline-variant)]">Petugas</p>
                 <div className="space-y-3">
-                  {rekap.perKasir.map(k => {
+                  {rekap.perKasir.map((k, idx) => {
                     const max = Math.max(...rekap.perKasir.map(x => x.total), 1);
                     const pct = Math.round((k.total / max) * 100);
+                    const isTop = idx === 0;
                     return (
                       <div key={k.petugasId}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-[var(--on-surface)] truncate">{k.name}</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatRupiah(k.total)}</span>
+                        <div className="flex justify-between text-sm mb-1 gap-2">
+                          <span className="font-medium text-[var(--on-surface)] truncate min-w-0">{k.name}</span>
+                          <span className={`font-bold tabular-nums shrink-0 ${isTop ? "text-[var(--primary)]" : "text-[var(--on-warning-container)]"}`}>{formatRupiah(k.total)}</span>
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-[var(--surface-container)] overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full ${isTop ? "bg-[var(--primary)]" : "bg-[var(--warning)]"}`} style={{ width: `${pct}%` }} />
                         </div>
                         <div className="text-xs text-[var(--on-surface-variant)] mt-0.5">{k.jumlah} tamu</div>
                       </div>
@@ -1251,7 +1315,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     {rekap.perMetode.map(m => (
                       <tr key={m.metode}>
                         <td className="py-2">
-                          <span className={`px-2 py-0.5 rounded-full text-xs border font-medium ${m.metode === "AMPLOP" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" : m.metode === "QRIS" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" : "bg-[var(--surface-container)] text-[var(--on-surface-variant)] border-[var(--outline-variant)]"}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 ${methodChipClass(m.metode)}`}>
+                            <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${methodDotClass(m.metode)}`} />
                             {m.metode}
                           </span>
                         </td>
@@ -1291,9 +1356,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
                 <h3 className="font-semibold text-[var(--on-surface)] mb-1">Anggota</h3>
                 {isOfflineMode ? (
-                  <div className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/10 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 mb-3 flex items-center gap-2"><WifiOff size={13} /> Mode Offline — fitur anggota nonaktif. Klik Sync ke Server di atas untuk aktifkan multi-admin (auto-sync 30 menit di background).</div>
+                  <div className="text-xs text-[var(--on-warning-container)] bg-[var(--warning-container)] px-3 py-2 rounded-lg border border-[var(--outline-variant)] mb-3 flex items-center gap-2"><WifiOff size={14} /> Mode Offline — fitur anggota nonaktif. Klik Sync ke Server di atas untuk aktifkan multi-admin (auto-sync 30 menit di background).</div>
                 ) : event.myRole !== "OWNER" ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/10 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 mb-3">Hanya OWNER bisa kelola</p>
+                  <p className="text-xs text-[var(--on-warning-container)] bg-[var(--warning-container)] px-3 py-1.5 rounded-lg border border-[var(--outline-variant)] mb-3">Hanya OWNER bisa kelola</p>
                 ) : null}
                 <div className="space-y-2 mt-3">
                   <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user (nama/email)" disabled={event.myRole !== "OWNER" || isOfflineMode}
@@ -1313,7 +1378,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                               <p className="text-xs text-[var(--on-surface-variant)] truncate">{u.email}{u.username ? ` · @${u.username}` : ""}</p>
                             </div>
                           </div>
-                          <button onClick={() => handleAddMember(u.id)} className="h-8 px-3 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors shrink-0">
+                          <button onClick={() => handleAddMember(u.id)} className="h-8 px-3 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-xs font-medium hover:opacity-90 transition-colors shrink-0">
                             Tambah
                           </button>
                         </div>
@@ -1332,7 +1397,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium text-[var(--on-surface)] truncate">{m.user.name}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${m.role === "OWNER" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" : m.role === "ADMIN" ? "bg-[var(--surface-container)] text-[var(--on-surface-variant)] border-[var(--outline-variant)]" : "bg-[var(--surface-container)] text-[var(--on-surface-variant)] border-[var(--outline-variant)]"}`}>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${roleChipClass(m.role)}`}>
                                 {m.role}
                               </span>
                             </div>
@@ -1341,8 +1406,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                         </div>
                         {event.myRole === "OWNER" && (
                           <button onClick={async () => { if (!confirm("Hapus anggota?")) return; await fetch(`/api/events/${eventId}/members?userId=${m.user.id}`, { method: "DELETE" }); loadMembers(); }}
-                            className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] hover:bg-red-50 dark:hover:bg-red-900/10 hover:border-red-300 flex items-center justify-center transition-colors">
-                            <X size={13} className="text-red-500" />
+                            className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
+                            <X size={14} className="text-[var(--error)]" />
                           </button>
                         )}
                       </div>
@@ -1357,7 +1422,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   <h3 className="font-semibold text-[var(--on-surface)]">Info Acara</h3>
                   {!editMode && isEditor && (
                     <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[var(--outline-variant)] text-xs text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">
-                      <Pencil size={12} /> Edit
+                      <Pencil size={14} /> Edit
                     </button>
                   )}
                 </div>
@@ -1373,7 +1438,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       <button
                         disabled={event.myRole === "VIEWER"}
                         onClick={async () => { if (!confirm("Hapus acara ini secara permanen?")) return; const res = await fetch(`/api/events/${eventId}`, { method: "DELETE" }); if (res.ok) window.location.href = "/dashboard"; }}
-                        className="w-full h-10 rounded-xl border border-red-200 dark:border-red-800 text-red-500 text-sm hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors disabled:opacity-50"
+                        className="w-full h-10 rounded-xl border border-red-200 dark:border-red-800 text-[var(--error)] text-sm hover:bg-[var(--error-container)] transition-colors disabled:opacity-50"
                       >
                         Hapus Acara
                       </button>
@@ -1390,25 +1455,25 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     <input type="date" value={editTanggal} onChange={e => setEditTanggal(e.target.value)} required className={inputCls} />
                     <input value={editLokasi} onChange={e => setEditLokasi(e.target.value)} placeholder="Lokasi" className={inputCls} />
                     <textarea value={editCatatan} onChange={e => setEditCatatan(e.target.value)} placeholder="Catatan" rows={2}
-                      className="w-full px-4 py-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                      className="w-full px-4 py-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none" />
                     <div className="flex gap-2">
                       <button type="button" onClick={() => setEditMode(false)} className="flex-1 h-11 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">Batal</button>
-                      <button type="submit" className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-colors">Simpan</button>
+                      <button type="submit" className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 transition-colors">Simpan</button>
                     </div>
                   </form>
                 )}
               </div>
             </div>
 
-            {/* Kelola Meja */}
+            {/* Kelola Meja — tertiary/biru (lokasi fisik, konsisten dengan chip meja) */}
             <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
               <h3 className="font-semibold text-[var(--on-surface)] mb-1">Meja</h3>
               <p className="text-xs text-[var(--on-surface-variant)] mb-4">Sinkron antar device, tampil di TopBar & filter</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {(event.mejaList || []).map((m: string) => (
-                  <span key={m} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
+                  <span key={m} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--tertiary-container)] text-[var(--on-tertiary-container)] border border-[var(--outline-variant)] text-xs font-medium">
                     {m}
-                    <button onClick={async () => {
+                    <button aria-label={`Rename ${m}`} onClick={async () => {
                       const nv = prompt(`Rename ${m}:`, m);
                       if (!nv || nv.trim().toUpperCase() === m) return;
                       const trimmed = nv.trim().toUpperCase();
@@ -1416,16 +1481,16 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       const next = (event.mejaList || []).map((x: string) => x === m ? trimmed : x);
                       const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
                       if (res.ok) { loadEvent(); if (mejaLabel === m) setMejaLabel(trimmed); }
-                    }} className="hover:text-emerald-900 dark:hover:text-emerald-200 transition-colors">
-                      <Pencil size={11} />
+                    }} className="hover:opacity-70 transition-opacity">
+                      <Pencil size={14} />
                     </button>
-                    <button onClick={async () => {
+                    <button aria-label={`Hapus ${m}`} onClick={async () => {
                       if (!confirm(`Hapus ${m}?`)) return;
                       const next = (event.mejaList || []).filter((x: string) => x !== m);
                       await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
                       loadEvent();
-                    }} className="hover:text-red-500 transition-colors">
-                      <X size={11} />
+                    }} className="hover:text-[var(--error)] transition-colors">
+                      <X size={14} />
                     </button>
                   </span>
                 ))}
@@ -1440,7 +1505,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
                   if (res.ok) { setNewMeja(""); loadEvent(); }
                 }} disabled={!newMeja.trim() || !isEditor}
-                  className="h-9 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                  className="h-9 px-4 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50">
                   Tambah
                 </button>
               </div>
@@ -1451,7 +1516,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-[var(--on-surface)]">Log Aktivitas</h3>
                 <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)]" />
                   <input value={logSearch} onChange={e => setLogSearch(e.target.value)} placeholder="Cari nama tamu / aksi..." className="h-8 pl-8 pr-3 rounded-xl bg-[var(--surface-container)] border border-[var(--outline-variant)] text-xs w-44 focus:outline-none" />
                 </div>
               </div>
@@ -1469,7 +1534,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       <div className="text-sm min-w-0 flex-1">
                         <span className="font-medium text-[var(--on-surface)]">{log.user.name}</span>
                         <span className="text-[var(--on-surface-variant)] ml-1.5">{log.aksi}</span>
-                        {guestName && <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 font-medium truncate">· {guestName}</span>}
+                        {guestName && <span className="ml-1.5 text-[var(--primary)] font-medium truncate">· {guestName}</span>}
                       </div>
                       <span className="text-xs text-[var(--on-surface-variant)] shrink-0">{new Date(log.createdAt).toLocaleString("id-ID")}</span>
                     </button>
@@ -1492,14 +1557,14 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <p className="text-sm text-[var(--on-surface-variant)] mt-1">
               <strong className="text-[var(--on-surface)]">{dupModal.existing.nama} — {dupModal.existing.alamat}</strong> sudah tercatat <strong>{dupModal.existing.nominalFormatted}</strong>
             </p>
-            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+            <div className="mt-3 p-3 rounded-xl bg-[var(--warning-container)] border border-[var(--outline-variant)] text-sm text-[var(--on-warning-container)]">
               {dupModal.message} Isi catatan untuk membedakan dari data sebelumnya.
             </div>
             <input value={dupNote} onChange={e => setDupNote(e.target.value)} autoFocus placeholder="Bedakan: Krajan Lor, anak Pak RT..."
-              className={`mt-3 ${inputCls} border-amber-300 focus:ring-amber-500`} />
+              className={`mt-3 ${inputCls} border-[var(--warning)] focus:ring-[var(--warning)]`} />
             <div className="mt-4 flex gap-2">
               <button onClick={() => { setDupModal(null); setDupNote(""); }} className="flex-1 h-11 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">Batal</button>
-              <button onClick={handleSubmitDuplicate} disabled={!dupNote.trim()} className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors">Simpan</button>
+              <button onClick={handleSubmitDuplicate} disabled={!dupNote.trim()} className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-colors">Simpan</button>
             </div>
           </div>
         </Modal>
@@ -1528,11 +1593,11 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             </div>
 
             <div className="px-6 py-5 space-y-5">
-              {/* Tipe */}
+              {/* Tipe — selected pakai primary-container, bukan emerald hardcode */}
               <div className="flex flex-col gap-2">
                 {[{ val: "tamu", label: "Buku Tamu", desc: "3 kolom: No, Nama, Alamat" }, { val: "pemberian", label: "Pemberian", desc: "7 kolom: Nama, Alamat, Nominal, Metode, Meja, Catatan" }].map(opt => (
-                  <label key={opt.val} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${exportType === opt.val ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-500 dark:border-emerald-700" : "border-[var(--outline-variant)] hover:border-[var(--outline)]"}`}>
-                    <input type="radio" checked={exportType === opt.val as "tamu" | "pemberian"} onChange={() => setExportType(opt.val as "tamu" | "pemberian")} className="accent-emerald-600" />
+                  <label key={opt.val} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${exportType === opt.val ? "bg-[var(--primary-container)] border-[var(--primary)]" : "border-[var(--outline-variant)] hover:border-[var(--outline)]"}`}>
+                    <input type="radio" checked={exportType === opt.val as "tamu" | "pemberian"} onChange={() => setExportType(opt.val as "tamu" | "pemberian")} className="accent-[var(--primary)]" />
                     <div>
                       <p className="font-semibold text-sm text-[var(--on-surface)]">{opt.label}</p>
                       <p className="text-xs text-[var(--on-surface-variant)]">{opt.desc}</p>
@@ -1550,10 +1615,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     { val: "landscape", label: "Horizontal", Icon: RectangleHorizontal, rows: exportType === "tamu" ? "30" : "24" },
                   ].map(opt => (
                     <button key={opt.val} onClick={() => setExportOrientation(opt.val as "portrait" | "landscape")}
-                      className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1.5 transition-colors ${exportOrientation === opt.val ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-500 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400" : "border-[var(--outline-variant)] text-[var(--on-surface-variant)] hover:border-[var(--outline)]"}`}>
-                      <opt.Icon size={22} />
+                      className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1.5 transition-colors ${exportOrientation === opt.val ? "bg-[var(--tertiary-container)] border-[var(--tertiary)] text-[var(--on-tertiary-container)]" : "border-[var(--outline-variant)] text-[var(--on-surface-variant)] hover:border-[var(--outline)]"}`}>
+                      <opt.Icon size={18} />
                       <span className="text-xs font-semibold">{opt.label}</span>
-                      <span className="text-[10px] opacity-70">{opt.rows} baris/hal</span>
+                      <span className="text-xs opacity-70">{opt.rows} baris/hal</span>
                     </button>
                   ))}
                 </div>
@@ -1563,7 +1628,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <div>
                 <label className="text-xs font-medium text-[var(--on-surface-variant)] uppercase tracking-wide mb-1.5 block">Urutan</label>
                 <select value={exportOrder} onChange={e => setExportOrder(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]">
                   <option value="nama_az">Nama A–Z</option>
                   <option value="nama_za">Nama Z–A</option>
                   <option value="alamat_az">Alamat A–Z</option>
@@ -1578,7 +1643,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <button onClick={() => handleExport("excel")} className="h-11 px-4 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors flex items-center gap-1.5">
                 <FileSpreadsheet size={15} /> CSV
               </button>
-              <button onClick={() => handleExport("pdf")} className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition-colors">PDF</button>
+              <button onClick={() => handleExport("pdf")} className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-semibold text-sm hover:opacity-90 transition-colors">PDF</button>
             </div>
           </div>
         </Modal>
@@ -1593,7 +1658,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <input value={editBookData.alamat} onChange={e => setEditBookData({ ...editBookData, alamat: e.target.value })} required placeholder="Alamat" className={inputCls} />
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setEditBook(null)} className="flex-1 h-11 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">Batal</button>
-              <button type="submit" className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-colors">Simpan</button>
+              <button type="submit" className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 transition-colors">Simpan</button>
             </div>
           </form>
         </Modal>
@@ -1606,10 +1671,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <h3 className="font-semibold text-[var(--on-surface)]">Edit Pemberian</h3>
             <input value={editGuestData.nama} onChange={e => setEditGuestData({ ...editGuestData, nama: e.target.value })} required placeholder="Nama" className={inputCls} />
             <input value={editGuestData.alamat} onChange={e => setEditGuestData({ ...editGuestData, alamat: e.target.value })} required placeholder="Alamat" className={inputCls} />
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
-              <input value={editGuestData.nominal} onChange={e => setEditGuestData({ ...editGuestData, nominal: e.target.value.replace(/\D/g, "") })} required className={`${inputCls} pl-9 font-semibold`} placeholder="Nominal" />
-            </div>
+<div className="flex gap-2 items-center">
+               <span className="text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
+               <input value={editGuestData.nominal} onChange={e => setEditGuestData({ ...editGuestData, nominal: e.target.value.replace(/\D/g, "") })} required className={`${inputCls} font-semibold`} placeholder="Nominal" />
+             </div>
             <select value={editGuestData.metode} onChange={e => setEditGuestData({ ...editGuestData, metode: e.target.value })}
               className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none">
               <option>AMPLOP</option><option>CASH</option><option>QRIS</option><option>TRANSFER</option><option>BARANG</option>
@@ -1617,14 +1682,14 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <input value={editGuestData.catatan} onChange={e => setEditGuestData({ ...editGuestData, catatan: e.target.value })} placeholder="Catatan (opsional)" className={inputCls} maxLength={200} />
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setEditGuest(null)} className="flex-1 h-11 rounded-xl border border-[var(--outline-variant)] text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">Batal</button>
-              <button type="submit" className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-colors">Simpan</button>
+              <button type="submit" className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 transition-colors">Simpan</button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* Mobile bottom padding */}
-      <div className="lg:hidden h-16" />
+      {/* Safe-area spacer — hanya hormati notch, tanpa dead-scroll 64px */}
+      <div aria-hidden className="lg:hidden h-[env(safe-area-inset-bottom)]" />
     </div>
   );
 }

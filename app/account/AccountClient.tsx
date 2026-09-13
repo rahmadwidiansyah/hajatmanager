@@ -1,8 +1,21 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { Upload, Trash2, Check, AlertCircle, ChevronLeft, Lock, Shield } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  Upload,
+  Check,
+  AlertCircle,
+  ArrowLeft,
+  Shield,
+  KeyRound,
+  ChevronDown,
+  Moon,
+  Sun,
+  X,
+} from "lucide-react";
 import Link from "next/link";
+import { useColorScheme } from "@mui/material/styles";
 
 type UserData = {
   id: string;
@@ -15,8 +28,76 @@ type UserData = {
   createdAt: string;
 };
 
-const inputCls = "w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow placeholder:text-[var(--on-surface-variant)]";
-const labelCls = "text-xs font-medium text-[var(--on-surface-variant)] uppercase tracking-wide";
+const inputCls =
+  "w-full h-12 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow placeholder:text-[var(--on-surface-variant)]";
+const fieldLabelCls = "text-sm font-medium text-[var(--on-surface)]";
+const helperCls = "mt-1 text-xs text-[var(--on-surface-variant)]";
+const errorCls = "mt-1 text-xs text-[var(--on-error-container)]";
+
+function Field({
+  id,
+  label,
+  required,
+  hint,
+  hintId,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  hint?: string;
+  hintId?: string;
+  error?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <label htmlFor={id} className={fieldLabelCls}>
+        {label}
+        {required && (
+          <span aria-hidden className="text-[var(--error)]">
+            {" "}
+            *
+          </span>
+        )}
+      </label>
+      <div className="mt-1.5">{children}</div>
+      {error ? (
+        <p id={`${id}-error`} role="alert" className={errorCls}>
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={hintId} className={helperCls}>
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      aria-label={title}
+      className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5"
+    >
+      <h2 className="font-semibold text-[var(--on-surface)]">{title}</h2>
+      {desc && (
+        <p className="text-xs text-[var(--on-surface-variant)] mt-0.5">{desc}</p>
+      )}
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
 
 export default function AccountClient({ initialUser }: { initialUser: UserData }) {
   const [user, setUser] = useState<UserData>(initialUser);
@@ -26,20 +107,40 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
   const [profilePic, setProfilePic] = useState<string | null>(initialUser.profilePicture);
   const [uploading, setUploading] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPass, setSavingPass] = useState(false);
-  const [passMsg, setPassMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [passError, setPassError] = useState<string | null>(null);
 
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [pinMsg, setPinMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [savingPin, setSavingPin] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [confirmDeletePin, setConfirmDeletePin] = useState(false);
+
+  const [snack, setSnack] = useState<{ id: number; text: string } | null>(null);
+
+  const { mode, systemMode, setMode } = useColorScheme();
+  const themeResolved = mode === "system" ? systemMode : mode;
+  const isDark = themeResolved === "dark";
+
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
+
+  function notify(text: string) {
+    setSnack({ id: Date.now(), text });
+  }
+
+  useEffect(() => {
+    if (!snack) return;
+    const t = setTimeout(() => setSnack(null), 4000);
+    return () => clearTimeout(t);
+  }, [snack]);
 
   useEffect(() => {
     if (!username || username.toLowerCase() === (initialUser.username?.toLowerCase() || "")) {
@@ -62,12 +163,22 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
     fetch("/api/users/pin").then((r) => r.json()).then((j) => setHasPin(!!j.hasPin)).catch(() => setHasPin(false));
   }, []);
 
+  // Dialog hapus PIN: fokus ke tombol Batal + tutup dengan Escape
+  useEffect(() => {
+    if (!confirmDeletePin) return;
+    deleteDialogRef.current?.querySelector("button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDeletePin(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmDeletePin]);
+
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) { setMsg({ type: "err", text: "Maksimal 20MB" }); return; }
+    if (file.size > 20 * 1024 * 1024) { notify("Foto maksimal 20MB"); return; }
     setUploading(true);
-    setMsg(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -79,27 +190,26 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
       const pj = await patch.json();
       if (!patch.ok) throw new Error(pj.message || pj.error || "Gagal simpan");
       setUser((u) => ({ ...u, profilePicture: j.url }));
-      setMsg({ type: "ok", text: "Foto berhasil diupload" });
+      notify("Foto profil diperbarui");
     } catch (err: unknown) {
-      setMsg({ type: "err", text: err instanceof Error ? err.message : "Gagal" });
+      notify(err instanceof Error ? err.message : "Gagal upload foto");
     } finally { setUploading(false); e.target.value = ""; }
   }
 
   async function handleRemovePic() {
-    setMsg(null);
     const res = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profilePicture: null }) });
     const j = await res.json();
-    if (!res.ok) { setMsg({ type: "err", text: j.message || j.error || "Gagal" }); return; }
+    if (!res.ok) { notify(j.message || j.error || "Gagal hapus foto"); return; }
     setProfilePic(null);
     setUser((u) => ({ ...u, profilePicture: null }));
-    setMsg({ type: "ok", text: "Foto dihapus" });
+    notify("Foto profil dihapus");
   }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    if (usernameStatus === "taken") { setMsg({ type: "err", text: "Username sudah dipakai" }); return; }
+    if (usernameStatus === "taken") { setProfileError("Username sudah dipakai orang lain"); return; }
     setSavingProfile(true);
-    setMsg(null);
+    setProfileError(null);
     try {
       const body: Record<string, unknown> = { name, username: username || undefined, email };
       if (profilePic !== initialUser.profilePicture) body.profilePicture = profilePic;
@@ -107,199 +217,429 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
       const j = await res.json();
       if (!res.ok) throw new Error(j.message || j.error || JSON.stringify(j.details) || "Gagal");
       setUser(j);
-      setMsg({ type: "ok", text: "Profil berhasil diperbarui" });
+      notify("Profil berhasil diperbarui");
     } catch (err: unknown) {
-      setMsg({ type: "err", text: err instanceof Error ? err.message : "Gagal" });
+      setProfileError(err instanceof Error ? err.message : "Gagal menyimpan profil");
     } finally { setSavingProfile(false); }
   }
 
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (newPassword !== confirmPassword) { setPassMsg({ type: "err", text: "Konfirmasi tidak cocok" }); return; }
+    if (newPassword !== confirmPassword) { setPassError("Konfirmasi password tidak cocok"); return; }
     setSavingPass(true);
-    setPassMsg(null);
+    setPassError(null);
     try {
       const res = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: currentPassword || undefined, newPassword }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.message || j.error || "Gagal");
-      setPassMsg({ type: "ok", text: "Password berhasil diganti" });
+      notify("Password berhasil diganti");
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
     } catch (err: unknown) {
-      setPassMsg({ type: "err", text: err instanceof Error ? err.message : "Gagal" });
+      setPassError(err instanceof Error ? err.message : "Gagal ganti password");
     } finally { setSavingPass(false); }
   }
 
   async function savePin(e: React.FormEvent) {
     e.preventDefault();
-    if (!/^\d{6}$/.test(pin)) { setPinMsg({ type: "err", text: "PIN harus 6 digit angka" }); return; }
-    if (pin !== confirmPin) { setPinMsg({ type: "err", text: "Konfirmasi PIN tidak cocok" }); return; }
-    setSavingPin(true); setPinMsg(null);
+    if (!/^\d{6}$/.test(pin)) { setPinError("PIN harus 6 digit angka"); return; }
+    if (pin !== confirmPin) { setPinError("Konfirmasi PIN tidak cocok"); return; }
+    setSavingPin(true); setPinError(null);
     try {
       const res = await fetch("/api/users/pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.message || j.error || "Gagal");
-      setPinMsg({ type: "ok", text: "PIN 6 digit berhasil disimpan. Bisa dipakai offline tanpa login internet lagi." });
+      notify("PIN offline berhasil disimpan");
       setHasPin(true); setPin(""); setConfirmPin("");
       try { localStorage.setItem("appPinHashSet", "1"); } catch {}
-    } catch (err: unknown) { setPinMsg({ type: "err", text: err instanceof Error ? err.message : "Gagal" }); }
+    } catch (err: unknown) { setPinError(err instanceof Error ? err.message : "Gagal simpan PIN"); }
     finally { setSavingPin(false); }
   }
 
-  async function removePin() {
-    if (!confirm("Hapus PIN 6 digit?")) return;
+  async function doRemovePin() {
     const res = await fetch("/api/users/pin", { method: "DELETE" });
-    if (res.ok) { setHasPin(false); setPinMsg({ type: "ok", text: "PIN dihapus" }); try { localStorage.removeItem("appPinHashSet"); } catch {} }
+    if (res.ok) {
+      setHasPin(false); setConfirmDeletePin(false);
+      notify("PIN offline dihapus");
+      try { localStorage.removeItem("appPinHashSet"); } catch {}
+    } else {
+      setConfirmDeletePin(false);
+      notify("Gagal hapus PIN");
+    }
   }
 
   const avatarUser = { name: user.name, username: user.username, email: user.email, image: user.image, avatar: user.avatar, profilePicture: profilePic };
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      {/* Header */}
-      <header className="bg-[var(--surface-container-lowest)] border-b border-[var(--outline-variant)] sticky top-0 z-10">
-        <div className="mx-auto max-w-3xl px-5 h-14 flex justify-between items-center">
-          <span className="font-bold text-[15px] tracking-tight text-[var(--on-surface)]">Kondangan</span>
-          <Link href="/dashboard" className="flex items-center gap-1.5 text-sm text-[var(--on-surface-variant)] hover:text-[var(--on-surface)] transition-colors">
-            <ChevronLeft size={16} /> Dashboard
+    <div className="min-h-dvh bg-[var(--background)]">
+      {/* M3 Small Top App Bar: kembali + judul + 1 aksi */}
+      <header className="w-full bg-[var(--surface-container-lowest)] border-b border-[var(--outline-variant)] sticky top-0 z-30">
+        <div className="page-shell h-14 flex items-center gap-1">
+          <Link
+            href="/dashboard"
+            aria-label="Kembali ke Dashboard"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] transition-colors shrink-0"
+          >
+            <ArrowLeft size={18} />
           </Link>
+          <h1 className="flex-1 min-w-0 text-base font-semibold text-[var(--on-surface)] truncate">
+            Akun Saya
+          </h1>
+          <ThemeToggle />
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-8">
-        <h1 className="text-xl font-bold text-[var(--on-surface)] mb-6">Akun Saya</h1>
-
-        <div className="grid md:grid-cols-[200px_1fr] gap-5">
-          {/* Foto profil */}
-          <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5 text-center h-fit">
-            <div className="flex justify-center">
-              <Avatar user={avatarUser} size={80} />
+      <main className="page-shell py-6">
+        {/* Desktop ≥1024px: 2 kolom seimbang (kiri 7 : kanan 5).
+            Mobile: 1 kolom, urutan DOM tetap header → Profil → Keamanan → PIN → Preferensi. */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Header profil ringkas — Filled card, full-width */}
+          <div className="lg:col-span-12 bg-[var(--surface-container-highest)] rounded-2xl p-5">
+            <div className="flex items-center gap-4 min-w-0">
+              <Avatar user={avatarUser} size={64} />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-[var(--on-surface)] truncate">{user.name}</p>
+                {user.username && (
+                  <p className="text-sm text-[var(--on-surface-variant)] truncate">@{user.username}</p>
+                )}
+                <p className="text-xs text-[var(--on-surface-variant)] truncate">{user.email}</p>
+              </div>
             </div>
-            <p className="font-semibold text-sm mt-3 text-[var(--on-surface)] truncate">{user.name}</p>
-            {user.username && <p className="text-xs text-[var(--on-surface-variant)]">@{user.username}</p>}
-            <p className="text-xs text-[var(--on-surface-variant)] mt-0.5 truncate">{user.email}</p>
-
-            <div className="mt-4 space-y-2">
-              <label className={`w-full inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-[var(--primary)] text-white text-xs font-medium cursor-pointer hover:opacity-90 transition-opacity ${uploading ? "opacity-50" : ""}`}>
-                <Upload size={13} /> {uploading ? "Upload..." : "Ganti Foto"}
-                <input type="file" accept="image/*" onChange={handleUpload} className="hidden" disabled={uploading} />
+            <div className="mt-3 flex items-center gap-1">
+              <label
+                className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-sm font-medium cursor-pointer transition-opacity ${
+                  uploading
+                    ? "opacity-50 bg-[var(--surface-container)] text-[var(--on-surface-variant)]"
+                    : "bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90"
+                }`}
+              >
+                <Upload size={16} /> {uploading ? "Mengupload..." : "Ganti foto"}
+                <input type="file" accept="image/*" onChange={handleUpload} className="sr-only" disabled={uploading} />
               </label>
               {profilePic && (
-                <button onClick={handleRemovePic} className="w-full h-9 px-3 rounded-xl border border-[var(--outline-variant)] text-xs text-red-500 flex items-center justify-center gap-1.5 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
-                  <Trash2 size={13} /> Hapus Foto
+                <button
+                  onClick={handleRemovePic}
+                  className="h-10 px-4 rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] transition-colors"
+                >
+                  Hapus
                 </button>
               )}
             </div>
-
-            {msg && (
-              <p className={`mt-3 text-xs p-2 rounded-lg ${msg.type === "ok" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-red-50 text-red-600 dark:bg-red-900/20"}`}>
-                {msg.text}
-              </p>
-            )}
           </div>
 
-          {/* Forms */}
-          <div className="space-y-4">
-            {/* Profil */}
-            <form onSubmit={saveProfile} className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5">
-              <h3 className="font-semibold text-[var(--on-surface)] mb-4">Profil</h3>
-              <div className="space-y-3.5">
-                <div>
-                  <label className={labelCls}>Nama *</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} className={`mt-1.5 ${inputCls}`} placeholder="Nama lengkap" />
+          {/* Kolom kiri: Profil + Password */}
+          <div className="lg:col-span-7 space-y-4 min-w-0">
+          {/* Section 1 — Profil */}
+          <Section title="Profil" desc="Nama, username, dan email yang tampil ke panitia.">
+            <form onSubmit={saveProfile} className="space-y-4" noValidate={false}>
+              <Field id="acc-name" label="Nama" required>
+                <input
+                  id="acc-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  minLength={2}
+                  autoComplete="name"
+                  placeholder="Nama lengkap"
+                  className={inputCls}
+                />
+              </Field>
+              <Field
+                id="acc-username"
+                label="Username"
+                required
+                hint="3–20 karakter: huruf kecil, angka, titik, strip."
+                hintId="acc-username-hint"
+                error={usernameStatus === "taken" ? "Username sudah dipakai orang lain" : profileError}
+              >
+                <div className="relative">
+                  <span aria-hidden className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)] text-sm">@</span>
+                  <input
+                    id="acc-username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
+                    required
+                    minLength={3}
+                    maxLength={20}
+                    autoComplete="username"
+                    placeholder="username"
+                    aria-describedby={`acc-username-hint acc-username-status`}
+                    className={`${inputCls} pl-8 pr-24`}
+                  />
+                  <span id="acc-username-status" aria-live="polite" className="absolute right-3 top-1/2 -translate-y-1/2 text-xs">
+                    {usernameStatus === "checking" && <span className="text-[var(--on-surface-variant)]">Cek...</span>}
+                    {usernameStatus === "available" && <span className="text-[var(--primary)] flex items-center gap-1"><Check size={14} />Tersedia</span>}
+                    {usernameStatus === "taken" && <span className="text-[var(--error)] flex items-center gap-1"><AlertCircle size={14} />Dipakai</span>}
+                  </span>
                 </div>
-                <div>
-                  <label className={labelCls}>Username *</label>
-                  <div className="relative mt-1.5">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)] text-sm">@</span>
-                    <input
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
-                      required minLength={3} maxLength={20}
-                      placeholder="username"
-                      className={`${inputCls} pl-8 pr-20`}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs">
-                      {usernameStatus === "checking" && <span className="text-[var(--on-surface-variant)]">Cek...</span>}
-                      {usernameStatus === "available" && <span className="text-emerald-600 flex items-center gap-1"><Check size={12} />Tersedia</span>}
-                      {usernameStatus === "taken" && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} />Dipakai</span>}
-                    </span>
+              </Field>
+              <Field id="acc-email" label="Email" required>
+                <input
+                  id="acc-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className={inputCls}
+                />
+              </Field>
+              <div className="flex justify-end pt-1">
+                <button
+                  disabled={savingProfile || usernameStatus === "taken"}
+                  type="submit"
+                  className="h-12 px-6 rounded-full bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {savingProfile ? "Menyimpan..." : "Simpan"}
+                </button>
+              </div>
+            </form>
+          </Section>
+
+          {/* Section 2 — Keamanan (password saja; PIN pindah ke kolom kanan) */}
+          <Section title="Keamanan" desc="Password untuk login ke akun.">
+            <form onSubmit={savePassword} className="space-y-4">
+              <Field id="acc-pass-old" label="Password lama" hint="Kosongkan jika akun dibuat via Google.">
+                <input
+                  id="acc-pass-old"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className={inputCls}
+                />
+              </Field>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field id="acc-pass-new" label="Password baru" required>
+                  <input
+                    id="acc-pass-new"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    placeholder="Min 6 karakter"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field id="acc-pass-confirm" label="Ulangi password baru" required error={passError}>
+                  <input
+                    id="acc-pass-confirm"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    placeholder="Ulangi password baru"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  disabled={savingPass}
+                  type="submit"
+                  className="h-12 px-6 rounded-full bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {savingPass ? "Menyimpan..." : "Ganti password"}
+                </button>
+              </div>
+            </form>
+          </Section>
+          </div>
+
+          {/* Kolom kanan: PIN Offline standalone + Preferensi */}
+          <div className="lg:col-span-5 space-y-4 min-w-0">
+          <Section title="PIN Offline" desc="Untuk membuka aplikasi saat offline. Sync tetap berjalan tiap 30 menit saat online.">
+            {/* Collapsed karena jarang dipakai */}
+            <div className="rounded-xl border border-[var(--outline-variant)] overflow-hidden">
+              <button
+                onClick={() => setPinOpen((v) => !v)}
+                aria-expanded={pinOpen}
+                aria-controls="pin-panel"
+                className="w-full min-h-12 px-4 py-3 flex items-center gap-3 text-left hover:bg-[var(--surface-container)] transition-colors"
+              >
+                <Shield size={18} className="text-[var(--on-surface-variant)] shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-[var(--on-surface)]">PIN Offline</span>
+                  <span className="block text-xs text-[var(--on-surface-variant)]">
+                    {hasPin === null ? "Memuat..." : hasPin ? "Aktif — bisa buka aplikasi tanpa internet" : "Belum ada PIN"}
+                  </span>
+                </span>
+                <span
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full border border-[var(--outline-variant)] shrink-0 ${
+                    hasPin ? "bg-[var(--primary-container)] text-[var(--on-primary-container)]" : "bg-[var(--surface-container)] text-[var(--on-surface-variant)]"
+                  }`}
+                >
+                  {hasPin ? "Aktif" : "Mati"}
+                </span>
+                <ChevronDown size={16} className={`text-[var(--on-surface-variant)] shrink-0 transition-transform ${pinOpen ? "rotate-180" : ""}`} />
+              </button>
+              {pinOpen && (
+                <form id="pin-panel" onSubmit={savePin} className="px-4 pb-4 pt-1 space-y-4 border-t border-[var(--outline-variant)]">
+                  {/* Kolom kanan sempit (~440px): PIN selalu 1 kolom agar digit lega */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <Field id="acc-pin" label="PIN 6 digit" required error={pinError}>
+                      <input
+                        id="acc-pin"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        autoComplete="new-password"
+                        placeholder="••••••"
+                        className={`${inputCls} tracking-[0.3em]`}
+                      />
+                    </Field>
+                    <Field id="acc-pin-confirm" label="Ulangi PIN" required>
+                      <input
+                        id="acc-pin-confirm"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={confirmPin}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        autoComplete="new-password"
+                        placeholder="••••••"
+                        className={`${inputCls} tracking-[0.3em]`}
+                      />
+                    </Field>
                   </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Email *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={`mt-1.5 ${inputCls}`} />
-                </div>
-              </div>
-              <button
-                disabled={savingProfile || usernameStatus === "taken"}
-                type="submit"
-                className="mt-4 w-full h-11 rounded-xl bg-[var(--primary)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                {savingProfile ? "Menyimpan..." : "Simpan Profil"}
-              </button>
-            </form>
-
-            {/* PIN 6 digit untuk offline */}
-            <form onSubmit={savePin} className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5">
-              <h3 className="font-semibold text-[var(--on-surface)] mb-1 flex items-center gap-1.5"><Shield size={14} /> PIN Offline 6 Digit</h3>
-              <p className="text-xs text-[var(--on-surface-variant)] mb-3">Login online sekali, lalu pakai PIN ini untuk buka app saat offline. Tidak perlu buat password, tidak perlu login Google tiap jam. Background sync 30 menit tetap jalan saat online.</p>
-              <div className="text-xs mb-3 px-3 py-2 rounded-lg border flex items-center gap-1.5" style={{ background: hasPin ? "var(--surface-container)" : "#fef3c7", borderColor: hasPin ? "var(--outline-variant)" : "#fcd34d", color: hasPin ? "var(--on-surface-variant)" : "#92400e" }}>
-                <Lock size={12} /> Status: {hasPin === null ? "memuat..." : hasPin ? "PIN aktif" : "Belum ada PIN"}
-              </div>
-              <div className="space-y-3.5">
-                <div>
-                  <label className={labelCls}>PIN 6 Digit *</label>
-                  <input inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" className={`mt-1.5 ${inputCls} tracking-widest`} />
-                </div>
-                <div>
-                  <label className={labelCls}>Konfirmasi PIN *</label>
-                  <input inputMode="numeric" maxLength={6} value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Ulangi 6 digit" className={`mt-1.5 ${inputCls} tracking-widest`} />
-                </div>
-              </div>
-              {pinMsg && (
-                <p className={`mt-3 text-sm p-3 rounded-xl border ${pinMsg.type === "ok" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" : "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-800"}`}>
-                  {pinMsg.text}
-                </p>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {hasPin ? (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePin(true)}
+                        className="h-12 px-4 rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] transition-colors"
+                      >
+                        Hapus PIN
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                    <button
+                      disabled={savingPin}
+                      type="submit"
+                      className="h-12 px-6 rounded-full bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    >
+                      {savingPin ? "Menyimpan..." : hasPin ? "Ganti PIN" : "Simpan PIN"}
+                    </button>
+                  </div>
+                </form>
               )}
-              <div className="flex gap-2 mt-4">
-                <button disabled={savingPin} type="submit" className="flex-1 h-11 rounded-xl bg-[var(--primary)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity">{savingPin ? "Menyimpan..." : hasPin ? "Ganti PIN" : "Simpan PIN"}</button>
-                {hasPin && <button type="button" onClick={removePin} className="h-11 px-4 rounded-xl border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors">Hapus</button>}
-              </div>
-            </form>
+            </div>
+          </Section>
 
-            {/* Password */}
-            <form onSubmit={savePassword} className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5">
-              <h3 className="font-semibold text-[var(--on-surface)] mb-4">Ganti Password</h3>
-              <div className="space-y-3.5">
-                <div>
-                  <label className={labelCls}>Password Lama</label>
-                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Kosongkan jika akun Google" className={`mt-1.5 ${inputCls}`} />
-                </div>
-                <div>
-                  <label className={labelCls}>Password Baru *</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} placeholder="Min 6 karakter" className={`mt-1.5 ${inputCls}`} />
-                </div>
-                <div>
-                  <label className={labelCls}>Konfirmasi *</label>
-                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} placeholder="Ulangi password baru" className={`mt-1.5 ${inputCls}`} />
-                </div>
-              </div>
-              {passMsg && (
-                <p className={`mt-3 text-sm p-3 rounded-xl border ${passMsg.type === "ok" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" : "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-800"}`}>
-                  {passMsg.text}
-                </p>
+          {/* Section 3 — Preferensi */}
+          <Section title="Preferensi" desc="Tampilan aplikasi di perangkat ini.">
+            <div className="flex items-center gap-3 min-h-12">
+              {isDark ? (
+                <Moon size={18} className="text-[var(--on-surface-variant)] shrink-0" />
+              ) : (
+                <Sun size={18} className="text-[var(--on-surface-variant)] shrink-0" />
               )}
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-[var(--on-surface)]">Mode gelap</span>
+                <span className="block text-xs text-[var(--on-surface-variant)]">
+                  {isDark ? "Aktif" : "Mati — memakai mode terang"}
+                </span>
+              </span>
               <button
-                disabled={savingPass}
-                type="submit"
-                className="mt-4 w-full h-11 rounded-xl border border-[var(--outline-variant)] text-[var(--on-surface)] font-medium text-sm hover:bg-[var(--surface-container)] disabled:opacity-50 transition-colors"
+                role="switch"
+                aria-checked={isDark}
+                aria-label="Mode gelap"
+                onClick={() => setMode(isDark ? "light" : "dark")}
+                className={`relative w-[52px] h-8 rounded-full border border-[var(--outline-variant)] transition-colors shrink-0 ${
+                  isDark ? "bg-[var(--primary)]" : "bg-[var(--surface-container)]"
+                }`}
               >
-                {savingPass ? "Menyimpan..." : "Ganti Password"}
+                <span
+                  aria-hidden
+                  className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full transition-all ${
+                    isDark ? "left-[24px] bg-[var(--on-primary)]" : "left-[3px] bg-[var(--on-surface-variant)]"
+                  }`}
+                />
               </button>
-            </form>
+            </div>
+            <div className="mt-3 flex items-center gap-3 min-h-12 opacity-70">
+              <KeyRound size={18} className="text-[var(--on-surface-variant)] shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-[var(--on-surface)]">Sesi login</span>
+                <span className="block text-xs text-[var(--on-surface-variant)]">Aktif di perangkat ini</span>
+              </span>
+              <Link
+                href="/api/auth/signout"
+                className="h-10 px-4 inline-flex items-center rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] transition-colors shrink-0"
+              >
+                Keluar
+              </Link>
+            </div>
+          </Section>
           </div>
         </div>
       </main>
+
+      {/* Dialog konfirmasi hapus PIN — M3 alert dialog */}
+      {confirmDeletePin && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-[var(--scrim)]/50 p-4 flex justify-center items-center"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setConfirmDeletePin(false);
+          }}
+        >
+          <div
+            ref={deleteDialogRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="del-pin-title"
+            aria-describedby="del-pin-desc"
+            className="w-full max-w-sm bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-6 shadow-[var(--shadow-elevation-3)]"
+          >
+            <h2 id="del-pin-title" className="font-semibold text-[var(--on-surface)]">
+              Hapus PIN offline?
+            </h2>
+            <p id="del-pin-desc" className="text-sm text-[var(--on-surface-variant)] mt-2">
+              Kamu tidak bisa lagi membuka aplikasi saat offline sampai membuat PIN baru.
+            </p>
+            <div className="mt-6 flex justify-end gap-1">
+              <button
+                onClick={() => setConfirmDeletePin(false)}
+                className="h-12 px-5 rounded-full text-sm font-medium text-[var(--primary)] hover:bg-[var(--primary-container)] transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={doRemovePin}
+                className="h-12 px-5 rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] transition-colors"
+              >
+                Hapus PIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Snackbar global — M3: inverse-surface, role=status */}
+      {snack && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[560px]">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 min-h-12 px-4 py-3 rounded-lg bg-[var(--inverse-surface)] text-[var(--inverse-on-surface)] text-sm shadow-[var(--shadow-elevation-3)]"
+          >
+            <span className="flex-1">{snack.text}</span>
+            <button
+              onClick={() => setSnack(null)}
+              aria-label="Tutup notifikasi"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Check, AlertCircle } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { useEffect } from "react";
 
 export default function RegisterPage() {
@@ -53,12 +54,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4 py-8">
+    <div className="min-h-dvh flex items-center justify-center bg-[var(--background)] px-4 py-8">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <BrandMark size={40} />
+          </div>
           <Link href="/" className="inline-block font-bold text-xl text-[var(--on-surface)] tracking-tight">
-            Kondangan
+            HajatManager
           </Link>
           <p className="mt-1.5 text-sm text-[var(--on-surface-variant)]">Buat akun baru</p>
         </div>
@@ -90,7 +94,7 @@ export default function RegisterPage() {
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="Nama lengkap"
-              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
             />
 
             <div className="relative">
@@ -100,12 +104,12 @@ export default function RegisterPage() {
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
                 required
                 placeholder="username"
-                className="w-full h-11 pl-8 pr-24 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+                className="w-full h-11 pl-8 pr-24 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs">
                 {usernameStatus === "checking" && <span className="text-[var(--on-surface-variant)]">Cek...</span>}
-                {usernameStatus === "available" && <span className="text-emerald-600 flex items-center gap-1"><Check size={12} />Tersedia</span>}
-                {usernameStatus === "taken" && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} />Dipakai</span>}
+                {usernameStatus === "available" && <span className="text-[var(--primary)] flex items-center gap-1"><Check size={14} />Tersedia</span>}
+                {usernameStatus === "taken" && <span className="text-[var(--error)] flex items-center gap-1"><AlertCircle size={14} />Dipakai</span>}
               </span>
             </div>
 
@@ -115,7 +119,7 @@ export default function RegisterPage() {
               type="email"
               required
               placeholder="Email"
-              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
             />
 
             <input
@@ -124,11 +128,11 @@ export default function RegisterPage() {
               type="password"
               required
               placeholder="Password (min 6 karakter)"
-              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-shadow"
+              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow"
             />
 
             {err && (
-              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
+              <p className="text-sm text-[var(--error)] bg-[var(--error-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
                 {err}
               </p>
             )}
@@ -136,7 +140,7 @@ export default function RegisterPage() {
             <button
               disabled={loading || usernameStatus === "taken"}
               type="submit"
-              className="w-full h-11 rounded-xl bg-[var(--primary)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="w-full h-11 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {loading ? "Memproses..." : "Buat Akun"}
             </button>

@@ -6,12 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatRupiah(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
+  const formatted = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
+  // NBSP (\u00A0) dari Intl di-replace jadi spasi biasa agar tidak nempel & konsisten di semua browser
+  return formatted.replace(/\u00A0/g, " ").replace(/^Rp\s*/, "Rp ").trim();
 }
 
 export function formatNominalInput(value: string): string {

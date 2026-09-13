@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
+/* Semua utilities `dark:` ikut TOGGLE (atribut MUI), bukan ikut OS.
+   Tanpa ini dark:* kembali ke prefers-color-scheme saat refresh. */
+@custom-variant dark (&:where([data-mui-color-scheme="dark"], [data-mui-color-scheme="dark"] *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
   --surface: #f8fafc;
+  --surface-dim: #dde4ee;
+  --surface-bright: #ffffff;
   --surface-container-lowest: #ffffff;
   --surface-container-low: #f1f5f9;
   --surface-container: #e8edf4;
@@ -16,18 +22,48 @@
   --primary: #059669;
   --on-primary: #ffffff;
   --primary-container: #d1fae5;
+  --on-primary-container: #064e3b;
   --secondary: #64748b;
+  --on-secondary: #ffffff;
   --secondary-container: #e2e8f0;
+  --on-secondary-container: #334155;
   --tertiary: #0ea5e9;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #e0f2fe;
+  --on-tertiary-container: #0c4a6e;
+  /* M3 tidak punya info terpisah — alias ke tertiary */
+  --info: #0ea5e9;
+  --on-info: #ffffff;
+  --info-container: #e0f2fe;
+  --on-info-container: #0c4a6e;
   --error: #dc2626;
+  --on-error: #ffffff;
   --error-container: #fee2e2;
+  --on-error-container: #7f1d1d;
+  --warning: #d97706;
+  --warning-container: #fef3c7;
+  --on-warning-container: #92400e;
+  --inverse-surface: #0f172a;
+  --inverse-on-surface: #f1f5f9;
+  --scrim: #000000;
+  --shadow: #0f172a;
+  /* M3 shape scale */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  /* Sticky offsets — diisi runtime bila perlu, default aman */
+  --appbar-h: 56px;
   color-scheme: light;
 }
 
-html.dark, .dark {
+html[data-mui-color-scheme="dark"] {
   --background: #0a0f1a;
   --foreground: #e8eef5;
   --surface: #0a0f1a;
+  --surface-dim: #0a0f1a;
+  --surface-bright: #263347;
   --surface-container-lowest: #111827;
   --surface-container-low: #161f2e;
   --surface-container: #1e2a3a;
@@ -40,6 +76,28 @@ html.dark, .dark {
   --primary: #34d399;
   --on-primary: #022c22;
   --primary-container: #064e3b;
+  --on-primary-container: #a7f3d0;
+  --secondary: #94a3b8;
+  --secondary-container: #1e293b;
+  --on-secondary: #0f172a;
+  --on-secondary-container: #cbd5e1;
+  --tertiary: #38bdf8;
+  --on-tertiary: #082f49;
+  --tertiary-container: #0c4a6e;
+  --on-tertiary-container: #bae6fd;
+  --info: #38bdf8;
+  --on-info: #082f49;
+  --info-container: #0c4a6e;
+  --on-info-container: #bae6fd;
+  --error: #f87171;
+  --on-error: #450a0a;
+  --error-container: #450a0a;
+  --on-error-container: #fecaca;
+  --warning: #fbbf24;
+  --warning-container: #451a03;
+  --on-warning-container: #fde68a;
+  --inverse-surface: #e8eef5;
+  --inverse-on-surface: #0f172a;
   color-scheme: dark;
 }
 
@@ -48,7 +106,30 @@ html.dark, .dark {
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-info: var(--info);
+  --color-on-info: var(--on-info);
+  --color-info-container: var(--info-container);
+  --color-on-info-container: var(--on-info-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-warning: var(--warning);
+  --color-warning-container: var(--warning-container);
+  --color-on-warning-container: var(--on-warning-container);
   --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
   --color-surface-container-lowest: var(--surface-container-lowest);
   --color-surface-container-low: var(--surface-container-low);
   --color-surface-container: var(--surface-container);
@@ -57,9 +138,16 @@ html.dark, .dark {
   --color-on-surface-variant: var(--on-surface-variant);
   --color-outline: var(--outline);
   --color-outline-variant: var(--outline-variant);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-inverse-on-surface: var(--inverse-on-surface);
+  --color-scrim: var(--scrim);
   --font-sans: var(--font-plus-jakarta), var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
   --font-display: var(--font-plus-jakarta);
+  /* M3 elevation */
+  --shadow-elevation-1: 0 1px 2px rgb(15 23 42 / 0.08);
+  --shadow-elevation-2: 0 2px 6px rgb(15 23 42 / 0.1);
+  --shadow-elevation-3: 0 8px 24px rgb(15 23 42 / 0.14);
 }
 
 * {
@@ -68,12 +156,19 @@ html.dark, .dark {
 
 html {
   background: var(--background);
+  /* dvh agar konten bawah tidak jatuh di belakang URL-bar mobile */
+  min-height: 100dvh;
 }
 body {
   background: var(--background);
   color: var(--on-surface);
   font-family: var(--font-sans);
-  overscroll-behavior: none;
+  /* P0 fix: jangan matikan scroll-chaining global — hanya cegah overscroll horizontal */
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
+  min-height: 100dvh;
+  /* hormati notch / home-indicator */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Input baseline */
@@ -92,20 +187,51 @@ select:-webkit-autofill {
   -webkit-box-shadow: 0 0 0px 1000px var(--surface-container-lowest) inset !important;
 }
 
-/* Scrollbar minimal */
+/* Scrollbar M3 — cukup terlihat untuk sentuh/WCAG, tetap ramping */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--outline-variant);
+  background: var(--outline);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--outline);
+  background: var(--on-surface-variant);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Utilitas M3 */
+.page-shell {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+@media (min-width: 600px) {
+  .page-shell {
+    padding-inline: 24px;
+  }
+}
+.m3-card {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-1);
+}
+.m3-section-title {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
 }
 
 .font-display-currency {

@@ -10,7 +10,7 @@ export function Avatar({ user, size = 36, className = "" }: { user?: AvatarUser 
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-semibold select-none shrink-0 ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full overflow-hidden bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] font-semibold select-none shrink-0 ${className}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
       title={user?.name || user?.username || user?.email || undefined}
     >
