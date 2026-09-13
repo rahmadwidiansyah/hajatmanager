@@ -38,6 +38,9 @@ services:
         condition: service_healthy
     networks:
       - appnet
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     # JANGAN tambahkan volumes bind-mount di production!
     # volumes dev hanya di docker-compose.override.yml
 
