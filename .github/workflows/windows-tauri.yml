@@ -61,6 +61,12 @@ jobs:
           AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
         run: npx prisma generate
 
+      - name: Build web static export (out/ untuk Tauri)
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+        run: bash scripts/build-native.sh
+
       - name: Build Tauri NSIS
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy

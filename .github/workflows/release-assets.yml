@@ -83,6 +83,12 @@ jobs:
           AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
         run: npx prisma generate
 
+      - name: Build web static export (out/ untuk Tauri)
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+        run: bash scripts/build-native.sh
+
       - name: Build Tauri NSIS
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
@@ -166,7 +172,8 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           # Default action (tools) sudah obsolete → sdkmanager exit 1.
-          packages: platform-tools "build-tools;34.0.0" "platforms;android-34"
+          # Satu string, tanpa kutip dalam (kutip ikut terkirim ke sdkmanager).
+          packages: 'platform-tools build-tools;34.0.0 platforms;android-34'
 
       - name: Install deps
         run: |

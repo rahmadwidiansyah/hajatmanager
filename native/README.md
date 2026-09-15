@@ -11,13 +11,27 @@ Arsitektur hybrid sesuai plan:
 ## Setup Windows (Tauri)
 
 ```bash
+# 1. Build static export ke out/ (dari repo root)
+bash scripts/build-native.sh
+# 2. Build EXE
 cd native/windows
-npm create tauri@latest . -- --manager npm
-npm i
-# tauri.conf.json sudah placeholder, update `build.beforeBuildCommand` ke `npm run build` di root
-npm run tauri dev      # dev dengan Next.js di http://localhost:3000
-npm run tauri build    # -> src-tauri/target/release/bundle/nsis/*.exe
+npm ci
+npm run tauri:build    # -> src-tauri/target/release/bundle/nsis/*.exe
 ```
+
+Dev (2 terminal):
+
+```bash
+# terminal 1 — repo root
+npm run dev -- --port 3000
+# terminal 2
+cd native/windows && npm run tauri dev   # devUrl http://localhost:3000
+```
+
+> `tauri.conf.json` (di `src-tauri/`) sengaja TANPA beforeDev/BuildCommand:
+> path build web selalu dari repo root (`scripts/build-native.sh`) agar tidak
+> tergantung cwd Tauri yang beda di tiap OS. CI menjalankan script itu eksplisit
+> sebelum `tauri build`.
 
 Tambah plugins:
 ```
