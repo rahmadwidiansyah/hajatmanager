@@ -34,8 +34,8 @@ updateJson("native/windows/package.json", (j) => { j.version = clean; });
 updateJson("native/android/package.json", (j) => { j.version = clean; });
 updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
 
-// tauri.conf.json
-updateJson("native/windows/tauri.conf.json", (j) => { j.version = clean; });
+// tauri.conf.json (canonical: di dalam src-tauri/)
+updateJson("native/windows/src-tauri/tauri.conf.json", (j) => { j.version = clean; });
 
 // mobile/pubspec.yaml — version: x.y.z+N (N = GITHUB_RUN_NUMBER agar naik tiap rilis)
 (function updatePubspec() {

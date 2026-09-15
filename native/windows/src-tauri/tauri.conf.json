@@ -4,10 +4,10 @@
   "version": "1.1.1",
   "identifier": "com.hajatmanager.app",
   "build": {
-    "beforeDevCommand": "npm run dev -- --port 3000",
+    "beforeDevCommand": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && npm run dev -- --port 3000'",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "bash ../../scripts/build-native.sh",
-    "frontendDist": "../../out"
+    "beforeBuildCommand": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash scripts/build-native.sh'",
+    "frontendDist": "../../../out"
   },
   "app": {
     "windows": [
@@ -24,7 +24,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "category": "Productivity",
     "shortDescription": "Hajat Manager offline-first",
     "longDescription": "Hajat Manager — Windows native via Tauri, offline SQLite + 30m background sync + PIN 6 digit, sideload EXE",
@@ -37,9 +37,9 @@
       }
     },
     "icon": [
-      "src-tauri/icons/32x32.png",
-      "src-tauri/icons/128x128.png",
-      "src-tauri/icons/icon.ico"
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
     ]
   },
   "plugins": {

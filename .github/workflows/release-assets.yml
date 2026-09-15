@@ -164,6 +164,9 @@ jobs:
           java-version: 17
 
       - uses: android-actions/setup-android@v3
+        with:
+          # Default action (tools) sudah obsolete → sdkmanager exit 1.
+          packages: platform-tools "build-tools;34.0.0" "platforms;android-34"
 
       - name: Install deps
         run: |
