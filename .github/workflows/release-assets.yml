@@ -205,65 +205,12 @@ jobs:
       - name: Fix APK signing (fallback debug, local installable)
         run: bash scripts/fix-android-signing.sh
 
-      - name: Patch build.gradle for dual signing (unsigned + signed)
+      - name: Verify build.gradle signing block
         run: |
           GRADLE="native/android/android/app/build.gradle"
-          if ! grep -q "keystoreProperties" "$GRADLE"; then
-            echo "Patching $GRADLE for keystore.properties..."
-            cat > /tmp/patch.py <<'PY'
-          import pathlib
-          p = pathlib.Path("native/android/android/app/build.gradle")
-          s = p.read_text()
-          if "keystoreProperties" not in s:
-              s = s.replace(
-                  "android {",
-                  "def keystorePropertiesFile = rootProject.file(\"app/keystore.properties\")\n"
-                  "def keystoreProperties = new Properties()\n"
-                  "if (keystorePropertiesFile.exists()) {\n"
-                  "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
-                  "}\n\n"
-                  "android {"
-              )
-              s = s.replace(
-                  "    buildTypes {\n        release {\n            minifyEnabled false",
-                  "    signingConfigs {\n        release {\n            if (keystorePropertiesFile.exists()) {\n"
-                  "                keyAlias keystoreProperties['keyAlias']\n"
-                  "                keyPassword keystoreProperties['keyPassword']\n"
-                  "                storeFile file(keystoreProperties['storeFile'])\n"
-                  "                storePassword keystoreProperties['storePassword']\n"
-                  "                v1SigningEnabled true\n"
-                  "                v2SigningEnabled true\n"
-                  "            }\n        }\n    }\n    buildTypes {\n        release {\n            minifyEnabled false"
-              )
-              if "signingConfig signingConfigs.release" not in s:
-                  s = s.replace(
-                      "            minifyEnabled false",
-                      "            minifyEnabled false\n            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
-                  )
-              if "v1SigningEnabled" not in s and "keystoreProperties" in s:
-                  s = s.replace(
-                      "                storePassword keystoreProperties['storePassword']",
-                      "                storePassword keystoreProperties['storePassword']\n                v1SigningEnabled true\n                v2SigningEnabled true"
-                  )
-              if "if (keystorePropertiesFile.exists()) {\n                signingConfig" in s:
-                  s = s.replace(
-                      "            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }",
-                      "            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
-                  )
-              if "signingConfig keystorePropertiesFile.exists()" in s:
-                  s = s.replace(
-                      "signingConfig keystorePropertiesFile.exists()",
-                      "signingConfig rootProject.file(\"app/keystore.properties\").exists()"
-                  )
-              p.write_text(s)
-              print("patched")
-          else:
-              print("already patched")
-          PY
-            python3 /tmp/patch.py
-          else
-            echo "already patched"
-          fi
+          grep -q "signingConfigs" "$GRADLE" && grep -q "signingConfigs.debug" "$GRADLE" \
+            && echo "signing block OK (ter-commit, tanpa patch)" \
+            || (echo "::error::build.gradle tanpa blok signing fallback — periksa native/android/android/app/build.gradle yang di-commit"; exit 1)
 
       - name: Make gradlew executable
         run: |

@@ -1,5 +1,10 @@
 /node_modules
 /dist
-/android
+# Platform android di-track (sumber build APK deterministik, tanpa patch string).
+# Yang tetap di-ignore (lihat android/.gitignore + root): build/, .gradle/,
+# local.properties, *.apk, keystore, assets/public hasil cap sync.
 /android/app/build
 /android/.gradle
+/android/local.properties
+/android/app/release.keystore
+/android/app/keystore.properties
