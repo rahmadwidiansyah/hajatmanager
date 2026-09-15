@@ -1,3 +1,17 @@
+# [1.1.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.2...v1.1.0) (2026-09-15)
+
+
+### Bug Fixes
+
+* **android:** robust gradlew handling + remove tracked build.gradle ([1e13d39](https://github.com/rahmadwidiansyah/hajatmanager/commit/1e13d392939eb8119197aad5aabe1c9363708730))
+* offline mode sync tidak mengubah status acara ke online ([c93a3d6](https://github.com/rahmadwidiansyah/hajatmanager/commit/c93a3d6c2b0f44ac8bf735e0960ab69a0f331edc))
+* **prisma:** add username, avatar, profilePicture, updatedAt to User ([2a76bf2](https://github.com/rahmadwidiansyah/hajatmanager/commit/2a76bf2d3d6a3245a180d0d0d607db652de80372))
+
+
+### Features
+
+* flutter client, windows desktop, adaptive members, release pipeline ([278aed5](https://github.com/rahmadwidiansyah/hajatmanager/commit/278aed53d7b5988b4852b81eb586842b135d7e9b))
+
 ## [1.0.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.2...v1.0.3) (2026-09-13)
 
 
