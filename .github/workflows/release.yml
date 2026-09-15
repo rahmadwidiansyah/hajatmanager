@@ -13,16 +13,27 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # PENTING: push tag harus memakai PAT (RELEASE_PAT), bukan GITHUB_TOKEN.
+      # Push/tag via GITHUB_TOKEN tidak memicu workflow lain (aturan GitHub),
+      # sehingga Release Assets tidak akan jalan tanpa PAT ini.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
+          token: ${{ secrets.RELEASE_PAT || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Cek RELEASE_PAT
+        run: |
+          if [ -z "${{ secrets.RELEASE_PAT }}" ]; then
+            echo "::warning::RELEASE_PAT belum diisi — tag rilis tidak akan memicu build aset (Tauri/Flutter/APK). Lihat docs/release.md."
+          else
+            echo "RELEASE_PAT terisi ✓"
+          fi
       - name: semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
         run: npx semantic-release

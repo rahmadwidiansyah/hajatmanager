@@ -20,10 +20,11 @@ Alur resmi (otomatis penuh):
 > `Android APK (Capacitor)` sekarang **manual-only** (`workflow_dispatch`,
 > artifact saja) untuk iterasi tanpa memotong rilis.
 
-## Secrets opsional (repo Settings → Secrets → Actions)
+## Secrets (repo Settings → Secrets → Actions)
 
 | Secret | Wajib? | Guna |
 |---|---|---|
+| `RELEASE_PAT` | **Ya, agar rilis beraset** | Personal Access Token agar push tag memicu build aset. Tanpa ini, tag dari `GITHUB_TOKEN` **tidak memicu workflow lain** (aturan GitHub) → rilis jadi tanpa EXE/ZIP/APK. Buat di GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate → centang **`repo`** → copy → tempel sebagai secret `RELEASE_PAT`. (Alternatif fine-grained: akses repo ini saja + `Contents: read and write`.) |
 | `ANDROID_KEYSTORE_BASE64` | Tidak | Keystore rilis → APK signed. Kosong = hanya unsigned (tetap installable, fallback debug). |
 | `ANDROID_KEYSTORE_PASSWORD` | Bila signed | Password keystore |
 | `ANDROID_KEY_ALIAS` | Bila signed | Alias key |
