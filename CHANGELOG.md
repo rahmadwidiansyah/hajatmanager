@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.0...v1.1.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **build:** dependensi hilang + flag webpack untuk next 16 ([11b468b](https://github.com/rahmadwidiansyah/hajatmanager/commit/11b468b2ce6e2f23d10fcb5205721b66b6029641))
+* **release:** serwist dep ke package.json + rantai tag via RELEASE_PAT ([d2f9417](https://github.com/rahmadwidiansyah/hajatmanager/commit/d2f94170136f669e61578807c9b017554d7df299))
+
 # [1.1.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.2...v1.1.0) (2026-09-15)
 
 
