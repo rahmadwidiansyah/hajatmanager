@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.3...v1.1.4) (2026-09-15)
+
+
+### Bug Fixes
+
+* **ci:** track platform android, hapus patch string build.gradle ([b813648](https://github.com/rahmadwidiansyah/hajatmanager/commit/b8136484cd97b27f91d9c9b019798662ca60732b))
+
 ## [1.1.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.2...v1.1.3) (2026-09-15)
 
 
