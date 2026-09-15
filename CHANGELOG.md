@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.1...v1.1.2) (2026-09-15)
+
+
+### Bug Fixes
+
+* **ci:** tauri layout kanonis + paket SDK eksplisit ([2d907fc](https://github.com/rahmadwidiansyah/hajatmanager/commit/2d907fc2f926c55148e986079858d42b1dc69781))
+
 ## [1.1.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.0...v1.1.1) (2026-09-15)
 
 
