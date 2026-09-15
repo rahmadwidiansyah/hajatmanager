@@ -1,3 +1,10 @@
+## [1.1.5](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.4...v1.1.5) (2026-09-15)
+
+
+### Bug Fixes
+
+* **ci:** checkout di job publish release-assets ([74be874](https://github.com/rahmadwidiansyah/hajatmanager/commit/74be87476b421eca570d0e5c66c2fde3f6208272))
+
 ## [1.1.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.3...v1.1.4) (2026-09-15)
 
 
