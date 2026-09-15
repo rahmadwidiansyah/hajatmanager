@@ -17,8 +17,24 @@
 /.next/
 /out/
 
+# serwist — Service Worker hasil build (dibangun ulang tiap `next build`)
+public/sw.js
+public/sw.js.map
+public/sw-*.js
+public/swe-worker-*.js
+
 # production
 /build
+
+# release artifacts — dibangun ulang di CI (release-assets.yml), jangan commit
+/release/
+*.exe
+*.apk
+*.aab
+**/build/
+native/windows/src-tauri/target/
+test-results/
+playwright-report/
 
 # misc
 .DS_Store

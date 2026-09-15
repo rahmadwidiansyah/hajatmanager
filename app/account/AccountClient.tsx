@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useColorScheme } from "@mui/material/styles";
+import { cachePinHash, clearCachedPinHash } from "@/lib/offline-pin";
 
 type UserData = {
   id: string;
@@ -250,6 +251,8 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
       if (!res.ok) throw new Error(j.message || j.error || "Gagal");
       notify("PIN offline berhasil disimpan");
       setHasPin(true); setPin(""); setConfirmPin("");
+      // Fase 4: cache hash PIN di perangkat agar bisa diverifikasi saat offline.
+      try { await cachePinHash(pin); } catch {}
       try { localStorage.setItem("appPinHashSet", "1"); } catch {}
     } catch (err: unknown) { setPinError(err instanceof Error ? err.message : "Gagal simpan PIN"); }
     finally { setSavingPin(false); }
@@ -260,6 +263,8 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
     if (res.ok) {
       setHasPin(false); setConfirmDeletePin(false);
       notify("PIN offline dihapus");
+      // Fase 4: hapus juga hash cache agar kunci offline ikut nonaktif.
+      try { await clearCachedPinHash(); } catch {}
       try { localStorage.removeItem("appPinHashSet"); } catch {}
     } else {
       setConfirmDeletePin(false);

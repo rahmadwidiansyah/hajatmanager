@@ -1,0 +1,347 @@
+name: Release Assets (Tauri EXE + Flutter Windows + APK)
+
+# Satu-satunya workflow yang build saat tag v* dibuat.
+# semantic-release (release.yml) membuat tag -> workflow ini build semua
+# artifact paralel -> job publish melampirkan SEMUANYA ke 1 release.
+# Jangan pernah attach rilis dari workflow lain agar tidak balapan.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (e.g. 1.0.3) — kosong = dari tag/package.json"
+        required: false
+        default: ""
+
+# Rilis jangan pernah di-cancel otomatis.
+concurrency:
+  group: release-assets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        run: |
+          V="${{ inputs.version }}"
+          if [ -z "$V" ]; then
+            REF="${GITHUB_REF_NAME:-}"
+            case "$REF" in v*) V="${REF#v}" ;; esac
+          fi
+          if [ -z "$V" ]; then V=$(node -p "require('./package.json').version"); fi
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "tag=v$V" >> $GITHUB_OUTPUT
+          echo "release version=$V tag=v$V"
+
+  build-tauri:
+    needs: resolve
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            native/windows/package-lock.json
+            native/android/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/windows/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('native/windows/src-tauri/Cargo.lock') }}
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install windows deps
+        working-directory: native/windows
+        run: npm ci
+
+      - name: Prisma generate
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+        run: npx prisma generate
+
+      - name: Build Tauri NSIS
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+        working-directory: native/windows
+        run: npm run tauri:build
+
+      - name: Collect EXE
+        shell: bash
+        run: |
+          mkdir -p release
+          cp native/windows/src-tauri/target/release/bundle/nsis/*.exe release/ 2>/dev/null || cp native/windows/src-tauri/target/release/bundle/**/*.exe release/ 2>/dev/null || true
+          for f in release/*.exe; do [ -f "$f" ] && mv "$f" "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-x64-setup.exe" && break; done
+          ls -lh release/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-windows
+          path: release/*.exe
+          if-no-files-found: error
+
+  build-flutter:
+    needs: resolve
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build Windows (release)
+        working-directory: mobile
+        run: flutter build windows --release
+
+      - name: Collect ZIP
+        shell: pwsh
+        working-directory: mobile
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-flutter-x64.zip" -Force
+          Get-ChildItem release/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-flutter-windows
+          path: mobile/release/*.zip
+          if-no-files-found: error
+
+  build-apk:
+    needs: resolve
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            native/windows/package-lock.json
+            native/android/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install deps
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Install android deps
+        working-directory: native/android
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Build web (static export for WebView)
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+        run: |
+          npx prisma generate || true
+          bash scripts/build-native.sh
+          ls -lh out 2>&1 | head -n 20
+
+      - name: Capacitor sync (add android if missing)
+        working-directory: native/android
+        run: |
+          if [ ! -f "android/gradlew" ]; then
+            echo "android/gradlew not found -> running cap add android"
+            npx cap add android
+          fi
+          npx cap sync
+
+      - name: Fix APK signing (fallback debug, local installable)
+        run: bash scripts/fix-android-signing.sh
+
+      - name: Patch build.gradle for dual signing (unsigned + signed)
+        run: |
+          GRADLE="native/android/android/app/build.gradle"
+          if ! grep -q "keystoreProperties" "$GRADLE"; then
+            echo "Patching $GRADLE for keystore.properties..."
+            cat > /tmp/patch.py <<'PY'
+          import pathlib
+          p = pathlib.Path("native/android/android/app/build.gradle")
+          s = p.read_text()
+          if "keystoreProperties" not in s:
+              s = s.replace(
+                  "android {",
+                  "def keystorePropertiesFile = rootProject.file(\"app/keystore.properties\")\n"
+                  "def keystoreProperties = new Properties()\n"
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+                  "}\n\n"
+                  "android {"
+              )
+              s = s.replace(
+                  "    buildTypes {\n        release {\n            minifyEnabled false",
+                  "    signingConfigs {\n        release {\n            if (keystorePropertiesFile.exists()) {\n"
+                  "                keyAlias keystoreProperties['keyAlias']\n"
+                  "                keyPassword keystoreProperties['keyPassword']\n"
+                  "                storeFile file(keystoreProperties['storeFile'])\n"
+                  "                storePassword keystoreProperties['storePassword']\n"
+                  "                v1SigningEnabled true\n"
+                  "                v2SigningEnabled true\n"
+                  "            }\n        }\n    }\n    buildTypes {\n        release {\n            minifyEnabled false"
+              )
+              if "signingConfig signingConfigs.release" not in s:
+                  s = s.replace(
+                      "            minifyEnabled false",
+                      "            minifyEnabled false\n            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
+                  )
+              if "v1SigningEnabled" not in s and "keystoreProperties" in s:
+                  s = s.replace(
+                      "                storePassword keystoreProperties['storePassword']",
+                      "                storePassword keystoreProperties['storePassword']\n                v1SigningEnabled true\n                v2SigningEnabled true"
+                  )
+              if "if (keystorePropertiesFile.exists()) {\n                signingConfig" in s:
+                  s = s.replace(
+                      "            if (keystorePropertiesFile.exists()) {\n                signingConfig signingConfigs.release\n            }",
+                      "            signingConfig rootProject.file(\"app/keystore.properties\").exists() ? signingConfigs.release : signingConfigs.debug"
+                  )
+              if "signingConfig keystorePropertiesFile.exists()" in s:
+                  s = s.replace(
+                      "signingConfig keystorePropertiesFile.exists()",
+                      "signingConfig rootProject.file(\"app/keystore.properties\").exists()"
+                  )
+              p.write_text(s)
+              print("patched")
+          else:
+              print("already patched")
+          PY
+            python3 /tmp/patch.py
+          else
+            echo "already patched"
+          fi
+
+      - name: Make gradlew executable
+        run: |
+          chmod +x native/android/android/gradlew 2>&1 || chmod +x native/android/gradlew 2>&1 || true
+
+      - name: Build APK (unsigned)
+        working-directory: native/android
+        run: |
+          if [ -f "android/gradlew" ]; then
+            bash android/gradlew -p android assembleRelease --stacktrace || bash android/gradlew -p android assembleRelease
+          elif [ -f "gradlew" ]; then
+            bash ./gradlew assembleRelease --stacktrace || bash ./gradlew assembleRelease
+          else
+            echo "gradlew not found at android/gradlew or gradlew"
+            exit 1
+          fi
+
+      - name: Collect unsigned APK
+        run: |
+          mkdir -p release
+          UAPK=$(find native/android -name "*.apk" -path "*release*" | head -n 1)
+          echo "unsigned apk: $UAPK"
+          if [ -n "$UAPK" ]; then cp "$UAPK" "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-unsigned.apk"; fi
+          ls -lh release/ || true
+
+      - name: Build APK (signed) — if keystore secrets present
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: native/android
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "no keystore secrets, skip signed build"; exit 0; fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          cat > android/app/keystore.properties <<EOF
+          storeFile=release.keystore
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          if [ -f "android/gradlew" ]; then
+            bash android/gradlew -p android assembleRelease --stacktrace || bash android/gradlew -p android assembleRelease
+          else
+            bash ./gradlew assembleRelease --stacktrace || bash ./gradlew assembleRelease
+          fi
+
+      - name: Collect signed APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "no keystore, skip collect signed"; ls -lh release/ || true; exit 0; fi
+          SAPK=$(find native/android -name "*.apk" -path "*release*" | head -n 1)
+          echo "signed apk: $SAPK"
+          if [ -n "$SAPK" ]; then cp "$SAPK" "release/Hajat-Manager-${{ needs.resolve.outputs.version }}.apk"; fi
+          ls -lh release/ || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-android
+          path: release/*.apk
+          if-no-files-found: warn
+
+  publish:
+    needs: [resolve, build-tauri, build-flutter, build-apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: List files
+        run: ls -lh release/
+
+      - name: Attach to GitHub Release (sekali, anti-balapan)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG ada (dari semantic-release) -> upload file"
+            gh release upload "$TAG" release/* --clobber
+          else
+            echo "release $TAG belum ada (tag manual) -> buat baru"
+            gh release create "$TAG" release/* --title "$TAG" --generate-notes
+          fi

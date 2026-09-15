@@ -27,6 +27,12 @@ Dikelola **Auth.js v5**. Endpoint otomatis:
 |---|---|---|---|
 | POST | `/api/register` | `{ name, email, password }` | `{ id, email }` |
 
+**Login Google native (APK):**
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| GET | `/api/auth/mobile/config` | - | `{ googleServerClientId }` (null = Google nonaktif) |
+| POST | `/api/auth/mobile/google` | `{ idToken }` | Set-Cookie session Auth.js + `{ ok, user }` |
+
 Validasi Zod: `name min 2, email valid, password min 6`.
 
 ## 2. Event (Acara)

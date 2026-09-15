@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#059669" />
+<title>Offline — Hajat Manager</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+    padding: 24px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f8fafc; color: #0f172a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0a0f1a; color: #e2e8f0; }
+    .card { background: #111c2e; border-color: #243449; }
+    .btn-secondary { border-color: #243449; color: #e2e8f0; }
+    .event-link { background: #111c2e; border-color: #243449; color: #e2e8f0; }
+    .muted { color: #94a3b8; }
+  }
+  .wrap { width: 100%; max-width: 380px; text-align: center; }
+  .icon {
+    width: 56px; height: 56px; margin: 0 auto; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    font-size: 26px;
+  }
+  h1 { font-size: 20px; margin: 16px 0 0; }
+  p { font-size: 14px; color: #64748b; margin: 8px 0 0; }
+  p.muted { color: #64748b; }
+  .pill {
+    display: none; margin-top: 12px; padding: 6px 12px; border-radius: 999px;
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    font-size: 12px; font-weight: 600;
+  }
+  .pill.show { display: inline-block; }
+  .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+  .btn {
+    height: 44px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none; cursor: pointer; border: none;
+  }
+  .btn-primary { background: #059669; color: #fff; }
+  .btn-secondary { background: transparent; border: 1px solid #cbd5e1; color: inherit; }
+  .section-label {
+    margin: 20px 0 8px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: #64748b;
+  }
+  .event-list { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+  .event-link {
+    min-height: 44px; padding: 0 16px; border-radius: 12px;
+    background: #fff; border: 1px solid #e2e8f0; color: #0f172a;
+    display: flex; align-items: center; gap: 8px; font-size: 14px;
+    text-decoration: none;
+  }
+  .event-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #events-empty { display: none; }
+</style>
+</head>
+<body>
+  <main class="wrap card" id="offline-fallback">
+    <div class="icon" aria-hidden="true">📶</div>
+    <h1>Kamu sedang offline</h1>
+    <p class="muted">Halaman ini belum tersimpan di perangkat. Buka halaman acara saat online agar tersedia offline berikutnya.</p>
+    <div><span class="pill" id="pending-pill"></span></div>
+    <div id="events-block" style="display:none">
+      <p class="section-label">Tersedia offline</p>
+      <div class="event-list" id="events-list"></div>
+    </div>
+    <p class="muted" id="events-empty">Belum ada acara tersimpan di perangkat ini.</p>
+    <div class="actions">
+      <button class="btn btn-primary" type="button" onclick="location.reload()">↻ Coba lagi</button>
+      <a class="btn btn-secondary" href="/dashboard">← Dashboard</a>
+    </div>
+  </main>
+<script>
+(function () {
+  "use strict";
+  // Muat ulang otomatis saat koneksi kembali (seperti versi route sebelumnya).
+  window.addEventListener("online", function () { location.reload(); });
+
+  function lsPending() {
+    var total = 0;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf("offlineQueue:") === 0) {
+          try {
+            var arr = JSON.parse(localStorage.getItem(k) || "[]");
+            if (Array.isArray(arr)) total += arr.length;
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    return total;
+  }
+
+  function openDb() {
+    return new Promise(function (resolve) {
+      try {
+        var req = indexedDB.open("hajatmanager");
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { resolve(null); };
+        req.onblocked = function () { resolve(null); };
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  function storeAll(db, store) {
+    return new Promise(function (resolve) {
+      try {
+        var tx = db.transaction(store, "readonly");
+        var rq = tx.objectStore(store).getAll();
+        rq.onsuccess = function () { resolve(rq.result || []); };
+        rq.onerror = function () { resolve([]); };
+      } catch (e) { resolve([]); }
+    });
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  (async function init() {
+    var pending = lsPending();
+    var events = [];
+    var db = await openDb();
+    if (db) {
+      try {
+        var ops = await storeAll(db, "outbox");
+        pending += ops.length;
+        var rows = await storeAll(db, "eventsCache");
+        events = rows.map(function (r) {
+          return {
+            id: r.id,
+            nama: (r.data && typeof r.data.namaAcara === "string") ? r.data.namaAcara : r.id,
+          };
+        });
+      } catch (e) {}
+      try { db.close(); } catch (e) {}
+    }
+    if (pending > 0) {
+      var pill = document.getElementById("pending-pill");
+      pill.textContent = "☁ " + pending + " data menunggu sync — aman tersimpan";
+      pill.classList.add("show");
+    }
+    if (events.length > 0) {
+      document.getElementById("events-block").style.display = "";
+      var list = document.getElementById("events-list");
+      events.forEach(function (ev) {
+        var a = el("a", "event-link");
+        a.href = "/events/" + encodeURIComponent(ev.id);
+        a.appendChild(el("span", null, "📅"));
+        a.appendChild(el("span", null, ev.nama));
+        list.appendChild(a);
+      });
+    } else {
+      document.getElementById("events-empty").style.display = "";
+    }
+  })();
+})();
+</script>
+</body>
+</html>

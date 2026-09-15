@@ -37,6 +37,21 @@ updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
 // tauri.conf.json
 updateJson("native/windows/tauri.conf.json", (j) => { j.version = clean; });
 
+// mobile/pubspec.yaml — version: x.y.z+N (N = GITHUB_RUN_NUMBER agar naik tiap rilis)
+(function updatePubspec() {
+  const p = path.join(__dirname, "..", "mobile", "pubspec.yaml");
+  if (!fs.existsSync(p)) return console.warn("skip mobile/pubspec.yaml not found");
+  const build = process.env.GITHUB_RUN_NUMBER || "1";
+  let s = fs.readFileSync(p, "utf8");
+  if (/^version:\s*.*$/m.test(s)) {
+    s = s.replace(/^version:\s*.*$/m, `version: ${clean}+${build}`);
+  } else {
+    s = `version: ${clean}+${build}\n` + s;
+  }
+  fs.writeFileSync(p, s);
+  console.log(`updated mobile/pubspec.yaml -> ${clean}+${build}`);
+})();
+
 // Cargo.toml
 updateCargo("native/windows/src-tauri/Cargo.toml");
 

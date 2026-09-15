@@ -12,8 +12,11 @@ cp "scripts/native-patches/app/events/[id]/page.tsx" "app/events/[id]/page.tsx"
 echo "  patched pages for export"
 
 echo "[native] Running NATIVE_BUILD=1 npm run build..."
+# Matikan set -e sementara agar restore di bawah SELALU jalan walau build gagal.
+set +e
 NATIVE_BUILD=1 npm run build
 CODE=$?
+set -e
 
 echo "[native] Restoring..."
 [ -d "./api.bak" ] && mv ./api.bak app/api && echo "  restored app/api"

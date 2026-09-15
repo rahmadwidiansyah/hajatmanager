@@ -8,7 +8,11 @@ import { Avatar } from "@/components/ui/Avatar";
 import { roleChipClass, methodChipClass, methodDotClass } from "@/components/ui/color";
 import { AlertTriangle, CheckCircle, Trash2, Pencil, Search, FileSpreadsheet, RectangleVertical, RectangleHorizontal, X, WifiOff, CloudUpload } from "lucide-react";
 // Performa: jsPDF + autotable hanya di-load saat Export (dynamic import), bukan di bundle utama.
-import { enqueueGuest, flushOfflineQueue, getPendingCount, startBackgroundSync, QUEUE_KEY, LAST_SYNC_KEY } from "@/lib/offline-sync";
+import { enqueueGuest, enqueueOp, flushOfflineQueue, getConflictOps, getPendingCount, getQueue, getTotalPendingAsync, isOnline, pullDelta, refreshPendingCount, startBackgroundSync, subscribeNetworkStatus, LAST_SYNC_KEY, type QueuedGuest } from "@/lib/offline-sync";
+import { getCachedBooks, getCachedEvent, getCachedGuests, kvGet, kvSet, putCachedBooks, putCachedEvent, putCachedGuests } from "@/lib/db";
+import { OfflineLock } from "@/components/OfflineLock";
+import { ConflictResolver } from "@/components/ConflictResolver";
+import { hasOfflinePin, isEventUnlocked, setEventUnlocked } from "@/lib/offline-pin";
 
 type Member = { id: string; role: string; user: { id: string; name: string; username?: string | null; email: string; image?: string | null; avatar?: string | null; profilePicture?: string | null } };
 type GuestBook = { id: string; nama: string; alamat: string };
@@ -139,6 +143,21 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  // Fase 1: status jaringan browser asli (navigator.onLine) — pisah dari mode acara server.
+  const [isBrowserOffline, setIsBrowserOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  // Fase 4: kunci PIN saat offline (buka per tab via PIN yang di-cache).
+  const [locked, setLocked] = useState(false);
+  // Fase 5: konflik duplikat yang butuh catatan.
+  const [conflictCount, setConflictCount] = useState(0);
+  const [conflictOpen, setConflictOpen] = useState(false);
+
+  async function reloadConflicts() {
+    try {
+      const ops = await getConflictOps(eventId);
+      setConflictCount(ops.length);
+    } catch {}
+  }
   const [hideNominal, setHideNominal] = useState(() => {
     if (typeof window !== "undefined") {
       try {
@@ -247,37 +266,106 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   }, [eventId]);
 
   async function loadEvent() {
-    const res = await fetch(`/api/events/${eventId}`);
-    if (res.ok) {
-      const j = await res.json();
-      setEvent(j);
-      setIsOfflineMode(!!j.isOffline || j.mode === "OFFLINE");
-      setEditNama(j.namaAcara);
-      setEditNamaTuanRumah(j.namaTuanRumah || "");
-      setEditTanggal(new Date(j.tanggal).toISOString().slice(0, 10));
-      setEditLokasi(j.lokasi || "");
-      setEditCatatan(j.catatan || "");
+    try {
+      const res = await fetch(`/api/events/${eventId}`);
+      if (res.ok) {
+        const j = await res.json();
+        setEvent(j);
+        setIsOfflineMode(!!j.isOffline || j.mode === "OFFLINE");
+        setEditNama(j.namaAcara);
+        setEditNamaTuanRumah(j.namaTuanRumah || "");
+        setEditTanggal(new Date(j.tanggal).toISOString().slice(0, 10));
+        setEditLokasi(j.lokasi || "");
+        setEditCatatan(j.catatan || "");
+        // Fase 2: tulis read-cache (best-effort).
+        try { await putCachedEvent({ ...j, id: eventId }); } catch {}
+        return;
+      }
+    } catch {
+      // Fase 1: offline — jangan throw, biarkan UI pakai data lama + banner offline.
+      // Penyebab "kadang ngga": fetch reject (TypeError) bikin loading macet.
     }
+    // Fase 2: fallback cache saat fetch gagal/offline.
+    try {
+      const c = await getCachedEvent(eventId);
+      if (c && typeof c.namaAcara === "string") {
+        const j = c as unknown as { namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string; mode?: string; isOffline?: boolean };
+        setEvent({ id: eventId, namaAcara: j.namaAcara, namaTuanRumah: j.namaTuanRumah ?? null, tanggal: j.tanggal, lokasi: j.lokasi ?? null, catatan: j.catatan ?? null, mejaList: j.mejaList, myRole: j.myRole || "VIEWER", mode: j.mode, isOffline: j.isOffline });
+        setIsOfflineMode(!!j.isOffline || j.mode === "OFFLINE");
+      }
+    } catch {}
   }
   async function loadGuests() {
-    const qs = new URLSearchParams({ q: search, sort, order, page: String(page), limit: "50" });
-    if (mejaFilter) qs.set("meja", mejaFilter);
-    if (kasirFilter) qs.set("kasir", kasirFilter);
-    const res = await fetch(`/api/events/${eventId}/guests?${qs}`);
-    if (res.ok) { const j = await res.json(); setGuests(j.data); setGuestTotal(j.total); setTotalPages(j.totalPages || 1); }
+    try {
+      const qs = new URLSearchParams({ q: search, sort, order, page: String(page), limit: "50" });
+      if (mejaFilter) qs.set("meja", mejaFilter);
+      if (kasirFilter) qs.set("kasir", kasirFilter);
+      const res = await fetch(`/api/events/${eventId}/guests?${qs}`);
+      if (res.ok) {
+        const j = await res.json();
+        setGuests(mergeWithQueue(j.data));
+        setGuestTotal(j.total);
+        setTotalPages(j.totalPages || 1);
+        try {
+          // Cache hanya halaman pertama tanpa filter agar offline tetap ada isi.
+          if (page === 1 && !search && !mejaFilter && !kasirFilter && Array.isArray(j.data)) {
+            await putCachedGuests(eventId, j.data);
+          }
+        } catch {}
+        return;
+      }
+    } catch { /* offline: pertahankan list lama + queue */ }
+    // Fase 2: fallback cache.
+    try {
+      const cached = await getCachedGuests(eventId);
+      if (cached.length && guests.length === 0) {
+        setGuests(mergeWithQueue(cached as unknown as Guest[]));
+        setGuestTotal(cached.length);
+      }
+    } catch {}
   }
-  async function loadShortcuts() { const res = await fetch(`/api/events/${eventId}/guests/shortcuts`); if (res.ok) setShortcuts(await res.json()); }
+  async function loadShortcuts() { try { const res = await fetch(`/api/events/${eventId}/guests/shortcuts`); if (res.ok) setShortcuts(await res.json()); } catch {} }
   async function loadBooks() {
-    const qs = new URLSearchParams({ q: bookSearch, page: String(bookPage), limit: String(LIMIT) });
-    const res = await fetch(`/api/events/${eventId}/guestbooks?${qs}`);
-    if (res.ok) {
-      const j = await res.json();
-      if (Array.isArray(j)) { setBooks(j); setBookTotal(j.length); setBookTotalPages(1); }
-      else { setBooks(j.data); setBookTotal(j.total); setBookTotalPages(j.totalPages); }
-    }
+    try {
+      const qs = new URLSearchParams({ q: bookSearch, page: String(bookPage), limit: String(LIMIT) });
+      const res = await fetch(`/api/events/${eventId}/guestbooks?${qs}`);
+      if (res.ok) {
+        const j = await res.json();
+        if (Array.isArray(j)) {
+          setBooks(j); setBookTotal(j.length); setBookTotalPages(1);
+          try { if (bookPage === 1 && !bookSearch) await putCachedBooks(eventId, j); } catch {}
+        }
+        else {
+          setBooks(j.data); setBookTotal(j.total); setBookTotalPages(j.totalPages);
+          try { if (bookPage === 1 && !bookSearch && Array.isArray(j.data)) await putCachedBooks(eventId, j.data); } catch {}
+        }
+        return;
+      }
+    } catch {}
+    try {
+      const cached = await getCachedBooks(eventId);
+      if (cached.length && books.length === 0) {
+        setBooks(cached as unknown as GuestBook[]);
+        setBookTotal(cached.length);
+      }
+    } catch {}
   }
-  async function loadMembers() { const res = await fetch(`/api/events/${eventId}/members`); if (res.ok) setMembers(await res.json()); }
-  async function loadRekap() { const res = await fetch(`/api/events/${eventId}/rekap`); if (res.ok) setRekap(await res.json()); }
+  async function loadMembers() { try { const res = await fetch(`/api/events/${eventId}/members`); if (res.ok) setMembers(await res.json()); } catch {} }
+  async function loadRekap() {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rekap`);
+      if (res.ok) {
+        const j = await res.json();
+        setRekap(j);
+        try { await kvSet(`rekap:${eventId}`, JSON.stringify(j)); } catch {}
+        return;
+      }
+    } catch {}
+    try {
+      const raw = await kvGet(`rekap:${eventId}`);
+      if (raw && !rekap) setRekap(JSON.parse(raw) as Rekap);
+    } catch {}
+  }
   function updateTab(next: Tab) {
     setTab(next);
     const params = new URLSearchParams(searchParams.toString());
@@ -285,64 +373,279 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  async function loadAudit(q?: string) { const qs = q !== undefined ? `?limit=30&q=${encodeURIComponent(q)}` : `?limit=30${logSearch ? `&q=${encodeURIComponent(logSearch)}` : ""}`; const res = await fetch(`/api/events/${eventId}/audit-logs${qs}`); if (res.ok) { const j = await res.json(); setAuditLogs(j.logs); } }
+  async function loadAudit(q?: string) { try { const qs = q !== undefined ? `?limit=30&q=${encodeURIComponent(q)}` : `?limit=30${logSearch ? `&q=${encodeURIComponent(logSearch)}` : ""}`; const res = await fetch(`/api/events/${eventId}/audit-logs${qs}`); if (res.ok) { const j = await res.json(); setAuditLogs(j.logs); } } catch {} }
+
+  // Fase 1.3: gabungkan queue lokal ke atas list agar reload offline tidak terlihat hilang.
+  // Catatan Fase 2: LS hanya untuk CREATE_GUEST lama (belum migrasi). Outbox Dexie dihidrasi
+  // via hydratePendingToLists() (async) agar semua aksi (create/update/delete) tampil setelah reload.
+  function mergeWithQueue(server: Guest[]) {
+    try {
+      const q = getQueue(eventId);
+      if (!q.length) return server;
+      const ids = new Set(server.map((g) => g.id));
+      const pending: Guest[] = q
+        .filter((x) => !ids.has(x.id))
+        .map((x) => ({
+          id: x.id,
+          nama: x.nama,
+          alamat: x.alamat,
+          nominal: x.nominal,
+          metode: x.metode,
+          catatan: x.catatan || undefined,
+          createdAt: x.createdAt,
+          petugasId: "local",
+          mejaLabel: x.mejaLabel,
+          kodeInput: x.kodeInput,
+        }));
+      return [...pending, ...server];
+    } catch {
+      return server;
+    }
+  }
+
+  // Fase 2: terapkan outbox (Dexie) ke list agar reload offline tetap akurat.
+  async function hydratePendingToLists() {
+    try {
+      const { outboxList } = await import("@/lib/db");
+      const ops = await outboxList(eventId);
+      if (!ops.length) return;
+      const guestCreates = ops.filter((o) => o.action === "CREATE_GUEST");
+      const guestUpdates = ops.filter((o) => o.action === "UPDATE_GUEST");
+      const guestDeletes = new Set(ops.filter((o) => o.action === "DELETE_GUEST").map((o) => String((o.payload as { id?: unknown }).id || o.id)));
+      const bookCreates = ops.filter((o) => o.action === "CREATE_BOOK");
+      const bookUpdates = ops.filter((o) => o.action === "UPDATE_BOOK");
+      const bookDeletes = new Set(ops.filter((o) => o.action === "DELETE_BOOK").map((o) => String((o.payload as { id?: unknown }).id || o.id)));
+
+      if (guestCreates.length || guestUpdates.length || guestDeletes.size) {
+        setGuests((prev) => {
+          const byId = new Map(prev.map((g) => [g.id, g]));
+          for (const id of guestDeletes) byId.delete(id);
+          for (const o of guestUpdates) {
+            const p = o.payload as { id: string; fields?: Partial<Guest> };
+            const cur = byId.get(p.id);
+            if (cur && p.fields) byId.set(p.id, { ...cur, ...p.fields });
+          }
+          const fresh: Guest[] = [];
+          for (const o of guestCreates) {
+            const p = o.payload as unknown as Guest & { eventId?: string };
+            if (!byId.has(o.id)) {
+              fresh.push({ id: o.id, nama: String(p.nama || ""), alamat: String(p.alamat || ""), nominal: Number(p.nominal || 0), metode: String(p.metode || "AMPLOP"), catatan: (p.catatan as string) || undefined, createdAt: String(p.createdAt || new Date().toISOString()), petugasId: "local", mejaLabel: (p.mejaLabel as string) || null, kodeInput: (p.kodeInput as string) || null });
+            }
+          }
+          return [...fresh, ...[...byId.values()]];
+        });
+      }
+      if (bookCreates.length || bookUpdates.length || bookDeletes.size) {
+        setBooks((prev) => {
+          const byId = new Map(prev.map((b) => [b.id, b]));
+          for (const id of bookDeletes) byId.delete(id);
+          for (const o of bookUpdates) {
+            const p = o.payload as { id: string; fields?: Partial<GuestBook> };
+            const cur = byId.get(p.id);
+            if (cur && p.fields) byId.set(p.id, { ...cur, ...p.fields });
+          }
+          const fresh: GuestBook[] = [];
+          for (const o of bookCreates) {
+            const p = o.payload as unknown as GuestBook;
+            if (!byId.has(o.id)) fresh.push({ id: o.id, nama: String(p.nama || ""), alamat: String(p.alamat || "") });
+          }
+          return [...fresh, ...[...byId.values()]];
+        });
+      }
+    } catch {}
+  }
+
+  // Fase 1.2: satu pintu queue + optimistic — dipakai semua jalur gagal jaringan.
+  function queueGuestOffline(input: { nama: string; alamat: string; nominal: number; metode: string; catatan: string; meja: string; kodeInput: string; deviceId: string }) {
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const item: QueuedGuest = {
+      id: localId,
+      eventId,
+      nama: toTitleCasePerKata(input.nama),
+      alamat: toTitleCasePerKata(input.alamat),
+      nominal: input.nominal,
+      metode: input.metode,
+      catatan: input.catatan || null,
+      mejaLabel: input.meja,
+      kodeInput: input.kodeInput,
+      deviceId: input.deviceId,
+      createdAt: new Date().toISOString(),
+    };
+    enqueueGuest(eventId, item);
+    // Fase 2: hitung total async (LS + outbox) agar badge akurat.
+    refreshPendingCount(eventId).then(setPendingCount).catch(() => setPendingCount(getPendingCount(eventId)));
+    setGuests((prev) =>
+      prev.some((g) => g.id === localId)
+        ? prev
+        : [{ id: localId, nama: item.nama, alamat: item.alamat, nominal: item.nominal, metode: item.metode, catatan: input.catatan || undefined, createdAt: item.createdAt, petugasId: "local", mejaLabel: item.mejaLabel, kodeInput: item.kodeInput }, ...prev]
+    );
+    setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
+    console.debug("[offline] queued", { eventId, localId });
+  }
+
+  // Fase 2: helper generik — coba online dulu, gagal jaringan → masuk outbox + optimistic.
+  async function queueOpOffline(
+    action: Parameters<typeof enqueueOp>[1],
+    table: Parameters<typeof enqueueOp>[2],
+    payload: Record<string, unknown>,
+    applyOptimistic?: () => void
+  ) {
+    try {
+      await enqueueOp(eventId, action, table, payload, typeof payload.id === "string" ? (payload.id as string) : undefined);
+    } catch {}
+    try {
+      const total = await refreshPendingCount(eventId);
+      setPendingCount(total);
+    } catch {}
+    applyOptimistic?.();
+  }
+
+  function isNetworkError(e: unknown): boolean {
+    // fetch throw (offline/timeout/abort) — bukan 4xx validasi.
+    return e instanceof TypeError || (e instanceof DOMException && (e.name === "AbortError" || e.name === "TimeoutError"));
+  }
 
   const handleRefresh = async () => {
     setIsSyncing(true);
-    // flush offline queue in background without blocking refresh
-    if (pendingCount > 0 && navigator.onLine) {
-      flushOfflineQueue(eventId).then((r) => {
-        if (r.flushed) {
+    setSyncError(null);
+    try {
+      // flush offline queue in background without blocking refresh
+      if (pendingCount > 0 && isOnline()) {
+        const r = await flushOfflineQueue(eventId).catch(() => ({ flushed: 0, conflicts: 0, error: "offline" as const }));
+        try {
+          setPendingCount(await getTotalPendingAsync(eventId));
+        } catch {
           setPendingCount(getPendingCount(eventId));
-          loadGuests(); loadRekap();
         }
-      });
+        if (r.error && r.error !== "offline") setSyncError(r.error);
+      } else if (isOnline()) {
+        // Fase 2: walau tidak ada pending, tarik delta agar multi-device sinkron.
+        try { await pullDelta(eventId); } catch {}
+      }
+      await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
+      try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
+      setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
+    } finally {
+      setIsSyncing(false);
     }
-    await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
-    try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
-    setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-    setIsSyncing(false);
   };
 
   // Push data pending ke server — mode acara (OFFLINE/ONLINE) TIDAK diubah.
   // Tombol ini hanya sinkronisasi data tamu, bukan mengubah status acara.
+  // Fase 1.5: error handling jelas — bedakan offline/timeout/auth/server, jangan diam.
   const handleSyncToServer = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
+    setSyncError(null);
     try {
       const qRes = await flushOfflineQueue(eventId);
-      if (qRes.error && qRes.error !== "offline") alert(qRes.error);
-      setPendingCount(getPendingCount(eventId));
+      try {
+        setPendingCount(await getTotalPendingAsync(eventId));
+      } catch {
+        setPendingCount(getPendingCount(eventId));
+      }
+      if (qRes.error === "offline" || qRes.error === "timeout") {
+        setSyncError("Masih offline — data aman di antrean, akan terkirim otomatis.");
+      } else if (qRes.error) {
+        setSyncError(qRes.error);
+        alert(`Sync gagal: ${qRes.error}`);
+      } else if (qRes.conflicts > 0) {
+        setSyncError(`${qRes.conflicts} data butuh catatan (duplikat).`);
+      }
+      reloadConflicts().catch(() => {});
       await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
       setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
       try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
+    } catch (e) {
+      // Fase 1: flush tidak lagi throw, tapi jaga-jaga agar isSyncing selalu reset.
+      setSyncError(e instanceof Error ? e.message : "Sync gagal");
     } finally { setIsSyncing(false); }
   };
 
   useEffect(() => {
     // Performa: hanya fetch yang dibutuhkan tab awal. Sisanya lazy saat tab dibuka.
-    loadEvent().then(() => setLoading(false));
-    loadGuests(); loadShortcuts(); loadRekap();
-    try { setPendingCount(getPendingCount(eventId)); const ls = localStorage.getItem(LAST_SYNC_KEY(eventId)); if (ls) setLastSyncAt(new Date(ls).toLocaleTimeString("id-ID")); } catch {}
-    if (initialTab === "buku") loadBooks();
-    if (initialTab === "setting") { loadMembers(); loadAudit(); }
+    // Fase 1: jangan biarkan fetch reject bikin loading macet (penyebab blank saat offline).
+    loadEvent().catch(() => {}).finally(() => setLoading(false));
+    loadGuests().catch(() => {});
+    loadShortcuts().catch(() => {});
+    loadRekap().catch(() => {});
+    try {
+      setPendingCount(getPendingCount(eventId));
+      // Fase 1.3: rehidrasi instan agar queue terlihat walau fetch gagal.
+      const q = getQueue(eventId);
+      if (q.length) setGuests((prev) => mergeWithQueue(prev));
+      const ls = localStorage.getItem(LAST_SYNC_KEY(eventId)); if (ls) setLastSyncAt(new Date(ls).toLocaleTimeString("id-ID"));
+    } catch {}
+    // Fase 2: hitung total async (LS + outbox) + pull delta best-effort saat online.
+    getTotalPendingAsync(eventId).then(setPendingCount).catch(() => {});
+    // Fase 2: hidrasi outbox ke list (agar update/delete offline tampil setelah reload).
+    hydratePendingToLists().catch(() => {});
+    // Fase 5: muat konflik yang butuh catatan.
+    reloadConflicts().catch(() => {});
+    if (isOnline()) {
+      pullDelta(eventId).then((r) => {
+        if (r.pulled > 0) {
+          loadGuests().catch(() => {});
+          loadBooks().catch(() => {});
+          loadEvent().catch(() => {});
+        }
+      }).catch(() => {});
+    }
+    if (initialTab === "buku") loadBooks().catch(() => {});
+    if (initialTab === "setting") { loadMembers().catch(() => {}); loadAudit().catch(() => {}); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     const off = startBackgroundSync(eventId, (r) => {
-      if (r.flushed) {
-        setPendingCount(getPendingCount(eventId));
-        setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-        loadGuests(); loadRekap();
+      // Fase 2: pending selalu dari total async agar mencakup outbox Dexie.
+      getTotalPendingAsync(eventId).then(setPendingCount).catch(() => setPendingCount(getPendingCount(eventId)));
+      if (r.error && r.error !== "offline") {
+        setSyncError(r.error);
+        return;
       }
+      if (r.flushed) {
+        setSyncError(null);
+        setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
+        loadGuests(); loadRekap(); loadBooks();
+      } else if (r.conflicts > 0) {
+        setSyncError(`${r.conflicts} data butuh catatan (duplikat).`);
+      }
+      reloadConflicts().catch(() => {});
     });
     const handler = (e: Event) => {
       const ce = e as CustomEvent;
       if (ce.detail?.eventId === eventId) setPendingCount(ce.detail.count);
     };
+    // Fase 1.4: status jaringan real untuk banner (bukan cuma mode server).
+    const unsubNet = subscribeNetworkStatus((online) => setIsBrowserOffline(!online));
+    setIsBrowserOffline(!isOnline());
     window.addEventListener("offline-queue-changed", handler as EventListener);
-    return () => { off(); window.removeEventListener("offline-queue-changed", handler as EventListener); };
+    return () => { off(); unsubNet(); window.removeEventListener("offline-queue-changed", handler as EventListener); };
   }, [eventId]);
+  useEffect(() => {
+    // Fase 4: kunci tampilan saat offline bila ada PIN di perangkat & belum dibuka sesi ini.
+    // Online → selalu terbuka (otorisasi ikut sesi server).
+    if (loading) return;
+    if (!isBrowserOffline) {
+      setLocked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        if (isEventUnlocked(eventId)) {
+          if (!cancelled) setLocked(false);
+          return;
+        }
+        if (!cancelled) setLocked(await hasOfflinePin());
+      } catch {
+        if (!cancelled) setLocked(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBrowserOffline, loading, eventId]);
   useEffect(() => {
     // Debounce search tabel agar tak tembak API tiap keystroke (satset tapi hemat)
     const t = setTimeout(() => { loadGuests(); }, search ? 300 : 0);
@@ -437,19 +740,21 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   useEffect(() => {
     if (searchUser.length < 2) { setSearchResults([]); return; }
-    const t = setTimeout(async () => { const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchUser)}`); if (res.ok) setSearchResults(await res.json()); }, 300);
+    const t = setTimeout(async () => { try { const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchUser)}`); if (res.ok) setSearchResults(await res.json()); } catch {} }, 300);
     return () => clearTimeout(t);
   }, [searchUser]);
 
   useEffect(() => {
     if (nama.trim().length < 2 || alamat.trim().length < 2) { setLiveDup(null); return; }
     const t = setTimeout(async () => {
-      const qs = new URLSearchParams({ nama: nama.trim(), alamat: alamat.trim() });
-      const res = await fetch(`/api/events/${eventId}/guests/check?${qs}`);
-      if (res.ok) { const j = await res.json(); if (j.exists) setLiveDup(j.existing); else setLiveDup(null); }
+      try {
+        const qs = new URLSearchParams({ nama: nama.trim(), alamat: alamat.trim() });
+        const res = await fetch(`/api/events/${eventId}/guests/check?${qs}`);
+        if (res.ok) { const j = await res.json(); if (j.exists) setLiveDup(j.existing); else setLiveDup(null); }
+      } catch {}
     }, 400);
     return () => clearTimeout(t);
-  }, [nama, alamat]);
+  }, [nama, alamat, eventId]);
 
   async function handleSubmitPemberian(e: React.FormEvent) {
     e.preventDefault();
@@ -458,30 +763,32 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId") || (localStorage.setItem("deviceId", Math.random().toString(36).slice(2)), localStorage.getItem("deviceId")!);
     const kodeInput = `${effectiveMeja}-${Date.now().toString().slice(-6)}`;
-    // Offline queue: if navigator offline, enqueue locally and optimistically update
-    if (!navigator.onLine) {
-      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      enqueueGuest(eventId, { id: localId, eventId, nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan: catatan || null, mejaLabel: effectiveMeja, kodeInput, deviceId, createdAt: new Date().toISOString() });
-      setPendingCount(getPendingCount(eventId));
-      setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
-      // optimistic local list
-      setGuests((prev) => [{ id: localId, nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan, createdAt: new Date().toISOString(), petugasId: "local", mejaLabel: effectiveMeja, kodeInput }, ...prev]);
+    const payload = { nama, alamat, nominal, metode, catatan, meja: effectiveMeja, kodeInput, deviceId };
+    // Fase 1.2: jika browser sudah jelas offline, langsung queue (tanpa coba fetch).
+    if (!isOnline()) {
+      queueGuestOffline(payload);
       return;
     }
-    const res = await fetch(`/api/events/${eventId}/guests`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan, mejaLabel: effectiveMeja, kodeInput, deviceId }),
-    });
+    // Fase 1.2: captive-portal / sinyal setengah mati sering bikin fetch THROW
+    // padahal navigator.onLine=true. Dulu ini unhandled → data hilang. Sekarang queue.
+    let res: Response;
+    try {
+      res = await fetch(`/api/events/${eventId}/guests`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan, mejaLabel: effectiveMeja, kodeInput, deviceId }),
+      });
+    } catch {
+      queueGuestOffline(payload);
+      return;
+    }
     let data: Record<string, unknown> = {};
     try { data = await res.json(); } catch { data = {}; }
     if (res.status === 409 && (data as { error?: string }).error === "DUPLICATE_NEED_NOTE") { setDupNote(catatan); setDupModal({ existing: (data as { existing: { nama: string; alamat: string; nominalFormatted: string; nominal: number; metode: string; createdAt: string } }).existing, message: (data as { message: string }).message }); return; }
     if (!res.ok) {
-      // network/server error -> fallback to queue if offline-like
-      if (!navigator.onLine || res.status >= 500) {
-        const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        enqueueGuest(eventId, { id: localId, eventId, nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan: catatan || null, mejaLabel: effectiveMeja, kodeInput, deviceId, createdAt: new Date().toISOString() });
-        setPendingCount(getPendingCount(eventId));
-        setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
+      // network/server error -> fallback to queue jika offline-like ATAU fetch gagal total.
+      // 5xx / fetch abort / onLine false = aman di-queue + optimistic (dulu jalur ini lupa optimistic).
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        queueGuestOffline(payload);
         return;
       }
       alert((data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Gagal (${res.status})`); return;
@@ -499,50 +806,293 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId")!;
     const kodeInput = `${effectiveMeja}-${Date.now().toString().slice(-6)}`;
-    const res = await fetch(`/api/events/${eventId}/guests`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan: dupNote, mejaLabel: effectiveMeja, kodeInput, deviceId }),
-    });
-    let data: Record<string, unknown> = {};
-    try { data = await res.json(); } catch { data = {}; }
-    if (!res.ok) { alert((data as { error?: string }).error || "Gagal"); return; }
+    const body = { nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan: dupNote, mejaLabel: effectiveMeja, kodeInput, deviceId };
+    if (!isOnline()) {
+      queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
+      setDupModal(null); setDupNote("");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (!res.ok) {
+        if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+          queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
+          setDupModal(null); setDupNote("");
+          return;
+        }
+        alert((data as { error?: string }).error || "Gagal");
+        return;
+      }
+    } catch {
+      queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
+      setDupModal(null); setDupNote("");
+      return;
+    }
     setDupModal(null); setDupNote("");
     setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
     loadGuests(); loadShortcuts(); loadRekap();
     if (autoSync) setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
   }
 
-  async function handleAddBook(e: React.FormEvent) { e.preventDefault(); const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: toTitleCasePerKata(bookNama), alamat: toTitleCasePerKata(bookAlamat) }) }); if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); } }
+  async function handleAddBook(e: React.FormEvent) {
+    e.preventDefault();
+    const namaB = toTitleCasePerKata(bookNama);
+    const alamatB = toTitleCasePerKata(bookAlamat);
+    if (!isOnline()) {
+      const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
+        setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
+        setBookTotal((t) => t + 1);
+      });
+      setBookNama(""); setBookAlamat("");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: namaB, alamat: alamatB }) });
+      if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
+          setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
+          setBookTotal((t) => t + 1);
+        });
+        setBookNama(""); setBookAlamat("");
+        return;
+      }
+    } catch {
+      const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
+        setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
+        setBookTotal((t) => t + 1);
+      });
+      setBookNama(""); setBookAlamat("");
+      return;
+    }
+  }
   function openEditBook(b: GuestBook) { setEditBook(b); setEditBookData({ nama: b.nama, alamat: b.alamat }); }
   async function handleUpdateBook(e: React.FormEvent) {
     e.preventDefault();
     if (!editBook) return;
-    const res = await fetch(`/api/guestbooks/${editBook.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: toTitleCasePerKata(editBookData.nama), alamat: toTitleCasePerKata(editBookData.alamat) }) });
-    let data: Record<string, unknown> = {};
-    try { data = await res.json(); } catch { data = {}; }
-    if (!res.ok) { alert((data as { error?: string }).error || "Gagal update"); return; }
-    setEditBook(null); loadBooks();
+    const fields = { nama: toTitleCasePerKata(editBookData.nama), alamat: toTitleCasePerKata(editBookData.alamat) };
+    const prev = books;
+    // Optimistic dulu agar satset.
+    setBooks((list) => list.map((b) => (b.id === editBook.id ? { ...b, ...fields } : b)));
+    setEditBook(null);
+    try {
+      const res = await fetch(`/api/guestbooks/${editBook.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (res.ok) { loadBooks(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("UPDATE_BOOK", "guestBooks", { id: editBook.id, fields });
+        return;
+      }
+      setBooks(prev);
+      alert((data as { error?: string }).error || "Gagal update");
+      return;
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("UPDATE_BOOK", "guestBooks", { id: editBook.id, fields });
+        return;
+      }
+      setBooks(prev);
+    }
   }
-  async function handleAddMember(userId: string) { const res = await fetch(`/api/events/${eventId}/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, role: addRole }) }); let data: Record<string, unknown> = {}; try { data = await res.json(); } catch { data = {}; } if (!res.ok) { alert((data as { error?: string }).error || "Gagal"); return; } setSearchUser(""); setSearchResults([]); loadMembers(); }
-  async function handleDeleteGuest(id: string) { if (!confirm("Hapus data ini?")) return; await fetch(`/api/guests/${id}`, { method: "DELETE" }); loadGuests(); loadShortcuts(); loadRekap(); }
+  async function handleDeleteBook(id: string) {
+    if (!confirm("Hapus buku tamu ini?")) return;
+    const prev = books;
+    setBooks((list) => list.filter((b) => b.id !== id));
+    try {
+      const res = await fetch(`/api/guestbooks/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 404) { loadBooks(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("DELETE_BOOK", "guestBooks", { id });
+        return;
+      }
+      setBooks(prev);
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("DELETE_BOOK", "guestBooks", { id });
+        return;
+      }
+      setBooks(prev);
+    }
+  }
+  async function handleAddMember(userId: string) {
+    const fields = { userId, role: addRole };
+    try {
+      const res = await fetch(`/api/events/${eventId}/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (res.ok) { setSearchUser(""); setSearchResults([]); loadMembers(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
+        setSearchUser(""); setSearchResults([]);
+        return;
+      }
+      alert((data as { error?: string }).error || "Gagal");
+      return;
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
+        setSearchUser(""); setSearchResults([]);
+        return;
+      }
+    }
+  }
+  async function handleRemoveMember(userId: string) {
+    if (!confirm("Hapus anggota?")) return;
+    const prev = members;
+    setMembers((list) => list.filter((m) => m.user.id !== userId));
+    try {
+      const res = await fetch(`/api/events/${eventId}/members?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      if (res.ok || res.status === 404) { loadMembers(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("REMOVE_MEMBER", "members", { userId });
+        return;
+      }
+      setMembers(prev);
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("REMOVE_MEMBER", "members", { userId });
+        return;
+      }
+      setMembers(prev);
+    }
+  }
+  async function handleDeleteGuest(id: string) {
+    if (!confirm("Hapus data ini?")) return;
+    // Jika masih antrean lokal (belum pernah ke server), hapus dari antrean saja.
+    if (id.startsWith("local-")) {
+      try {
+        const { outboxRemove } = await import("@/lib/db");
+        await outboxRemove([id]).catch(() => {});
+      } catch {}
+      try {
+        const q = getQueue(eventId).filter((x) => x.id !== id);
+        const { setQueue } = await import("@/lib/offline-sync");
+        setQueue(eventId, q);
+      } catch {}
+      setGuests((list) => list.filter((g) => g.id !== id));
+      refreshPendingCount(eventId).then(setPendingCount).catch(() => {});
+      return;
+    }
+    const prev = guests;
+    setGuests((list) => list.filter((g) => g.id !== id));
+    try {
+      const res = await fetch(`/api/guests/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 404) { loadGuests(); loadShortcuts(); loadRekap(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("DELETE_GUEST", "guests", { id });
+        loadShortcuts(); loadRekap();
+        return;
+      }
+      setGuests(prev);
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("DELETE_GUEST", "guests", { id });
+        return;
+      }
+      setGuests(prev);
+    }
+  }
   function openEditGuest(g: Guest) { setEditGuest(g); setEditGuestData({ nama: g.nama, alamat: g.alamat, nominal: String(g.nominal), metode: g.metode, catatan: g.catatan || "" }); }
   async function handleUpdateGuest(e: React.FormEvent) {
     e.preventDefault();
     if (!editGuest) return;
     const nominal = parseInt(editGuestData.nominal.replace(/\D/g, ""), 10);
     if (!nominal || nominal <= 0) { alert("Nominal harus >0"); return; }
-    const res = await fetch(`/api/guests/${editGuest.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan }) });
-    let data: Record<string, unknown> = {};
-    try { data = await res.json(); } catch { data = {}; }
-    if (!res.ok) { alert((data as { error?: string }).error || "Gagal update"); return; }
-    setEditGuest(null); loadGuests(); loadShortcuts(); loadRekap(); loadAudit();
+    // Jika edit item yang masih pending lokal → update antrean LS langsung.
+    if (editGuest.id.startsWith("local-")) {
+      try {
+        const q = getQueue(eventId).map((x) =>
+          x.id === editGuest.id
+            ? { ...x, nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan || null }
+            : x
+        );
+        const { setQueue } = await import("@/lib/offline-sync");
+        setQueue(eventId, q);
+      } catch {}
+      setGuests((list) => list.map((g) => (g.id === editGuest.id ? { ...g, nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan } : g)));
+      setEditGuest(null);
+      refreshPendingCount(eventId).then(setPendingCount).catch(() => {});
+      return;
+    }
+    const fields = { nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan };
+    const prev = guests;
+    setGuests((list) => list.map((g) => (g.id === editGuest.id ? { ...g, ...fields } : g)));
+    setEditGuest(null);
+    try {
+      const res = await fetch(`/api/guests/${editGuest.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (res.ok) { loadGuests(); loadShortcuts(); loadRekap(); loadAudit(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("UPDATE_GUEST", "guests", { id: editGuest.id, fields });
+        loadShortcuts(); loadRekap();
+        return;
+      }
+      setGuests(prev);
+      alert((data as { error?: string }).error || "Gagal update");
+      return;
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("UPDATE_GUEST", "guests", { id: editGuest.id, fields });
+        return;
+      }
+      setGuests(prev);
+    }
+  }
+  async function updateMejaListOffline(next: string[]) {
+    if (event) setEvent({ ...event, mejaList: next });
+    try {
+      const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
+      if (res.ok) { loadEvent(); return; }
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields: { mejaList: next } });
+        try { if (event) await putCachedEvent({ ...event, mejaList: next, id: eventId }); } catch {}
+        return;
+      }
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields: { mejaList: next } });
+        return;
+      }
+    }
   }
   async function handleUpdateEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!editNamaTuanRumah.trim() || editNamaTuanRumah.trim().length < 2) { alert("Nama tuan rumah wajib minimal 2 huruf"); return; }
-    const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ namaAcara: editNama, namaTuanRumah: toTitleCasePerKata(editNamaTuanRumah), tanggal: editTanggal, lokasi: editLokasi, catatan: editCatatan }) });
-    if (!res.ok) { const j = await res.json(); alert(j.error || "Gagal update"); return; }
-    setEditMode(false); loadEvent(); loadAudit();
+    const fields = { namaAcara: editNama, namaTuanRumah: toTitleCasePerKata(editNamaTuanRumah), tanggal: editTanggal, lokasi: editLokasi, catatan: editCatatan };
+    const prevEvent = event;
+    if (event) setEvent({ ...event, namaAcara: fields.namaAcara, namaTuanRumah: fields.namaTuanRumah, tanggal: new Date(fields.tanggal).toISOString(), lokasi: fields.lokasi, catatan: fields.catatan });
+    setEditMode(false);
+    try {
+      const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+      if (res.ok) { loadEvent(); loadAudit(); return; }
+      let j: { error?: string } = {};
+      try { j = await res.json(); } catch {}
+      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields });
+        try { if (event) await putCachedEvent({ ...event, ...fields, id: eventId }); } catch {}
+        return;
+      }
+      if (prevEvent) setEvent(prevEvent);
+      alert(j.error || "Gagal update");
+      return;
+    } catch (err) {
+      if (isNetworkError(err) || !isOnline()) {
+        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields });
+        try { if (event) await putCachedEvent({ ...event, ...fields, id: eventId }); } catch {}
+        return;
+      }
+      if (prevEvent) setEvent(prevEvent);
+    }
   }
 
   async function handleExport(type: "excel" | "pdf") {
@@ -767,6 +1317,16 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       <div className="w-6 h-6 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
     </div>
   );
+  // Fase 4: kunci PIN offline — sebelum konten apapun dirender.
+  if (locked) return (
+    <OfflineLock
+      eventName={event?.namaAcara}
+      onUnlock={() => {
+        setEventUnlocked(eventId);
+        setLocked(false);
+      }}
+    />
+  );
   if (!event) return (
     <div className="min-h-dvh bg-[var(--background)] flex items-center justify-center">
       <div className="text-center">
@@ -803,7 +1363,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               const nv = prompt("Nama meja custom (ex: MEJA-4):");
               if (nv) {
                 const next = [...(event.mejaList || []), nv.toUpperCase()];
-                fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) }).then(() => loadEvent());
+                updateMejaListOffline(next);
                 setMejaLabel(nv.toUpperCase());
               }
             } else setMejaLabel(v);
@@ -821,7 +1381,36 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
           compact={isInputTab}
         />
 
-        {isOfflineMode && (
+        {isBrowserOffline && (
+          <div role="alert" className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--error-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
+            <div className="flex items-center gap-1.5 text-[var(--on-error-container)] truncate">
+              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? `Offline — input tetap tersimpan (${pendingCount})` : "Koneksi putus — input tetap tersimpan lokal."}</span>
+              {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-xs shrink-0">{pendingCount}</span>}
+            </div>
+            <span className="text-xs opacity-70 shrink-0">auto sync 1m</span>
+          </div>
+        )}
+        {syncError && !isBrowserOffline && (
+          <div role="alert" className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--error-container)] border border-[var(--outline-variant)] text-[var(--on-error-container)] flex items-center justify-between gap-2`}>
+            <span className="truncate">{syncError}</span>
+            <button onClick={() => setSyncError(null)} aria-label="Tutup" className="shrink-0 opacity-70 hover:opacity-100">✕</button>
+          </div>
+        )}
+        {/* Fase 5: konflik duplikat yang butuh catatan — bisa dibuka kapan saja. */}
+        {conflictCount > 0 && (
+          <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
+            <span className="text-[var(--on-warning-container)] truncate">
+              {conflictCount} data duplikat butuh catatan
+            </span>
+            <button
+              onClick={() => setConflictOpen(true)}
+              className={`${isInputTab ? "h-7 px-2.5 text-xs" : "h-7 px-3 text-xs"} rounded-full bg-[var(--warning)] text-white font-medium shrink-0`}
+            >
+              Selesaikan
+            </button>
+          </div>
+        )}
+        {isOfflineMode && !isBrowserOffline && (
           <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
             <div className="flex items-center gap-1.5 text-[var(--on-warning-container)] truncate">
               <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? "Offline" : "Mode Offline — data lokal."}</span>
@@ -832,10 +1421,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             </button>
           </div>
         )}
-        {!isOfflineMode && pendingCount > 0 && (
+        {!isOfflineMode && !isBrowserOffline && pendingCount > 0 && (
           <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} pending` : `${pendingCount} data menunggu sync · 30m`}</span>
-            <button onClick={handleSyncToServer} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium shrink-0 disabled:opacity-50">{isSyncing ? "…" : "Sync"}</button>
+            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} pending` : `${pendingCount} data menunggu sync · 1m`}</span>
+            <button onClick={handleSyncToServer} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium flex items-center gap-1 shrink-0 disabled:opacity-50"><CloudUpload size={12} />{isSyncing ? "…" : "Sync"}</button>
           </div>
         )}
         {/* Tabs — offset ikuti tinggi header 2-baris mobile (~76px) agar tak tertutup */}
@@ -1061,11 +1650,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   <tbody className="divide-y divide-[var(--outline-variant)]">
                     {guests.map((g, i) => {
                       const kasir = members.find(m => m.user.id === g.petugasId);
+                      const isPending = g.id.startsWith("local-") || g.petugasId === "local";
                       return (
-                        <tr key={g.id} className="hover:bg-[var(--surface-container)] transition-colors">
+                        <tr key={g.id} className={`hover:bg-[var(--surface-container)] transition-colors ${isPending ? "opacity-80" : ""}`}>
                           <td className="p-2 text-center text-xs text-[var(--on-surface-variant)]">{(page - 1) * LIMIT + i + 1}</td>
                           <td className="p-2">
-                            <div className="font-medium text-[var(--on-surface)]">{g.nama}</div>
+                            <div className="font-medium text-[var(--on-surface)] flex items-center gap-1.5">{g.nama}{isPending && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-[10px] font-semibold shrink-0">pending</span>}</div>
                             {g.catatan && <div className="text-xs text-[var(--on-warning-container)]">↳ {g.catatan}</div>}
                           </td>
                           <td className="p-2 text-[var(--on-surface-variant)] text-sm">{g.alamat}</td>
@@ -1109,12 +1699,13 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <div className="mt-3 sm:hidden divide-y divide-[var(--outline-variant)]">
                 {guests.map((g, i) => {
                   const kasir = members.find(m => m.user.id === g.petugasId);
+                  const isPending = g.id.startsWith("local-") || g.petugasId === "local";
                   return (
                     <div key={g.id} className="py-3 flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0 flex-1">
                         <span className="text-xs text-[var(--on-surface-variant)] w-5 text-center pt-0.5 shrink-0">{(page - 1) * LIMIT + i + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-[var(--on-surface)] text-sm truncate">{g.nama}</div>
+                          <div className="font-medium text-[var(--on-surface)] text-sm truncate flex items-center gap-1.5">{g.nama}{isPending && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-[10px] font-semibold shrink-0">pending</span>}</div>
                           <div className="text-xs text-[var(--on-surface-variant)] truncate">{g.alamat}</div>
                           {g.catatan && <div className="text-xs text-[var(--on-warning-container)] mt-0.5">↳ {g.catatan}</div>}
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -1209,7 +1800,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                               <button onClick={() => openEditBook(b)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-colors">
                                 <Pencil size={14} className="text-[var(--on-surface-variant)]" />
                               </button>
-                              <button onClick={async () => { if (!confirm("Hapus buku tamu ini?")) return; await fetch(`/api/guestbooks/${b.id}`, { method: "DELETE" }); loadBooks(); }} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
+                              <button onClick={() => handleDeleteBook(b.id)} className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
                                 <Trash2 size={14} className="text-[var(--error)]" />
                               </button>
                             </div>
@@ -1361,7 +1952,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   <p className="text-xs text-[var(--on-warning-container)] bg-[var(--warning-container)] px-3 py-1.5 rounded-lg border border-[var(--outline-variant)] mb-3">Hanya OWNER bisa kelola</p>
                 ) : null}
                 <div className="space-y-2 mt-3">
-                  <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user (nama/email)" disabled={event.myRole !== "OWNER" || isOfflineMode}
+                  <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user (nama/username/email)" disabled={event.myRole !== "OWNER" || isOfflineMode}
                     className={`${inputCls} disabled:opacity-50`} />
                   <select value={addRole} onChange={e => setAddRole(e.target.value)} disabled={event.myRole !== "OWNER" || isOfflineMode}
                     className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none disabled:opacity-50">
@@ -1405,7 +1996,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                           </div>
                         </div>
                         {event.myRole === "OWNER" && (
-                          <button onClick={async () => { if (!confirm("Hapus anggota?")) return; await fetch(`/api/events/${eventId}/members?userId=${m.user.id}`, { method: "DELETE" }); loadMembers(); }}
+                          <button onClick={() => handleRemoveMember(m.user.id)}
                             className="w-7 h-7 rounded-lg border border-[var(--outline-variant)] hover:bg-[var(--error-container)] hover:border-[var(--error)] flex items-center justify-center transition-colors">
                             <X size={14} className="text-[var(--error)]" />
                           </button>
@@ -1479,16 +2070,15 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       const trimmed = nv.trim().toUpperCase();
                       if ((event.mejaList || []).includes(trimmed)) { alert("Meja sudah ada"); return; }
                       const next = (event.mejaList || []).map((x: string) => x === m ? trimmed : x);
-                      const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
-                      if (res.ok) { loadEvent(); if (mejaLabel === m) setMejaLabel(trimmed); }
+                      await updateMejaListOffline(next);
+                      if (mejaLabel === m) setMejaLabel(trimmed);
                     }} className="hover:opacity-70 transition-opacity">
                       <Pencil size={14} />
                     </button>
                     <button aria-label={`Hapus ${m}`} onClick={async () => {
                       if (!confirm(`Hapus ${m}?`)) return;
                       const next = (event.mejaList || []).filter((x: string) => x !== m);
-                      await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
-                      loadEvent();
+                      await updateMejaListOffline(next);
                     }} className="hover:text-[var(--error)] transition-colors">
                       <X size={14} />
                     </button>
@@ -1502,8 +2092,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 <button onClick={async () => {
                   if (!newMeja.trim()) return;
                   const next = [...(event.mejaList || []), newMeja.trim().toUpperCase()];
-                  const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
-                  if (res.ok) { setNewMeja(""); loadEvent(); }
+                  await updateMejaListOffline(next);
+                  setNewMeja("");
                 }} disabled={!newMeja.trim() || !isEditor}
                   className="h-9 px-4 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50">
                   Tambah
@@ -1568,6 +2158,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Fase 5: selesaikan konflik duplikat dari antrean sync */}
+      {conflictOpen && (
+        <ConflictResolver
+          eventId={eventId}
+          onClose={() => setConflictOpen(false)}
+          onChanged={() => {
+            reloadConflicts().catch(() => {});
+            loadGuests();
+            loadRekap();
+          }}
+        />
       )}
 
       {/* Detail Log */}
@@ -1677,7 +2280,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
              </div>
             <select value={editGuestData.metode} onChange={e => setEditGuestData({ ...editGuestData, metode: e.target.value })}
               className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none">
-              <option>AMPLOP</option><option>CASH</option><option>QRIS</option><option>TRANSFER</option><option>BARANG</option>
+              <option>AMPLOP</option><option>QRIS</option><option>TRANSFER</option>
+              {["CASH", "BARANG"].includes(editGuestData.metode) && (
+                <option value={editGuestData.metode}>{editGuestData.metode} (lama)</option>
+              )}
             </select>
             <input value={editGuestData.catatan} onChange={e => setEditGuestData({ ...editGuestData, catatan: e.target.value })} placeholder="Catatan (opsional)" className={inputCls} maxLength={200} />
             <div className="flex gap-2 pt-1">

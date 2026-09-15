@@ -35,7 +35,6 @@ const metodePool = [
   { value: "QRIS", weight: 15 },
   { value: "TRANSFER", weight: 3 },
   { value: "BARANG", weight: 1 },
-  { value: "CASH", weight: 1 },
 ];
 
 function pickWeighted<T extends { weight: number }>(pool: T[]): T {
@@ -170,7 +169,7 @@ async function main() {
     }
 
     const nominal = pickWeighted(nominalPool).value;
-    const metode = pickWeighted(metodePool).value as "AMPLOP" | "QRIS" | "TRANSFER" | "BARANG" | "CASH";
+    const metode = pickWeighted(metodePool).value as "AMPLOP" | "QRIS" | "TRANSFER" | "BARANG";
     const catatan = catatanPool[Math.floor(Math.random() * catatanPool.length)] || null;
     const petugasId = petugasIds[Math.floor(Math.random() * petugasIds.length)];
     const mejaLabel = petugasMeja[petugasId] ?? "MEJA-1";

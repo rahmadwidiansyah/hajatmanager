@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowLeft, Wallet, Eye, EyeOff, Download, RefreshCw, Zap } from "lucide-react";
+import { ArrowLeft, Wallet, Eye, EyeOff, Download, CloudUpload, CloudCheck, Zap } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -99,11 +99,11 @@ export function TopBar({
       className={`relative shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center disabled:opacity-50 ${autoSync ? "bg-[var(--primary-container)] border-[var(--outline-variant)] text-[var(--on-primary-container)]" : "bg-[var(--surface-container)] border-[var(--outline-variant)] text-[var(--on-surface-variant)]"}`}
     >
       {isSyncing ? (
-        <RefreshCw size={14} className="animate-spin" />
-      ) : autoSync ? (
-        <Zap size={14} />
+        <CloudUpload size={14} className="animate-pulse" />
+      ) : pending > 0 ? (
+        <CloudUpload size={14} />
       ) : (
-        <RefreshCw size={14} />
+        <CloudCheck size={14} />
       )}
       {pending > 0 && (
         <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-[var(--warning)] text-white text-[10px] leading-4 text-center font-semibold">
@@ -111,7 +111,9 @@ export function TopBar({
         </span>
       )}
       {autoSync && !isSyncing && (
-        <span aria-hidden className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />
+        <span aria-hidden className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[var(--primary)] flex items-center justify-center">
+          <Zap size={8} className="text-white" />
+        </span>
       )}
     </button>
   );
