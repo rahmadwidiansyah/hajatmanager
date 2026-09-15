@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.2...v1.1.3) (2026-09-15)
+
+
+### Bug Fixes
+
+* **ci:** pre-build web di workflow, tanpa beforeBuildCommand ([c5b07da](https://github.com/rahmadwidiansyah/hajatmanager/commit/c5b07daed6e370f8cde050ebd15a2a3d842bb2b6))
+
 ## [1.1.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.1...v1.1.2) (2026-09-15)
 
 
