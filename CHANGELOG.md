@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.2.0...v1.3.0) (2026-09-16)
+
+
+### Features
+
+* **web,mobile:** viewer read-only, error pages M3, logout confirm, footer credit ([4d045f1](https://github.com/rahmadwidiansyah/hajatmanager/commit/4d045f17a5c7d5da132b28dcdc55d2c0ba7175de))
+
 # [1.2.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.7...v1.2.0) (2026-09-16)
 
 
