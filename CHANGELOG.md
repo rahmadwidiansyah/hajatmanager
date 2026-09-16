@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.4.0...v1.4.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ci:** tambah name repo di outputs digest docker matrix ([fc3ffd8](https://github.com/rahmadwidiansyah/hajatmanager/commit/fc3ffd8986d2eb688ddaf974b57401d88f4f3363))
+
 # [1.4.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.3.0...v1.4.0) (2026-09-16)
 
 
