@@ -69,11 +69,7 @@ model Event {
   lokasi        String?
   catatan       String?
   mejaList      String[]      @default(["MEJA-1", "MEJA-2"])
-  mode          EventMode     @default(ONLINE)
-  isOffline     Boolean       @default(false)
-  localOnly     Boolean       @default(false)
   lastSyncAt    DateTime?
-  serverId      String?
   createdById   String
   createdAt     DateTime      @default(now())
   members       EventMember[]
@@ -151,11 +147,6 @@ enum EventRole {
   OWNER
   ADMIN
   VIEWER
-}
-
-enum EventMode {
-  ONLINE
-  OFFLINE
 }
 
 enum Metode {

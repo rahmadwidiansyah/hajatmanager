@@ -16,7 +16,11 @@ export function DashboardHeader({ user, displayName }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { mode, systemMode, setMode } = useColorScheme();
-  const isDark = (mode === "system" ? systemMode : mode) === "dark";
+  // Hydration-safe: sebelum mount, paksa varian terang agar sama dengan SSR.
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pola mounted guard standar anti-hydration-mismatch
+  useEffect(() => { setMounted(true); }, []);
+  const isDark = mounted && (mode === "system" ? systemMode : mode) === "dark";
 
   useEffect(() => {
     function onClick(e: MouseEvent) {

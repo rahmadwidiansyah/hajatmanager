@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import CreateEvent from "./CreateEvent";
 import { DashboardHeader } from "./DashboardHeader";
+import { DashboardSync } from "./DashboardSync";
 import { CalendarDays, MapPin, ArrowRight } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -33,13 +34,14 @@ export default async function DashboardPage() {
       />
 
       <main className="page-shell py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-[var(--on-surface)]">Acara Saya</h1>
             <p className="text-sm text-[var(--on-surface-variant)] mt-0.5">{events.length} acara</p>
           </div>
           <CreateEvent />
         </div>
+        <DashboardSync />
 
         {events.length === 0 ? (
           <div className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-6 text-left flex items-start gap-4">
@@ -54,14 +56,12 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {events.map((ev) => {
-              const e = ev as typeof ev & { namaTuanRumah?: string | null; mode?: string; isOffline?: boolean };
-              const isOff = (e as { isOffline?: boolean }).isOffline || (e as { mode?: string }).mode === "OFFLINE";
+              const e = ev as typeof ev & { namaTuanRumah?: string | null };
               return (
                 <div key={ev.id} className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5 shadow-[var(--shadow-elevation-1)] hover:border-[var(--primary)] transition-colors group">
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <h3 className="font-semibold text-[var(--on-surface)] leading-snug">{ev.namaAcara}</h3>
                     <span className="flex items-center gap-1 shrink-0">
-                      {isOff && <span className="text-xs px-2 py-0.5 rounded-full font-medium border bg-[var(--warning-container)] text-[var(--on-warning-container)] border-[var(--outline-variant)]">Offline</span>}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
                         ev.role === "OWNER"
                           ? "bg-[var(--primary-container)] text-[var(--on-primary-container)] border-[var(--outline-variant)]"
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--on-surface-variant)]">
                     <span className="flex items-center gap-1">
                       <CalendarDays size={14} />
-                      {new Date(ev.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                      {new Date(ev.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" })}
                     </span>
                     {ev.lokasi && (
                       <span className="flex items-center gap-1">

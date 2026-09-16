@@ -276,10 +276,8 @@ class _EventsScreenState extends State<EventsScreen> {
       'tanggal': DateTime.now().toIso8601String(),
       'lokasi': lokC.text.trim().isEmpty ? null : lokC.text.trim(),
       'mejaList': ['MEJA-1', 'MEJA-2'],
-      'mode': 'ONLINE',
-      'localOnly': true,
     };
-    // simpan lokal + antre
+    // simpan lokal + antre (semua acara online, offline hanya antrean jaringan)
     final db = await LocalDb.instance.db();
     await db.insert('events', {
       'id': id,
@@ -289,7 +287,6 @@ class _EventsScreenState extends State<EventsScreen> {
       'lokasi': payload['lokasi'],
       'catatan': null,
       'mejaList': 'MEJA-1,MEJA-2',
-      'mode': 'ONLINE',
     });
     await LocalDb.instance
         .enqueue(id, 'CREATE_EVENT', 'events', payload, id: id);

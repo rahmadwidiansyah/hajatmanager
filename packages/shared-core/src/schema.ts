@@ -32,11 +32,7 @@ export const events = sqliteTable("events", {
   lokasi: text("lokasi"),
   catatan: text("catatan"),
   mejaList: text("mejaList", { mode: "json" }).$type<string[]>().notNull(),
-  mode: text("mode").notNull().default("ONLINE"), // ONLINE | OFFLINE
-  isOffline: integer("isOffline", { mode: "boolean" }).notNull().default(false),
-  localOnly: integer("localOnly", { mode: "boolean" }).notNull().default(false),
   lastSyncAt: text("lastSyncAt"),
-  serverId: text("serverId"),
   createdById: text("createdById").notNull(),
   createdAt: text("createdAt").notNull(),
 });

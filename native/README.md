@@ -5,8 +5,8 @@ Arsitektur hybrid sesuai plan:
 - **Windows**: Tauri v2 (Rust + WebView2) → `native/windows` — target Win10/11, installer EXE NSIS sideload, size ~10-15 MB.
 - **Android**: Capacitor 6 → `native/android` — target API 31+ (Android 12+), APK sideload, `minSdk 31 targetSdk 34`.
 - **Shared**: Next.js build static di-load di WebView, data lokal SQLite (`tauri-plugin-sql` / `@capacitor-community/sqlite`), sync engine `lib/offline-sync.ts` + `app/api/sync/**`.
-- **Offline**: login online sekali (Google/Credentials JWT 30 hari) + **PIN 6 digit** (`app/api/users/pin`) untuk buka app saat offline. Data disimpan di `localStorage offlineQueue:${eventId}` (web) atau SQLite (native). Auto-sync **30 menit** di background tanpa blokir UI (`requestIdleCallback` + `Network` listener + `visibilitychange`).
-- **Event Offline**: `Event.mode` ONLINE/OFFLINE (`prisma/schema.prisma`). Offline → `isOffline=true`, multi-anggota disabled (`app/api/events/[id]/members` 403 + UI banner). Tombol **Sync ke Server** → `POST /api/sync/push` + `PATCH /api/events/[id]` `mode:ONLINE` → unlock.
+- **Offline**: login online sekali (Google/Credentials JWT 30 hari) + **PIN 6 digit** (`app/api/users/pin`) untuk buka app saat offline. Data disimpan di outbox Dexie/SQLite + read-cache. Auto-sync **1 menit** di background tanpa blokir UI (`requestIdleCallback` + `Network` listener + `visibilitychange`). Selalu coba ke server dulu saat online.
+- **Semua acara online**: tidak ada lagi mode offline/online. Tombol sync di TopBar hijau = tersinkron, kuning = ada antrean, abu-abu = offline.
 
 ## Setup Windows (Tauri)
 
@@ -59,4 +59,4 @@ Capacitor config ada di `capacitor.config.ts`. Next.js `next.config.ts` untuk na
 
 `packages/shared-core/src` berisi schema Drizzle SQLite mirror Prisma, sync engine, PIN helper (`lib/pin.ts`). Saat native siap, pindahkan `lib/offline-sync.ts` ke shared-core dan pakai SQLite adapter bukan localStorage.
 
-Flow: `enqueueGuest` (offline) → local queue → `startBackgroundSync` interval 30 menit → `flushOfflineQueue` POST `/api/sync/push` saat online.
+Flow: `enqueueOp` (offline) → outbox lokal → `startBackgroundSync` interval 1 menit → `flushOfflineQueue` POST `/api/sync/push` saat online + `pullDelta`.

@@ -22,8 +22,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
   bool saving = false;
   bool memberBusy = false;
   bool deleting = false;
-  bool eventOffline = false;
-  bool activating = false;
   String myRole = 'VIEWER';
   List<Map<String, dynamic>> members = [];
   List<String> meja = [];
@@ -96,8 +94,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
       setState(() {
         myRole = role;
         members = ms;
-        eventOffline =
-            (j['isOffline'] == true) || ('${j['mode'] ?? ''}' == 'OFFLINE');
         if (ml != null && ml.isNotEmpty) meja = ml;
         totalTamu = (j['totalTamu'] as int?) ?? 0;
         totalNominal = (j['totalNominal'] as int?) ?? 0;
@@ -214,33 +210,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
       e.type == DioExceptionType.connectionTimeout ||
       e.type == DioExceptionType.receiveTimeout;
 
-  bool _isOfflineLocked(DioException e) {
-    final m = e.response?.data;
-    if (m is Map) {
-      final raw = '${m['message'] ?? m['error'] ?? ''}';
-      if (raw.contains('OFFLINE_LOCKED')) return true;
-    }
-    return false;
-  }
-
-  /// Aktifkan multi-anggota: ubah acara OFFLINE → ONLINE di server.
-  Future<void> _activateMembers() async {
-    setState(() => activating = true);
-    try {
-      final dio = await ApiClient.instance.dio();
-      await dio.patch('/api/events/${widget.event.id}',
-          data: {'mode': 'ONLINE'});
-      await _load();
-      _snack('Acara online ✓ — anggota bisa dikelola');
-    } on DioException catch (e) {
-      _snack(serverMsg(e));
-    } finally {
-      if (mounted) setState(() => activating = false);
-    }
-  }
-
   /// Adaptif: coba kirim langsung; jaringan putus → antre (auto-sync nanti).
-  /// Aturan server (OFFLINE_LOCKED/ditolak) TIDAK diantre — tampilkan pesan.
   Future<void> _addMemberById(String userId) async {
     setState(() {
       memberBusy = true;
@@ -275,9 +245,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
         }
         _snack('Offline — tambah anggota antre, auto-sync nanti');
       } else {
-        if (_isOfflineLocked(e) && mounted) {
-          setState(() => eventOffline = true);
-        }
         _snack(serverMsg(e));
       }
     } finally {
@@ -305,9 +272,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
         await SyncEngine.instance.pending(widget.event.id);
         _snack('Offline — ubah peran antre, auto-sync nanti');
       } else {
-        if (_isOfflineLocked(e) && mounted) {
-          setState(() => eventOffline = true);
-        }
         _snack(serverMsg(e));
       }
     } finally {
@@ -347,9 +311,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
         await _load();
         _snack('Offline — hapus anggota antre, auto-sync nanti');
       } else {
-        if (_isOfflineLocked(e) && mounted) {
-          setState(() => eventOffline = true);
-        }
         _snack(serverMsg(e));
       }
     } finally {
@@ -621,46 +582,6 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleSmall),
-                        if (eventOffline) ...[
-                          const SizedBox(height: 8),
-                          Card(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .tertiaryContainer,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(children: [
-                                Icon(Icons.cloud_off_outlined,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onTertiaryContainer),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Text(
-                                      'Acara mode Offline — fitur anggota nonaktif.',
-                                      style: TextStyle(fontSize: 12)),
-                                ),
-                                if (isOwner)
-                                  FilledButton.tonal(
-                                    onPressed: activating
-                                        ? null
-                                        : _activateMembers,
-                                    child: activating
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child:
-                                                CircularProgressIndicator(
-                                                    strokeWidth: 2))
-                                        : const Text('Aktifkan'),
-                                  )
-                                else
-                                  const Text('Minta OWNER mengaktifkan.',
-                                      style: TextStyle(fontSize: 11)),
-                              ]),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 8),
                         ...members.map((m) {
                           final u =

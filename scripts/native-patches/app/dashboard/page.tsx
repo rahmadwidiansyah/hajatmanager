@@ -61,14 +61,11 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {events.map((ev) => {
-              const e = ev as typeof ev & { namaTuanRumah?: string | null; mode?: string; isOffline?: boolean };
-              const isOff = (e as { isOffline?: boolean }).isOffline || (e as { mode?: string }).mode === "OFFLINE";
               return (
                 <div key={ev.id} className="bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] rounded-2xl p-5">
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <h3 className="font-semibold text-[var(--on-surface)] leading-snug">{ev.namaAcara}</h3>
                     <span className="flex items-center gap-1 shrink-0">
-                      {isOff && <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700">Offline</span>}
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${ev.role === "OWNER" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100"}`}>{ev.role}</span>
                     </span>
                   </div>

@@ -36,9 +36,6 @@ const eventSchema = z.object({
   lokasi: z.string().nullable().optional(),
   catatan: z.string().nullable().optional(),
   mejaList: z.array(z.string()).optional(),
-  mode: z.enum(["ONLINE", "OFFLINE"]).optional(),
-  isOffline: z.boolean().optional(),
-  localOnly: z.boolean().optional(),
   createdAt: z.string().optional(),
 });
 
@@ -62,20 +59,17 @@ export async function POST(req: Request) {
   let syncedGuests = 0;
   const conflicts: { id: string; reason: string }[] = [];
 
-  // Sync offline-created events: if localOnly and not exists on server, create
+  // Sync events created while offline: idempotent by id.
   for (const ev of events) {
     const exists = await prisma.event.findUnique({ where: { id: ev.id } });
     if (exists) {
-      // update if offline event now online
-      if (ev.mode === "ONLINE" && exists.isOffline) {
-        await prisma.event.update({ where: { id: ev.id }, data: { mode: "ONLINE", isOffline: false, localOnly: false, lastSyncAt: new Date() } });
-        await prisma.auditLog.create({ data: { eventId: ev.id, userId: auth.user.id, aksi: "SYNC_ONLINE", detail: { from: "OFFLINE" } } }).catch(() => {});
-      }
       syncedEvents++;
       continue;
     }
-    // create event that was offline localOnly
     try {
+      const memberExists = await prisma.eventMember.findUnique({
+        where: { eventId_userId: { eventId: ev.id, userId: auth.user.id } },
+      }).catch(() => null);
       await prisma.event.create({
         data: {
           id: ev.id,
@@ -85,14 +79,12 @@ export async function POST(req: Request) {
           lokasi: ev.lokasi ?? null,
           catatan: ev.catatan ?? null,
           mejaList: ev.mejaList ?? ["MEJA-1", "MEJA-2"],
-          mode: (ev.mode as "ONLINE" | "OFFLINE") ?? "ONLINE",
-          isOffline: false,
-          localOnly: false,
           lastSyncAt: new Date(),
           createdById: auth.user.id,
-          members: { create: { userId: auth.user.id, role: "OWNER" } },
+          members: memberExists ? undefined : { create: { userId: auth.user.id, role: "OWNER" } },
         },
       });
+      await prisma.auditLog.create({ data: { eventId: ev.id, userId: auth.user.id, aksi: "CREATE_EVENT", targetId: ev.id, detail: { namaAcara: ev.namaAcara, sync: true } } }).catch(() => {});
       syncedEvents++;
     } catch (e) {
       conflicts.push({ id: ev.id, reason: e instanceof Error ? e.message : "create failed" });
@@ -149,7 +141,7 @@ export async function POST(req: Request) {
 
   // update lastSyncAt for involved events
   const eventIds = [...new Set([...events.map((e) => e.id), ...guests.map((g) => g.eventId), ...guestBooks.map((b) => b.eventId)])];
-  if (eventIds.length) await prisma.event.updateMany({ where: { id: { in: eventIds } }, data: { lastSyncAt: new Date(), isOffline: false, localOnly: false, mode: "ONLINE" } }).catch(() => {});
+  if (eventIds.length) await prisma.event.updateMany({ where: { id: { in: eventIds } }, data: { lastSyncAt: new Date() } }).catch(() => {});
 
   return NextResponse.json({ ok: true, synced: { events: syncedEvents, guestBooks: syncedBooks, guests: syncedGuests }, conflicts, lastSyncAt: new Date().toISOString() });
 }

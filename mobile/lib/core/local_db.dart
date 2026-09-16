@@ -154,9 +154,9 @@ class LocalDb {
       final m = Map<String, dynamic>.from(e);
       // Pertahankan myRole lama saat refresh (ON CONFLICT tanpa replace).
       b.rawInsert(
-          '''INSERT INTO events(id,namaAcara,namaTuanRumah,tanggal,lokasi,catatan,mejaList,mode,lastSyncAt,myRole)
-          VALUES(?,?,?,?,?,?,?,?,?,COALESCE((SELECT myRole FROM events WHERE id=?),'VIEWER'))
-          ON CONFLICT(id) DO UPDATE SET namaAcara=excluded.namaAcara,namaTuanRumah=excluded.namaTuanRumah,tanggal=excluded.tanggal,lokasi=excluded.lokasi,catatan=excluded.catatan,mejaList=excluded.mejaList,mode=excluded.mode,lastSyncAt=excluded.lastSyncAt''',
+          '''INSERT INTO events(id,namaAcara,namaTuanRumah,tanggal,lokasi,catatan,mejaList,lastSyncAt,myRole)
+          VALUES(?,?,?,?,?,?,?, ?,COALESCE((SELECT myRole FROM events WHERE id=?),'VIEWER'))
+          ON CONFLICT(id) DO UPDATE SET namaAcara=excluded.namaAcara,namaTuanRumah=excluded.namaTuanRumah,tanggal=excluded.tanggal,lokasi=excluded.lokasi,catatan=excluded.catatan,mejaList=excluded.mejaList,lastSyncAt=excluded.lastSyncAt''',
           [
             '${m['id']}',
             '${m['namaAcara'] ?? '-'}',
@@ -165,7 +165,6 @@ class LocalDb {
             m['lokasi']?.toString(),
             m['catatan']?.toString(),
             ((m['mejaList'] as List?)?.join(',') ?? 'MEJA-1,MEJA-2'),
-            '${m['mode'] ?? 'ONLINE'}',
             m['lastSyncAt']?.toString(),
             '${m['id']}',
           ]);

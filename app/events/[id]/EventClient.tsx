@@ -134,17 +134,16 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const LIMIT = 50;
-  const [event, setEvent] = useState<{ id: string; namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string; mode?: string; isOffline?: boolean; localOnly?: boolean; lastSyncAt?: string | null } | null>(null);
+  const [event, setEvent] = useState<{ id: string; namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string; lastSyncAt?: string | null } | null>(null);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [loading, setLoading] = useState(true);
   const [mejaLabel, setMejaLabel] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
-  // Fase 1: status jaringan browser asli (navigator.onLine) — pisah dari mode acara server.
-  const [isBrowserOffline, setIsBrowserOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  // Status jaringan browser: semua acara online, offline hanya kondisi jaringan sementara.
+  // Hydration-safe: server selalu render "online". Status asli disinkron di useEffect (subscribeNetworkStatus).
+  const [isBrowserOffline, setIsBrowserOffline] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   // Fase 4: kunci PIN saat offline (buka per tab via PIN yang di-cache).
   const [locked, setLocked] = useState(false);
@@ -158,14 +157,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       setConflictCount(ops.length);
     } catch {}
   }
-  const [hideNominal, setHideNominal] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        return localStorage.getItem(`hideNominal:${eventId}`) === "true";
-      } catch { return false; }
-    }
-    return false;
-  });
+  // Hydration-safe: server selalu render nominal terlihat. Preferensi asli dibaca di useEffect.
+  const [hideNominal, setHideNominal] = useState(false);
 
   const [nama, setNama] = useState("");
   const [alamat, setAlamat] = useState("");
@@ -250,12 +243,6 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     localStorage.setItem(`mejaLabel:${eventId}:${userEmail}`, mejaLabel);
   }, [mejaLabel, eventId, userEmail]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(`autoSync:${eventId}`);
-    if (saved !== null) setAutoSync(JSON.parse(saved));
-  }, [eventId]);
-  useEffect(() => { localStorage.setItem(`autoSync:${eventId}`, JSON.stringify(autoSync)); }, [autoSync, eventId]);
-
   useEffect(() => { try { localStorage.setItem(`hideNominal:${eventId}`, String(hideNominal)); } catch {} }, [hideNominal, eventId]);
   // sync when switching events (lazy init covers first mount, this covers eventId change)
   useEffect(() => {
@@ -271,7 +258,6 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (res.ok) {
         const j = await res.json();
         setEvent(j);
-        setIsOfflineMode(!!j.isOffline || j.mode === "OFFLINE");
         setEditNama(j.namaAcara);
         setEditNamaTuanRumah(j.namaTuanRumah || "");
         setEditTanggal(new Date(j.tanggal).toISOString().slice(0, 10));
@@ -285,13 +271,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       // Fase 1: offline — jangan throw, biarkan UI pakai data lama + banner offline.
       // Penyebab "kadang ngga": fetch reject (TypeError) bikin loading macet.
     }
-    // Fase 2: fallback cache saat fetch gagal/offline.
+    // Fallback cache saat fetch gagal/offline.
     try {
       const c = await getCachedEvent(eventId);
       if (c && typeof c.namaAcara === "string") {
-        const j = c as unknown as { namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string; mode?: string; isOffline?: boolean };
-        setEvent({ id: eventId, namaAcara: j.namaAcara, namaTuanRumah: j.namaTuanRumah ?? null, tanggal: j.tanggal, lokasi: j.lokasi ?? null, catatan: j.catatan ?? null, mejaList: j.mejaList, myRole: j.myRole || "VIEWER", mode: j.mode, isOffline: j.isOffline });
-        setIsOfflineMode(!!j.isOffline || j.mode === "OFFLINE");
+        const j = c as unknown as { namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string };
+        setEvent({ id: eventId, namaAcara: j.namaAcara, namaTuanRumah: j.namaTuanRumah ?? null, tanggal: j.tanggal, lokasi: j.lokasi ?? null, catatan: j.catatan ?? null, mejaList: j.mejaList, myRole: j.myRole || "VIEWER" });
       }
     } catch {}
   }
@@ -505,60 +490,40 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     return e instanceof TypeError || (e instanceof DOMException && (e.name === "AbortError" || e.name === "TimeoutError"));
   }
 
-  const handleRefresh = async () => {
-    setIsSyncing(true);
-    setSyncError(null);
-    try {
-      // flush offline queue in background without blocking refresh
-      if (pendingCount > 0 && isOnline()) {
-        const r = await flushOfflineQueue(eventId).catch(() => ({ flushed: 0, conflicts: 0, error: "offline" as const }));
-        try {
-          setPendingCount(await getTotalPendingAsync(eventId));
-        } catch {
-          setPendingCount(getPendingCount(eventId));
-        }
-        if (r.error && r.error !== "offline") setSyncError(r.error);
-      } else if (isOnline()) {
-        // Fase 2: walau tidak ada pending, tarik delta agar multi-device sinkron.
-        try { await pullDelta(eventId); } catch {}
-      }
-      await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
-      try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
-      setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Push data pending ke server — mode acara (OFFLINE/ONLINE) TIDAK diubah.
-  // Tombol ini hanya sinkronisasi data tamu, bukan mengubah status acara.
-  // Fase 1.5: error handling jelas — bedakan offline/timeout/auth/server, jangan diam.
-  const handleSyncToServer = async () => {
+  // Satu pintu sync: flush antrean + pull delta + refresh. Dipanggil tombol sync TopBar.
+  const handleSyncNow = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     setSyncError(null);
     try {
-      const qRes = await flushOfflineQueue(eventId);
+      if (!isOnline()) {
+        try {
+          setPendingCount(await getTotalPendingAsync(eventId));
+        } catch {}
+        setSyncError("Kamu sedang offline — data tersimpan di perangkat dan akan terkirim otomatis saat online.");
+        return;
+      }
+      const qRes = await flushOfflineQueue(eventId).catch(() => ({ flushed: 0, conflicts: 0, error: "offline" as const }));
       try {
         setPendingCount(await getTotalPendingAsync(eventId));
       } catch {
         setPendingCount(getPendingCount(eventId));
       }
       if (qRes.error === "offline" || qRes.error === "timeout") {
-        setSyncError("Masih offline — data aman di antrean, akan terkirim otomatis.");
+        setSyncError("Koneksi terputus — data aman di antrean, akan terkirim otomatis.");
       } else if (qRes.error) {
-        setSyncError(qRes.error);
-        alert(`Sync gagal: ${qRes.error}`);
+        setSyncError(`Sync gagal: ${qRes.error} — coba lagi via tombol sync.`);
       } else if (qRes.conflicts > 0) {
-        setSyncError(`${qRes.conflicts} data butuh catatan (duplikat).`);
+        setSyncError(`${qRes.conflicts} data butuh catatan (duplikat). Klik Selesaikan.`);
+      } else {
+        try { await pullDelta(eventId); } catch {}
       }
       reloadConflicts().catch(() => {});
       await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
       setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
       try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
     } catch (e) {
-      // Fase 1: flush tidak lagi throw, tapi jaga-jaga agar isSyncing selalu reset.
-      setSyncError(e instanceof Error ? e.message : "Sync gagal");
+      setSyncError(e instanceof Error ? e.message : "Sync gagal — coba lagi.");
     } finally { setIsSyncing(false); }
   };
 
@@ -740,7 +705,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   useEffect(() => {
     if (searchUser.length < 2) { setSearchResults([]); return; }
-    const t = setTimeout(async () => { try { const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchUser)}`); if (res.ok) setSearchResults(await res.json()); } catch {} }, 300);
+    if (!isOnline()) {
+      setSearchResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchUser)}`);
+        if (res.ok) setSearchResults(await res.json());
+        else if (res.status >= 500) setSyncError("Server bermasalah — coba cari anggota lagi.");
+      } catch {
+        setSyncError("Kamu sedang offline — cari anggota butuh internet.");
+      }
+    }, 300);
     return () => clearTimeout(t);
   }, [searchUser]);
 
@@ -759,7 +736,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   async function handleSubmitPemberian(e: React.FormEvent) {
     e.preventDefault();
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
-    if (!nominal || nominal <= 0) { alert("Nominal harus >0"); return; }
+    if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId") || (localStorage.setItem("deviceId", Math.random().toString(36).slice(2)), localStorage.getItem("deviceId")!);
     const kodeInput = `${effectiveMeja}-${Date.now().toString().slice(-6)}`;
@@ -786,22 +763,24 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     if (res.status === 409 && (data as { error?: string }).error === "DUPLICATE_NEED_NOTE") { setDupNote(catatan); setDupModal({ existing: (data as { existing: { nama: string; alamat: string; nominalFormatted: string; nominal: number; metode: string; createdAt: string } }).existing, message: (data as { message: string }).message }); return; }
     if (!res.ok) {
       // network/server error -> fallback to queue jika offline-like ATAU fetch gagal total.
-      // 5xx / fetch abort / onLine false = aman di-queue + optimistic (dulu jalur ini lupa optimistic).
+      // 5xx / fetch abort / onLine false = aman di-queue + optimistic.
       if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
         queueGuestOffline(payload);
+        setSyncError("Koneksi bermasalah — data disimpan lokal dan akan terkirim otomatis.");
         return;
       }
-      alert((data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Gagal (${res.status})`); return;
+      setSyncError((data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Gagal (${res.status}) — data tidak hilang, coba lagi.`);
+      return;
     }
     setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
     loadGuests(); loadShortcuts(); loadRekap();
-    if (autoSync) setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
+    setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
     try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
   }
 
   async function handleSubmitDuplicate() {
     if (!dupModal) return;
-    if (!dupNote.trim()) { alert("Catatan wajib untuk bedakan duplikat"); return; }
+    if (!dupNote.trim()) { setSyncError("Catatan wajib untuk bedakan duplikat."); return; }
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId")!;
@@ -822,10 +801,11 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (!res.ok) {
         if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
           queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
+          setSyncError("Koneksi bermasalah — duplikat disimpan lokal dan akan terkirim otomatis.");
           setDupModal(null); setDupNote("");
           return;
         }
-        alert((data as { error?: string }).error || "Gagal");
+        setSyncError((data as { error?: string }).error || "Gagal menyimpan duplikat — coba lagi.");
         return;
       }
     } catch {
@@ -836,7 +816,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     setDupModal(null); setDupNote("");
     setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
     loadGuests(); loadShortcuts(); loadRekap();
-    if (autoSync) setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
+    setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
   }
 
   async function handleAddBook(e: React.FormEvent) {
@@ -890,10 +870,11 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (res.ok) { loadBooks(); return; }
       if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
         await queueOpOffline("UPDATE_BOOK", "guestBooks", { id: editBook.id, fields });
+        setSyncError("Koneksi bermasalah — perubahan disimpan lokal.");
         return;
       }
       setBooks(prev);
-      alert((data as { error?: string }).error || "Gagal update");
+      setSyncError((data as { error?: string }).error || "Gagal update — coba lagi.");
       return;
     } catch (err) {
       if (isNetworkError(err) || !isOnline()) {
@@ -925,6 +906,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   }
   async function handleAddMember(userId: string) {
     const fields = { userId, role: addRole };
+    if (!isOnline()) {
+      await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
+      setSearchUser(""); setSearchResults([]);
+      setSyncError("Kamu sedang offline — undangan anggota diantrekan dan terkirim otomatis saat online.");
+      return;
+    }
     try {
       const res = await fetch(`/api/events/${eventId}/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
       let data: Record<string, unknown> = {};
@@ -933,16 +920,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
         await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
         setSearchUser(""); setSearchResults([]);
+        setSyncError("Koneksi bermasalah — undangan diantrekan, terkirim otomatis.");
         return;
       }
-      alert((data as { error?: string }).error || "Gagal");
+      setSyncError((data as { error?: string }).error || "Gagal tambah anggota — coba lagi.");
       return;
     } catch (err) {
       if (isNetworkError(err) || !isOnline()) {
         await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
         setSearchUser(""); setSearchResults([]);
+        setSyncError("Kamu sedang offline — undangan diantrekan.");
         return;
       }
+      setSyncError("Gagal tambah anggota — coba lagi.");
     }
   }
   async function handleRemoveMember(userId: string) {
@@ -1006,7 +996,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     e.preventDefault();
     if (!editGuest) return;
     const nominal = parseInt(editGuestData.nominal.replace(/\D/g, ""), 10);
-    if (!nominal || nominal <= 0) { alert("Nominal harus >0"); return; }
+    if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
     // Jika edit item yang masih pending lokal → update antrean LS langsung.
     if (editGuest.id.startsWith("local-")) {
       try {
@@ -1034,11 +1024,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (res.ok) { loadGuests(); loadShortcuts(); loadRekap(); loadAudit(); return; }
       if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
         await queueOpOffline("UPDATE_GUEST", "guests", { id: editGuest.id, fields });
+        setSyncError("Koneksi bermasalah — perubahan disimpan lokal.");
         loadShortcuts(); loadRekap();
         return;
       }
       setGuests(prev);
-      alert((data as { error?: string }).error || "Gagal update");
+      setSyncError((data as { error?: string }).error || "Gagal update — coba lagi.");
       return;
     } catch (err) {
       if (isNetworkError(err) || !isOnline()) {
@@ -1067,7 +1058,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   }
   async function handleUpdateEvent(e: React.FormEvent) {
     e.preventDefault();
-    if (!editNamaTuanRumah.trim() || editNamaTuanRumah.trim().length < 2) { alert("Nama tuan rumah wajib minimal 2 huruf"); return; }
+    if (!editNamaTuanRumah.trim() || editNamaTuanRumah.trim().length < 2) { setSyncError("Nama tuan rumah wajib minimal 2 huruf."); return; }
     const fields = { namaAcara: editNama, namaTuanRumah: toTitleCasePerKata(editNamaTuanRumah), tanggal: editTanggal, lokasi: editLokasi, catatan: editCatatan };
     const prevEvent = event;
     if (event) setEvent({ ...event, namaAcara: fields.namaAcara, namaTuanRumah: fields.namaTuanRumah, tanggal: new Date(fields.tanggal).toISOString(), lokasi: fields.lokasi, catatan: fields.catatan });
@@ -1079,11 +1070,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       try { j = await res.json(); } catch {}
       if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
         await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields });
+        setSyncError("Koneksi bermasalah — perubahan acara disimpan lokal.");
         try { if (event) await putCachedEvent({ ...event, ...fields, id: eventId }); } catch {}
         return;
       }
       if (prevEvent) setEvent(prevEvent);
-      alert(j.error || "Gagal update");
+      setSyncError(j.error || "Gagal update — coba lagi.");
       return;
     } catch (err) {
       if (isNetworkError(err) || !isOnline()) {
@@ -1369,13 +1361,17 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             } else setMejaLabel(v);
           }}
           onSearch={setSearch}
-          onExportClick={() => setExportModal(true)}
-          autoSync={autoSync}
+          onExportClick={() => {
+            if (isBrowserOffline && pendingCount > 0) {
+              setSyncError("Kamu sedang offline — export memakai data lokal terakhir. Sync dulu untuk data terbaru.");
+            }
+            setExportModal(true);
+          }}
           isSyncing={isSyncing}
           lastSyncAt={lastSyncAt}
           pendingCount={pendingCount}
-          onToggleAutoSync={() => setAutoSync((v) => !v)}
-          onRefresh={handleRefresh}
+          isOnline={!isBrowserOffline}
+          onSyncNow={handleSyncNow}
           hideNominal={hideNominal}
           onToggleHideNominal={() => setHideNominal((v) => !v)}
           compact={isInputTab}
@@ -1384,19 +1380,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {isBrowserOffline && (
           <div role="alert" className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--error-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
             <div className="flex items-center gap-1.5 text-[var(--on-error-container)] truncate">
-              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? `Offline — input tetap tersimpan (${pendingCount})` : "Koneksi putus — input tetap tersimpan lokal."}</span>
+              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? `Offline — input tetap tersimpan di perangkat (${pendingCount})` : "Kamu sedang offline — input tetap tersimpan lokal, fitur cari anggota & audit butuh internet."}</span>
               {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-xs shrink-0">{pendingCount}</span>}
             </div>
-            <span className="text-xs opacity-70 shrink-0">auto sync 1m</span>
+            <span className="text-xs opacity-70 shrink-0">sync otomatis 1 mnt</span>
           </div>
         )}
-        {syncError && !isBrowserOffline && (
+        {syncError && (
           <div role="alert" className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--error-container)] border border-[var(--outline-variant)] text-[var(--on-error-container)] flex items-center justify-between gap-2`}>
             <span className="truncate">{syncError}</span>
             <button onClick={() => setSyncError(null)} aria-label="Tutup" className="shrink-0 opacity-70 hover:opacity-100">✕</button>
           </div>
         )}
-        {/* Fase 5: konflik duplikat yang butuh catatan — bisa dibuka kapan saja. */}
+        {/* Konflik duplikat yang butuh catatan — bisa dibuka kapan saja. */}
         {conflictCount > 0 && (
           <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
             <span className="text-[var(--on-warning-container)] truncate">
@@ -1410,21 +1406,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             </button>
           </div>
         )}
-        {isOfflineMode && !isBrowserOffline && (
-          <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <div className="flex items-center gap-1.5 text-[var(--on-warning-container)] truncate">
-              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? "Offline" : "Mode Offline — data lokal."}</span>
-              {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-xs shrink-0">{pendingCount}</span>}
-            </div>
-            <button onClick={handleSyncToServer} disabled={isSyncing} className={`${isInputTab ? "h-7 px-2.5 text-xs" : "h-7 px-3 text-xs"} rounded-full bg-[var(--warning)] text-white font-medium flex items-center gap-1 shrink-0 disabled:opacity-50`}>
-              <CloudUpload size={14} /> {isSyncing ? "…" : "Sync"}
-            </button>
-          </div>
-        )}
-        {!isOfflineMode && !isBrowserOffline && pendingCount > 0 && (
+        {!isBrowserOffline && pendingCount > 0 && (
           <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} pending` : `${pendingCount} data menunggu sync · 1m`}</span>
-            <button onClick={handleSyncToServer} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium flex items-center gap-1 shrink-0 disabled:opacity-50"><CloudUpload size={12} />{isSyncing ? "…" : "Sync"}</button>
+            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} belum sync — hijau berarti sudah di server` : `${pendingCount} data menunggu sync · otomatis 1 mnt`}</span>
+            <button onClick={handleSyncNow} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium flex items-center gap-1 shrink-0 disabled:opacity-50"><CloudUpload size={12} />{isSyncing ? "…" : "Sync"}</button>
           </div>
         )}
         {/* Tabs — offset ikuti tinggi header 2-baris mobile (~76px) agar tak tertutup */}
@@ -1943,18 +1928,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {tab === "setting" && (
           <div className="flex flex-col gap-4">
             <div className="grid md:grid-cols-2 gap-4">
-              {/* Kelola anggota */}
+              {/* Kelola anggota — butuh internet (cari user + undang). */}
               <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
                 <h3 className="font-semibold text-[var(--on-surface)] mb-1">Anggota</h3>
-                {isOfflineMode ? (
-                  <div className="text-xs text-[var(--on-warning-container)] bg-[var(--warning-container)] px-3 py-2 rounded-lg border border-[var(--outline-variant)] mb-3 flex items-center gap-2"><WifiOff size={14} /> Mode Offline — fitur anggota nonaktif. Klik Sync ke Server di atas untuk aktifkan multi-admin (auto-sync 30 menit di background).</div>
+                {isBrowserOffline ? (
+                  <div role="alert" className="text-xs text-[var(--on-error-container)] bg-[var(--error-container)] px-3 py-2 rounded-lg border border-[var(--outline-variant)] mb-3 flex items-center gap-2"><WifiOff size={14} /> Kamu sedang offline — cari & tambah anggota butuh internet. Data tamu tetap bisa diinput lokal.</div>
                 ) : event.myRole !== "OWNER" ? (
                   <p className="text-xs text-[var(--on-warning-container)] bg-[var(--warning-container)] px-3 py-1.5 rounded-lg border border-[var(--outline-variant)] mb-3">Hanya OWNER bisa kelola</p>
                 ) : null}
                 <div className="space-y-2 mt-3">
-                  <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user (nama/username/email)" disabled={event.myRole !== "OWNER" || isOfflineMode}
+                  <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder={isBrowserOffline ? "Offline — cari anggota butuh internet" : "Cari user (nama/username/email)"} disabled={event.myRole !== "OWNER" || isBrowserOffline}
+                    title={isBrowserOffline ? "Butuh internet untuk cari user" : undefined}
                     className={`${inputCls} disabled:opacity-50`} />
-                  <select value={addRole} onChange={e => setAddRole(e.target.value)} disabled={event.myRole !== "OWNER" || isOfflineMode}
+                  <select value={addRole} onChange={e => setAddRole(e.target.value)} disabled={event.myRole !== "OWNER" || isBrowserOffline}
                     className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none disabled:opacity-50">
                     <option value="VIEWER">VIEWER</option><option value="ADMIN">ADMIN</option><option value="OWNER">OWNER</option>
                   </select>
@@ -2068,7 +2054,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       const nv = prompt(`Rename ${m}:`, m);
                       if (!nv || nv.trim().toUpperCase() === m) return;
                       const trimmed = nv.trim().toUpperCase();
-                      if ((event.mejaList || []).includes(trimmed)) { alert("Meja sudah ada"); return; }
+                      if ((event.mejaList || []).includes(trimmed)) { setSyncError("Meja sudah ada."); return; }
                       const next = (event.mejaList || []).map((x: string) => x === m ? trimmed : x);
                       await updateMejaListOffline(next);
                       if (mejaLabel === m) setMejaLabel(trimmed);

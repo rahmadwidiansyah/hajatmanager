@@ -128,7 +128,12 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
   const [snack, setSnack] = useState<{ id: number; text: string } | null>(null);
 
   const { mode, systemMode, setMode } = useColorScheme();
-  const themeResolved = mode === "system" ? systemMode : mode;
+  // Hydration-safe: sebelum mount, paksa render varian terang agar sama dengan SSR.
+  // Setelah mount, ikuti tema asli (termasuk system/dark dari OS).
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pola mounted guard standar anti-hydration-mismatch
+  useEffect(() => { setMounted(true); }, []);
+  const themeResolved = mounted ? (mode === "system" ? systemMode : mode) : "light";
   const isDark = themeResolved === "dark";
 
   const deleteDialogRef = useRef<HTMLDivElement>(null);
@@ -206,9 +211,18 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
     notify("Foto profil dihapus");
   }
 
+  function needOnline(): boolean {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      notify("Kamu sedang offline — ganti profil/password butuh internet.");
+      return false;
+    }
+    return true;
+  }
+
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (usernameStatus === "taken") { setProfileError("Username sudah dipakai orang lain"); return; }
+    if (!needOnline()) { setProfileError("Kamu sedang offline — simpan profil butuh internet."); return; }
     setSavingProfile(true);
     setProfileError(null);
     try {
@@ -220,13 +234,15 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
       setUser(j);
       notify("Profil berhasil diperbarui");
     } catch (err: unknown) {
-      setProfileError(err instanceof Error ? err.message : "Gagal menyimpan profil");
+      if (err instanceof TypeError) setProfileError("Kamu sedang offline — simpan profil butuh internet.");
+      else setProfileError(err instanceof Error ? err.message : "Gagal menyimpan profil");
     } finally { setSavingProfile(false); }
   }
 
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPassword) { setPassError("Konfirmasi password tidak cocok"); return; }
+    if (!needOnline()) { setPassError("Kamu sedang offline — ganti password butuh internet."); return; }
     setSavingPass(true);
     setPassError(null);
     try {
@@ -236,7 +252,8 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
       notify("Password berhasil diganti");
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
     } catch (err: unknown) {
-      setPassError(err instanceof Error ? err.message : "Gagal ganti password");
+      if (err instanceof TypeError) setPassError("Kamu sedang offline — ganti password butuh internet.");
+      else setPassError(err instanceof Error ? err.message : "Gagal ganti password");
     } finally { setSavingPass(false); }
   }
 

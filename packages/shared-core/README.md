@@ -6,4 +6,4 @@ Saat ini `lib/offline-sync.ts` sudah pakai `localStorage` queue (web) + `flushOf
 
 PIN 6 digit: `lib/pin.ts` + `app/api/users/pin` (bcrypt + `User.appPinHash`).
 
-Event mode: `EventMode ONLINE/OFFLINE` + `isOffline/localOnly/lastSyncAt` — offline lock multi-anggota sampai `Sync ke Server`.
+Semua acara online dengan antrean lokal: `Event.lastSyncAt` + outbox Dexie/SQLite. Tidak ada lagi mode offline/online, multi-anggota selalu aktif saat online.

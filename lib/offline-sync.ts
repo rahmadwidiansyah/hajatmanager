@@ -436,13 +436,38 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
   const ops = await outboxList(eventId).catch(() => [] as OutboxOp[]);
   if (!ops.length) return { flushed: 0, conflicts: 0 };
 
+  const eventCreates = ops.filter((o) => o.action === "CREATE_EVENT");
   const creates = ops.filter((o) => o.action === "CREATE_GUEST");
   const bookCreates = ops.filter((o) => o.action === "CREATE_BOOK");
-  const rest = ops.filter((o) => o.action !== "CREATE_GUEST" && o.action !== "CREATE_BOOK");
+  const rest = ops.filter((o) => o.action !== "CREATE_GUEST" && o.action !== "CREATE_BOOK" && o.action !== "CREATE_EVENT");
 
   let flushed = 0;
   let conflicts = 0;
   let firstError: string | undefined;
+
+  // Batch event creates first (acara dibuat offline) via /api/sync/push.
+  if (eventCreates.length) {
+    const events = eventCreates.map((o) => o.payload);
+    const r = await pushBatch("/api/sync/push", { guests: [], events, guestBooks: [] });
+    if (!r.ok) {
+      firstError = r.error;
+      for (const o of eventCreates) await outboxBump(o.id, r.error || "push-failed");
+      if (r.error === "offline" || r.error === "timeout") {
+        const fails = getFailCount(eventId) + 1;
+        setFailCount(eventId, fails);
+        await refreshPendingCount(eventId).catch(() => 0);
+        return { flushed: 0, conflicts: 0, error: r.error };
+      }
+    } else {
+      const j = r.json as { synced?: { events?: number }; conflicts?: { id: string }[] };
+      const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
+      const doneIds = eventCreates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
+      if (doneIds.length) await outboxRemove(doneIds);
+      flushed += j.synced?.events ?? doneIds.length;
+      conflicts += conflictIds.size;
+      for (const o of eventCreates) if (conflictIds.has(o.id)) await outboxBump(o.id, "EVENT_CONFLICT");
+    }
+  }
 
   // Batch guest creates via /api/sync/push (idempoten by id di server).
   if (creates.length) {
@@ -692,11 +717,7 @@ export function startBackgroundSync(eventId: string, onFlush?: (r: FlushResult) 
       return;
     }
     try {
-      const auto = localStorage.getItem(AUTOSYNC_KEY(eventId));
-      if (auto !== null && JSON.parse(auto) === false) {
-        schedule(SYNC_INTERVAL_MS);
-        return;
-      }
+      // Always-connected: sync otomatis selalu aktif, tidak ada toggle manual.
       if (!isOnline()) {
         schedule(SYNC_INTERVAL_MS);
         return;
@@ -761,4 +782,44 @@ export function startBackgroundSync(eventId: string, onFlush?: (r: FlushResult) 
     if (offlineHandler) window.removeEventListener("offline", offlineHandler);
     document.removeEventListener("visibilitychange", vis);
   };
+}
+
+/** Total pending lintas semua acara (untuk dashboard + TopBar global). */
+export async function getGlobalPendingCount(): Promise<number> {
+  try {
+    const { outboxCountAll } = await import("./db");
+    return await (outboxCountAll as () => Promise<number>)();
+  } catch {}
+  try {
+    const { getDb } = await import("./db");
+    const d = getDb();
+    if (!d) return 0;
+    return await d.outbox.count();
+  } catch {
+    return 0;
+  }
+}
+
+/** Flush semua eventId yang punya antrean (dipakai dashboard). */
+export async function flushAllPending(): Promise<FlushResult> {
+  let total = 0;
+  let conflicts = 0;
+  let error: string | undefined;
+  try {
+    const { getDb } = await import("./db");
+    const d = getDb();
+    if (!d) return { flushed: 0, conflicts: 0 };
+    const rows = await d.outbox.toArray().catch(() => []);
+    const ids = [...new Set(rows.map((r) => r.eventId))];
+    for (const id of ids) {
+      const r = await flushOfflineQueue(id).catch((e) => ({ flushed: 0, conflicts: 0, error: e instanceof Error ? e.message : "flush-failed" }) as FlushResult);
+      total += r.flushed;
+      conflicts += r.conflicts;
+      if (r.error && !error) error = r.error;
+      if (r.error === "offline" || r.error === "timeout") break;
+    }
+  } catch (e) {
+    if (!error) error = e instanceof Error ? e.message : "flush-failed";
+  }
+  return { flushed: total, conflicts, ...(error && total === 0 ? { error } : {}) };
 }

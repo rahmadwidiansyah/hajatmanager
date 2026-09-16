@@ -28,8 +28,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const auth = await requireAuth();
   if ("error" in auth) return auth.error;
-  const ev = await prisma.event.findUnique({ where: { id }, select: { isOffline: true, mode: true } });
-  if (ev?.isOffline) return NextResponse.json({ error: "OFFLINE_LOCKED", message: "Multi-anggota dinonaktifkan untuk acara Offline. Sync ke Server untuk mengaktifkan." }, { status: 403 });
   const roleCheck = await requireRole(id, auth.user.id, ["OWNER"]);
   if (!roleCheck) return NextResponse.json({ error: "FORBIDDEN - hanya OWNER bisa add anggota" }, { status: 403 });
 
@@ -56,8 +54,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const auth = await requireAuth();
   if ("error" in auth) return auth.error;
-  const ev2 = await prisma.event.findUnique({ where: { id }, select: { isOffline: true } });
-  if (ev2?.isOffline) return NextResponse.json({ error: "OFFLINE_LOCKED" }, { status: 403 });
   const roleCheck = await requireRole(id, auth.user.id, ["OWNER"]);
   if (!roleCheck) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
@@ -74,8 +70,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { id } = await params;
   const auth = await requireAuth();
   if ("error" in auth) return auth.error;
-  const ev3 = await prisma.event.findUnique({ where: { id }, select: { isOffline: true } });
-  if (ev3?.isOffline) return NextResponse.json({ error: "OFFLINE_LOCKED" }, { status: 403 });
   const roleCheck = await requireRole(id, auth.user.id, ["OWNER"]);
   if (!roleCheck) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 

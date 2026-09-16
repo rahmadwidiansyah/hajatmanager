@@ -14,7 +14,6 @@ const schema = z.object({
   lokasi: z.string().nullable().optional(),
   catatan: z.string().nullable().optional(),
   mejaList: z.array(z.string().min(1).max(20)).max(10).optional(),
-  mode: z.enum(["ONLINE", "OFFLINE"]).optional(),
 });
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -55,12 +54,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (parsed.data.lokasi !== undefined) data.lokasi = parsed.data.lokasi;
   if (parsed.data.catatan !== undefined) data.catatan = parsed.data.catatan;
   if (parsed.data.mejaList !== undefined) data.mejaList = parsed.data.mejaList;
-  if (parsed.data.mode !== undefined) {
-    data.mode = parsed.data.mode;
-    data.isOffline = parsed.data.mode === "OFFLINE";
-    if (parsed.data.mode === "ONLINE") data.localOnly = false;
-    if (parsed.data.mode === "ONLINE") data.lastSyncAt = new Date();
-  }
 
   const updated = await prisma.event.update({ where: { id }, data });
   await prisma.auditLog.create({ data: { eventId: id, userId: auth.user.id, aksi: "UPDATE_EVENT", targetId: id, detail: parsed.data as object } });

@@ -7,6 +7,7 @@
 import Dexie, { type Table } from "dexie";
 
 export type OutboxAction =
+  | "CREATE_EVENT"
   | "CREATE_GUEST"
   | "UPDATE_GUEST"
   | "DELETE_GUEST"
@@ -129,6 +130,16 @@ export async function outboxCount(eventId: string): Promise<number> {
   if (!d) return 0;
   try {
     return await d.outbox.where("eventId").equals(eventId).count();
+  } catch {
+    return 0;
+  }
+}
+
+export async function outboxCountAll(): Promise<number> {
+  const d = getDb();
+  if (!d) return 0;
+  try {
+    return await d.outbox.count();
   } catch {
     return 0;
   }

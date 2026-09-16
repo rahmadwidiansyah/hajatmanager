@@ -12,9 +12,9 @@ export default function CreateEvent() {
   const [tanggal, setTanggal] = useState("");
   const [lokasi, setLokasi] = useState("");
   const [catatan, setCatatan] = useState("");
-  const [mode, setMode] = useState<"ONLINE" | "OFFLINE">("ONLINE");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState("");
 
   // P0: body scroll-lock saat dialog terbuka + Escape untuk tutup
   useEffect(() => {
@@ -31,29 +31,91 @@ export default function CreateEvent() {
     };
   }, [open ]);
 
+  function newLocalId() {
+    try {
+      if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+    } catch {}
+    return `evt-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  async function saveOfflineQueue(reason: string) {
+    const { enqueueOp, isOnline } = await import("@/lib/offline-sync");
+    const { putCachedEvent } = await import("@/lib/db");
+    const id = newLocalId();
+    const payload = {
+      id,
+      namaAcara: namaAcara.trim(),
+      namaTuanRumah: namaTuanRumah.trim() || null,
+      tanggal: new Date(tanggal).toISOString(),
+      lokasi: lokasi.trim() || null,
+      catatan: catatan.trim() || null,
+      mejaList: ["MEJA-1", "MEJA-2"],
+    };
+    // Offline-first: simpan ke outbox + read-cache agar langsung tampil di dashboard.
+    await enqueueOp(id, "CREATE_EVENT", "events", payload, id).catch(() => {});
+    try {
+      await putCachedEvent({ ...payload, myRole: "OWNER", pendingLocal: true });
+    } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent("dashboard-events-changed", { detail: { id } }));
+    } catch {}
+    void isOnline;
+    setInfo(
+      reason === "offline"
+        ? "Kamu sedang offline — acara disimpan di perangkat dan akan terkirim otomatis saat online (tombol sync kuning)."
+        : "Server tidak terjangkau — acara disimpan lokal dulu dan akan terkirim otomatis."
+    );
+    setOpen(false);
+    setNamaAcara(""); setNamaTuanRumah(""); setTanggal(""); setLokasi(""); setCatatan("");
+    router.refresh();
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setInfo("");
+    if (!namaAcara.trim() || namaAcara.trim().length < 2) { setErr("Nama acara minimal 2 huruf"); return; }
+    if (!namaTuanRumah.trim() || namaTuanRumah.trim().length < 2) { setErr("Nama tuan rumah minimal 2 huruf"); return; }
+    if (!tanggal) { setErr("Tanggal wajib diisi"); return; }
     setLoading(true);
     try {
-      const res = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ namaAcara, namaTuanRumah, tanggal, lokasi, catatan, mode }),
-      });
-      const data = await res.json();
+      const { isOnline } = await import("@/lib/offline-sync");
+      if (!isOnline()) {
+        await saveOfflineQueue("offline");
+        return;
+      }
+      let res: Response;
+      try {
+        res = await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ namaAcara, namaTuanRumah, tanggal, lokasi, catatan }),
+        });
+      } catch {
+        await saveOfflineQueue("offline");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (!navigator.onLine || res.status >= 500 || res.status === 408 || res.status === 429) {
+          await saveOfflineQueue("server");
+          return;
+        }
         // Tampilkan field mana yang gagal jika VALIDATION_ERROR
-        if (data.error === "VALIDATION_ERROR" && data.details?.fieldErrors) {
-          const msgs = Object.entries(data.details.fieldErrors as Record<string, string[]>)
+        if ((data as { error?: string }).error === "VALIDATION_ERROR" && (data as { details?: { fieldErrors?: Record<string, string[]> } }).details?.fieldErrors) {
+          const msgs = Object.entries((data as { details: { fieldErrors: Record<string, string[]> } }).details.fieldErrors)
             .map(([f, errs]) => `${f}: ${errs.join(", ")}`)
             .join(" | ");
           throw new Error(msgs || "Data tidak valid");
         }
-        throw new Error(data.error || JSON.stringify(data.details) || "Gagal");
+        throw new Error((data as { error?: string }).error || JSON.stringify((data as { details?: unknown }).details) || "Gagal");
       }
+      try {
+        const { putCachedEvent } = await import("@/lib/db");
+        await putCachedEvent({ ...(data as Record<string, unknown>), id: (data as { id: string }).id });
+      } catch {}
       setOpen(false);
-      setNamaAcara(""); setNamaTuanRumah(""); setTanggal(""); setLokasi(""); setCatatan(""); setMode("ONLINE");
+      setNamaAcara(""); setNamaTuanRumah(""); setTanggal(""); setLokasi(""); setCatatan("");
       router.refresh();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Gagal");
@@ -126,14 +188,12 @@ export default function CreateEvent() {
                   className="mt-1.5 w-full px-4 py-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow resize-none placeholder:text-[var(--on-surface-variant)]"
                 />
               </div>
-              <div>
-                <span className="m3-section-title">Mode Acara</span>
-                <div className="mt-1.5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Mode Acara">
-                  <button type="button" aria-pressed={mode === "ONLINE"} onClick={() => setMode("ONLINE")} className={`h-11 rounded-xl border text-sm font-medium transition-colors ${mode === "ONLINE" ? "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]" : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)]"}`}>Online</button>
-                  <button type="button" aria-pressed={mode === "OFFLINE"} onClick={() => setMode("OFFLINE")} className={`h-11 rounded-xl border text-sm font-medium transition-colors ${mode === "OFFLINE" ? "bg-[var(--warning)] text-white border-[var(--warning)]" : "bg-[var(--surface-container)] text-[var(--on-surface)] border-[var(--outline-variant)]"}`}>Offline</button>
-                </div>
-                <p className="text-xs text-[var(--on-surface-variant)] mt-1.5">{mode === "OFFLINE" ? "Offline: data di lokal dulu, sync untuk aktifkan multi-admin." : "Online: multi-anggota aktif, sync otomatis."}</p>
-              </div>
+              <p className="text-xs text-[var(--on-surface-variant)]">Selalu tersambung saat ada internet. Kalau offline, acara disimpan di perangkat lalu terkirim otomatis (tombol sync kuning).</p>
+              {info && (
+                <p role="status" className="text-sm text-[var(--on-primary-container)] bg-[var(--primary-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
+                  {info}
+                </p>
+              )}
               {err && (
                 <p role="alert" className="text-sm text-[var(--on-error-container)] bg-[var(--error-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
                   {err}

@@ -41,9 +41,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS events (
   id TEXT PRIMARY KEY, namaAcara TEXT NOT NULL, namaTuanRumah TEXT,
   tanggal TEXT NOT NULL, lokasi TEXT, catatan TEXT,
-  mejaList TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'ONLINE',
-  isOffline INTEGER NOT NULL DEFAULT 0, localOnly INTEGER NOT NULL DEFAULT 0,
-  lastSyncAt TEXT, serverId TEXT, createdById TEXT NOT NULL, createdAt TEXT NOT NULL
+  mejaList TEXT NOT NULL,
+  lastSyncAt TEXT, createdById TEXT NOT NULL, createdAt TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS eventMembers (
   id TEXT PRIMARY KEY, eventId TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,

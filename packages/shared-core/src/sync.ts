@@ -23,7 +23,7 @@ export type QueuedGuest = {
 
 // Keep API shape aligned with app/api/sync/push
 export type PushPayload = {
-  events?: { id: string; namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; mode?: "ONLINE" | "OFFLINE" }[];
+  events?: { id: string; namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[] }[];
   guestBooks?: { id: string; eventId: string; nama: string; alamat: string; createdAt?: string }[];
   guests: QueuedGuest[];
 };

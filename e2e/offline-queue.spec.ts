@@ -18,12 +18,12 @@ test("input offline → reload → online → tersync", async ({ browser }) => {
   await page.waitForURL("**/dashboard");
 
   // 2. Buat acara via API (deterministik; sesi cookie ikut konteks).
+  // Semua acara online, tidak ada lagi field mode.
   const evRes = await context.request.post("/api/events", {
     data: {
       namaAcara: `E2E Hajatan ${stamp}`,
       namaTuanRumah: "E2E Tuan Rumah",
       tanggal: "2026-09-20",
-      mode: "ONLINE",
     },
   });
   expect(evRes.ok()).toBeTruthy();
@@ -48,22 +48,20 @@ test("input offline → reload → online → tersync", async ({ browser }) => {
     await page.getByRole("button", { name: "Simpan", exact: true }).click();
 
     // Antrean terlihat: banner offline + baris bertanda pending.
-    // (Saat offline, banner berbunyi "tersimpan (N)" — bukan "N pending"
-    // yang hanya muncul saat online dengan antrean.)
-    await expect(page.getByText(/tetap tersimpan \(1\)/)).toBeVisible();
+    await expect(page.getByText(/tersimpan di perangkat \(1\)/)).toBeVisible();
     const row = page.locator("tr, div", { hasText: nama }).filter({ hasText: "pending" }).first();
     await expect(row).toBeVisible();
 
     // 5. Reload saat offline → data antrean tidak hilang.
     await page.reload();
     await expect(page.locator("#nama-input")).toBeVisible();
-    await expect(page.getByText(/tetap tersimpan \(1\)/)).toBeVisible();
+    await expect(page.getByText(/tersimpan di perangkat \(1\)/)).toBeVisible();
     await expect(page.getByText(nama).first()).toBeVisible();
 
-    // 6. Online lagi → sync manual → antrean habis, data ada di server.
+    // 6. Online lagi → sync via tombol sync TopBar (hijau = sudah sync).
     await context.setOffline(false);
-    await page.getByRole("button", { name: "Sync", exact: true }).first().click();
-    await expect(page.getByText(/tetap tersimpan/)).toBeHidden({ timeout: 30_000 });
+    await page.getByRole("button", { name: /belum sync|tersinkron|Offline/i }).first().click();
+    await expect(page.getByText(/tersimpan di perangkat/)).toBeHidden({ timeout: 30_000 });
 
     const listRes = await context.request.get(
       `/api/events/${eventId}/guests?q=${encodeURIComponent(nama)}`

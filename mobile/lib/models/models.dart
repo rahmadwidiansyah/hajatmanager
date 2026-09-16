@@ -7,7 +7,6 @@ class EventModel {
   final String? lokasi;
   final String? catatan;
   final List<String> mejaList;
-  final String mode;
   final String? lastSyncAt;
   final String myRole;
 
@@ -19,7 +18,6 @@ class EventModel {
     this.lokasi,
     this.catatan,
     this.mejaList = const ['MEJA-1', 'MEJA-2'],
-    this.mode = 'ONLINE',
     this.lastSyncAt,
     this.myRole = 'VIEWER',
   });
@@ -45,7 +43,6 @@ class EventModel {
         catatan: j['catatan'] as String?,
         mejaList: (j['mejaList'] as List?)?.map((e) => '$e').toList() ??
             const ['MEJA-1', 'MEJA-2'],
-        mode: '${j['mode'] ?? 'ONLINE'}',
         lastSyncAt: j['lastSyncAt']?.toString(),
         myRole: role,
       );
@@ -59,7 +56,6 @@ class EventModel {
         'lokasi': lokasi,
         'catatan': catatan,
         'mejaList': mejaList.join(','),
-        'mode': mode,
         'lastSyncAt': lastSyncAt,
       };
 }

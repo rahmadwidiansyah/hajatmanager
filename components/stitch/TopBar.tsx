@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowLeft, Wallet, Eye, EyeOff, Download, CloudUpload, CloudCheck, Zap } from "lucide-react";
+import { ArrowLeft, Wallet, Eye, EyeOff, Download, CloudUpload, CloudCheck, WifiOff } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -17,12 +17,14 @@ export function TopBar({
   onMejaChange,
   onSearch: _onSearch,
   onExportClick,
-  autoSync,
+  autoSync: _autoSync,
   isSyncing,
   lastSyncAt,
   pendingCount,
-  onToggleAutoSync,
+  onToggleAutoSync: _onToggleAutoSync,
   onRefresh,
+  onSyncNow,
+  isOnline,
   hideNominal,
   onToggleHideNominal,
   compact,
@@ -39,12 +41,18 @@ export function TopBar({
   onMejaChange: (v: string) => void;
   onSearch: (v: string) => void;
   onExportClick?: () => void;
+  /** @deprecated selalu auto-sync, diabaikan */
   autoSync?: boolean;
   isSyncing?: boolean;
   lastSyncAt?: string | null;
   pendingCount?: number;
+  /** @deprecated tidak ada toggle manual lagi */
   onToggleAutoSync?: () => void;
   onRefresh?: () => void;
+  /** Handler sync baru (klik tombol sync). Fallback ke onRefresh bila belum dimigrasi. */
+  onSyncNow?: () => void;
+  /** false = offline (abu-abu). Default true agar tidak flicker saat SSR. */
+  isOnline?: boolean;
   hideNominal?: boolean;
   onToggleHideNominal?: () => void;
   compact?: boolean;
@@ -56,8 +64,12 @@ export function TopBar({
   void _totalTamu;
   void _onSearch;
   void myRole;
-  const detailTitle = `${namaAcara}${tanggal ? ` · ${new Date(tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}` : ""}${lokasi ? ` · ${lokasi}` : ""}${lastSyncAt ? ` · sync ${lastSyncAt}` : ""}`;
+  void _autoSync;
+  void _onToggleAutoSync;
+  const detailTitle = `${namaAcara}${tanggal ? ` · ${new Date(tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}` : ""}${lokasi ? ` · ${lokasi}` : ""}${lastSyncAt ? ` · sync ${lastSyncAt}` : ""}`;
   const pending = typeof pendingCount === "number" ? pendingCount : 0;
+  const online = isOnline !== false;
+  const handleSync = onSyncNow ?? onRefresh;
 
   const mejaSelect = (
     <select
@@ -82,39 +94,49 @@ export function TopBar({
     </select>
   );
 
-  // 1 tombol sync gabungan: tap = refresh/sync now, tahan/double-click = toggle auto.
-  const syncTitle = `Sync${autoSync ? " auto ON" : " manual"}${pending > 0 ? ` · ${pending} pending` : ""}${lastSyncAt ? ` · terakhir ${lastSyncAt}` : ""} (klik = sync sekarang, klik 2x = auto on/off)`;
+  // Satu tombol sync: hijau = sudah tersinkron, kuning = ada pending, abu-abu = offline.
+  const syncState: "synced" | "pending" | "offline" = !online ? "offline" : pending > 0 ? "pending" : "synced";
+  const syncTitle =
+    syncState === "offline"
+      ? `Offline — data tersimpan di perangkat${pending > 0 ? ` (${pending} menunggu sync)` : ""}. Klik untuk coba sync.`
+      : syncState === "pending"
+        ? `${pending} data belum tersync — klik untuk sync sekarang${lastSyncAt ? ` · terakhir ${lastSyncAt}` : ""}`
+        : `Sudah tersinkron${lastSyncAt ? ` · terakhir ${lastSyncAt}` : ""} — klik untuk refresh`;
   const syncBtn = (
     <button
-      onClick={onRefresh}
-      onDoubleClick={onToggleAutoSync}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onToggleAutoSync?.();
-      }}
+      onClick={handleSync}
       disabled={isSyncing}
-      aria-label="Sync"
-      aria-pressed={!!autoSync}
+      aria-label={syncState === "synced" ? "Sudah tersinkron, klik untuk refresh" : syncState === "pending" ? `${pending} data belum sync, klik untuk sync` : "Offline, klik untuk coba sync"}
       title={syncTitle}
-      className={`relative shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center disabled:opacity-50 ${autoSync ? "bg-[var(--primary-container)] border-[var(--outline-variant)] text-[var(--on-primary-container)]" : "bg-[var(--surface-container)] border-[var(--outline-variant)] text-[var(--on-surface-variant)]"}`}
+      className={`relative shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center disabled:opacity-50 transition-colors ${
+        syncState === "synced"
+          ? "bg-emerald-600 border-emerald-600 text-white"
+          : syncState === "pending"
+            ? "bg-amber-500 border-amber-500 text-white"
+            : "bg-[var(--surface-container)] border-[var(--outline-variant)] text-[var(--on-surface-variant)]"
+      }`}
     >
       {isSyncing ? (
         <CloudUpload size={14} className="animate-pulse" />
-      ) : pending > 0 ? (
+      ) : syncState === "offline" ? (
+        <WifiOff size={14} />
+      ) : syncState === "pending" ? (
         <CloudUpload size={14} />
       ) : (
         <CloudCheck size={14} />
       )}
       {pending > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-[var(--warning)] text-white text-[10px] leading-4 text-center font-semibold">
+        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-[var(--surface-container-lowest)] text-[var(--on-surface)] border border-[var(--outline-variant)] text-[10px] leading-4 text-center font-semibold">
           {pending > 9 ? "9+" : pending}
         </span>
       )}
-      {autoSync && !isSyncing && (
-        <span aria-hidden className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[var(--primary)] flex items-center justify-center">
-          <Zap size={8} className="text-white" />
-        </span>
-      )}
+      {/* titik status kecil: hijau/kuning/abu agar terbaca tanpa warna tombol saja */}
+      <span
+        aria-hidden
+        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+          syncState === "synced" ? "bg-emerald-300" : syncState === "pending" ? "bg-yellow-200" : "bg-gray-400"
+        }`}
+      />
     </button>
   );
 
