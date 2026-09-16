@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.7...v1.2.0) (2026-09-16)
+
+
+### Features
+
+* **mobile:** full Flutter — hapus Capacitor/Tauri, login UX, notif top, nominal digits-only, fix Google silent-cancel ([d8dfd0b](https://github.com/rahmadwidiansyah/hajatmanager/commit/d8dfd0b32209e4bc836ff53d29163899c249a8d5))
+
 ## [1.1.7](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.6...v1.1.7) (2026-09-16)
 
 
