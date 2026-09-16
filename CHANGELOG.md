@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.1...v1.6.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **windows:** using System.Net.Http eksplisit di ApiClient ([e8aac9f](https://github.com/rahmadwidiansyah/hajatmanager/commit/e8aac9f7e3474b3f5b3e78d79688e03c4e1e46a8))
+
 ## [1.6.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.0...v1.6.1) (2026-09-16)
 
 
