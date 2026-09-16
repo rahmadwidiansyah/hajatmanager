@@ -9,7 +9,8 @@ Alur resmi (otomatis penuh):
    `chore(release)` (**tanpa `[skip ci]`** agar build tag tidak ke-skip)
    → buat tag `v*` + GitHub Release berisi catatan rilis.
 3. Tag `v*` memicu **`Release Assets`**: build paralel
-   - `build-flutter` (windows): `Hajat-Manager-<ver>-windows-flutter-x64.zip`
+   - `build-windows-csharp` (windows): `Hajat-Manager-<ver>-windows-x64.zip`
+     (WPF .NET 9, dari `windows/`)
    - `build-flutter-apk` (ubuntu): `Hajat-Manager-<ver>-unsigned.apk`
      (+ `Hajat-Manager-<ver>.apk` bila secrets keystore ada) — dari `mobile/`
      (Flutter, appId `com.hajatmanager.hajat_manager`)

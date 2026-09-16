@@ -1,0 +1,21 @@
+<Window x:Class="HajatManager.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hajat Manager" Height="760" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource SurfaceBrush}">
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="Acara" Click="GoEvents"/>
+      <MenuItem Header="Akun" Click="GoAccount"/>
+      <MenuItem Header="Sync Semua" Click="OnSyncAll"/>
+      <MenuItem Header="Keluar" Click="OnLogout"/>
+    </Menu>
+    <StatusBar DockPanel.Dock="Bottom">
+      <StatusBarItem>
+        <TextBlock x:Name="StatusText" Text="Siap"/>
+      </StatusBarItem>
+    </StatusBar>
+    <ContentControl x:Name="Host" Margin="8"/>
+  </DockPanel>
+</Window>

@@ -1,0 +1,23 @@
+<Window x:Class="HajatManager.Views.LogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Log Aktivitas" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource SurfaceBrush}">
+  <DockPanel Margin="12">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <TextBox x:Name="SearchBox" Width="300" TextChanged="OnSearchGo"/>
+      <ComboBox x:Name="AksiBox" Width="180" Margin="8,0,0,0" SelectionChanged="OnFilter"/>
+      <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload"/>
+    </StackPanel>
+    <TextBlock x:Name="ErrText" DockPanel.Dock="Top" Foreground="{StaticResource ErrorBrush}"
+               Visibility="Collapsed" Margin="0,0,0,8" TextWrapping="Wrap"/>
+    <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Aksi" Binding="{Binding Aksi}" Width="180"/>
+        <DataGridTextColumn Header="Oleh" Binding="{Binding Oleh}" Width="*"/>
+        <DataGridTextColumn Header="Waktu" Binding="{Binding Waktu}" Width="130"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>

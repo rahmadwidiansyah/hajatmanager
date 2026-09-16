@@ -1,4 +1,4 @@
-name: Release Assets (Flutter Windows + APK)
+name: Release Assets (Windows C# + APK)
 
 # Satu-satunya workflow yang build saat tag v* dibuat.
 # semantic-release (release.yml) membuat tag -> workflow ini build semua
@@ -41,7 +41,8 @@ jobs:
           echo "tag=v$V" >> $GITHUB_OUTPUT
           echo "release version=$V tag=v$V"
 
-  build-flutter:
+  build-windows-csharp:
+    # Windows kini C# WPF (windows/), bukan Flutter. APK tetap Flutter.
     needs: resolve
     runs-on: windows-latest
     permissions:
@@ -49,32 +50,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-dotnet@v4
         with:
-          channel: stable
-          cache: true
+          dotnet-version: 9.0.x
 
-      - name: Flutter pub get
-        working-directory: mobile
-        run: flutter pub get
+      - name: Restore + Build (Release)
+        working-directory: windows/src/HajatManager
+        run: |
+          dotnet restore
+          dotnet build -c Release --no-restore
 
-      - name: Build Windows (release)
-        working-directory: mobile
-        run: flutter build windows --release
+      - name: Publish win-x64
+        working-directory: windows/src/HajatManager
+        run: >
+          dotnet publish -c Release --no-build
+          -r win-x64 --self-contained false
+          -p:Version=${{ needs.resolve.outputs.version }}
+          -o publish
 
       - name: Collect ZIP
         shell: pwsh
-        working-directory: mobile
+        working-directory: windows
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-flutter-x64.zip" -Force
+          Compress-Archive -Path src/HajatManager/publish/* -DestinationPath "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-x64.zip" -Force
           Get-ChildItem release/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hajat-manager-flutter-windows
-          path: mobile/release/*.zip
+          name: hajat-manager-windows-csharp
+          path: windows/release/*.zip
           if-no-files-found: error
 
   build-flutter-apk:
@@ -159,7 +165,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [resolve, build-flutter, build-flutter-apk]
+    needs: [resolve, build-windows-csharp, build-flutter-apk]
     runs-on: ubuntu-latest
     permissions:
       contents: write

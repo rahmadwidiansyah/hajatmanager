@@ -1,0 +1,88 @@
+<Window x:Class="HajatManager.Views.EventDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Detail Acara" Height="720" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource SurfaceBrush}">
+  <DockPanel Margin="12">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <TextBlock x:Name="TitleText" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+      <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8" VerticalAlignment="Center"
+              Background="{StaticResource SurfaceContainer}">
+        <TextBlock x:Name="RoleText" FontWeight="SemiBold"/>
+      </Border>
+      <TextBlock x:Name="PendingText" Margin="12,0,0,0" VerticalAlignment="Center"
+                 Foreground="{StaticResource OnVariantBrush}"/>
+      <Button Content="Log" Margin="12,0,0,0" Click="OnOpenLog" Padding="12,4"/>
+      <Button Content="Pengaturan" Margin="8,0,0,0" Click="OnOpenSettings" Padding="12,4"/>
+    </StackPanel>
+    <TabControl x:Name="Tabs">
+      <TabItem Header="Input">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="InputPanel" Margin="4"/>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Buku Tamu">
+        <DockPanel Margin="4">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBox x:Name="BookSearch" Width="300" TextChanged="OnBookSearch"/>
+            <Button x:Name="AddBookBtn" Content="+ Tamu" Margin="8,0,0,0" Click="OnAddBook"/>
+            <Button Content="Sync" Margin="8,0,0,0" Click="OnSync"/>
+          </StackPanel>
+          <DataGrid x:Name="BooksGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                    SelectionMode="Single" HeadersVisibility="Column">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Nama" Binding="{Binding Nama}" Width="*"/>
+              <DataGridTextColumn Header="Alamat" Binding="{Binding Alamat}" Width="*"/>
+              <DataGridTemplateColumn Header="Aksi" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                      <Button Content="Edit" Click="OnEditBook" Tag="{Binding}"
+                              Margin="0,0,4,0" Padding="8,2"/>
+                      <Button Content="Hapus" Click="OnDeleteBook" Padding="8,2"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Rekap">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="4">
+            <Border Padding="20" Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock x:Name="TotalTamuText" FontSize="20" TextAlignment="Center"/>
+                <TextBlock x:Name="TotalNominalText" FontSize="26" FontWeight="Bold"
+                           TextAlignment="Center"/>
+                <Button Content="Export PDF / Excel" Margin="0,12,0,0" Click="OnExport"
+                        Style="{StaticResource PrimaryButton}"/>
+              </StackPanel>
+            </Border>
+            <UniformGrid Columns="2" Margin="0,12,0,0">
+              <DataGrid x:Name="AlamatGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                        Margin="0,0,6,0" HeadersVisibility="Column">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Alamat" Binding="{Binding Label}" Width="*"/>
+                  <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
+                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130"/>
+                </DataGrid.Columns>
+              </DataGrid>
+              <DataGrid x:Name="MetodeGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                        Margin="6,0,0,0" HeadersVisibility="Column">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Metode" Binding="{Binding Label}" Width="*"/>
+                  <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
+                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </UniformGrid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>
