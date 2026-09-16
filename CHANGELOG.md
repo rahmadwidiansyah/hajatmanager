@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.3.0...v1.4.0) (2026-09-16)
+
+
+### Features
+
+* **mobile,ci:** UI adaptif Windows + optimasi Docker multi-arch ([370153c](https://github.com/rahmadwidiansyah/hajatmanager/commit/370153c4b339e6acbea9927af05ad996d945bb49))
+
 # [1.3.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.2.0...v1.3.0) (2026-09-16)
 
 
