@@ -1,3 +1,10 @@
+## [1.1.6](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.5...v1.1.6) (2026-09-16)
+
+
+### Bug Fixes
+
+* hapus mode offline acara, sync selalu-on + render hydration-safe ([ed02d10](https://github.com/rahmadwidiansyah/hajatmanager/commit/ed02d10620e877e771c9541540cc354520a6b504))
+
 ## [1.1.5](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.4...v1.1.5) (2026-09-15)
 
 
