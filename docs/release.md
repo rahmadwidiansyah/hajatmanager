@@ -11,14 +11,17 @@ Alur resmi (otomatis penuh):
 3. Tag `v*` memicu **`Release Assets`**: build paralel
    - `build-tauri` (windows): `Hajat-Manager-<ver>-x64-setup.exe` (NSIS)
    - `build-flutter` (windows): `Hajat-Manager-<ver>-windows-flutter-x64.zip`
-   - `build-apk` (ubuntu): `Hajat-Manager-<ver>-unsigned.apk`
-     (+ `Hajat-Manager-<ver>.apk` bila secrets keystore ada)
+   - `build-flutter-apk` (ubuntu): `Hajat-Manager-<ver>-unsigned.apk`
+     (+ `Hajat-Manager-<ver>.apk` bila secrets keystore ada) — dari `mobile/`
+     (Flutter, appId `com.hajatmanager.hajat_manager`; ganti Capacitor sejak 1.1.7)
 4. Job `publish` melampirkan **semua file ke 1 release yang sama** (sekali,
    anti-balapan). Cek di halaman Releases.
 
 > Jangan attach file rilis dari workflow lain — `Windows EXE (Tauri)` dan
 > `Android APK (Capacitor)` sekarang **manual-only** (`workflow_dispatch`,
-> artifact saja) untuk iterasi tanpa memotong rilis.
+> artifact saja) untuk iterasi tanpa memotong rilis. Capacitor sudah pensiun
+> dari pipeline rilis (diganti Flutter); workflow manualnya dipertahankan
+> sebagai jalan kembali.
 
 ## Secrets (repo Settings → Secrets → Actions)
 
