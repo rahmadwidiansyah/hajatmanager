@@ -35,6 +35,18 @@ public/swe-worker-*.js
 test-results/
 playwright-report/
 
+# AI assistant files - repo dibuat sesimpel mungkin, tanpa file AI
+.agents/
+.claude/
+.cursor/
+.devin/
+.codex/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CODEX.md
+skills-lock.json
+
 # misc
 .DS_Store
 Thumbs.db
