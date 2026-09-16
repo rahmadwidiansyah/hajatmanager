@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.4.1...v1.5.0) (2026-09-16)
+
+
+### Features
+
+* **mobile,web:** viewer tanpa form + search pemberian, fix Google init/signOut ([9726b1a](https://github.com/rahmadwidiansyah/hajatmanager/commit/9726b1a5861c047e4e6a86dab9946c6f4c7f3710))
+
 ## [1.4.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.4.0...v1.4.1) (2026-09-16)
 
 
