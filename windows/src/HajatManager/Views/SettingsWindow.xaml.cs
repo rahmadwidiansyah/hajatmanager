@@ -112,7 +112,12 @@ public partial class SettingsWindow : Window
                 "/api/users/search?" + ApiClient.BuildQuery(new() { ["q"] = q }));
             if (cts.IsCancellationRequested) return;
             ResultList.ItemsSource = doc?.RootElement.EnumerateArray()
-                .Select(u => $"{u.TryGetProperty("name", out var n) ? n.GetString() : ""} <{u.TryGetProperty("email", out var em) ? em.GetString() : ""}>|{u.GetProperty("id").GetString()}")
+                .Select(u =>
+                {
+                    var nm = u.TryGetProperty("name", out var n) ? n.GetString() : "";
+                    var em = u.TryGetProperty("email", out var e2) ? e2.GetString() : "";
+                    return $"{nm} <{em}>|{u.GetProperty("id").GetString()}";
+                })
                 .ToList();
         }
         catch { }
