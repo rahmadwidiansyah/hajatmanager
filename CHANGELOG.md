@@ -1,3 +1,10 @@
+## [1.6.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.2...v1.6.3) (2026-09-16)
+
+
+### Bug Fixes
+
+* **windows:** GlobalUsings eksplisit + Controls.Primitives ([e5ba24c](https://github.com/rahmadwidiansyah/hajatmanager/commit/e5ba24c32838acefaa1f05b1128fb0bc34484d59))
+
 ## [1.6.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.1...v1.6.2) (2026-09-16)
 
 
