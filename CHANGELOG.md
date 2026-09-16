@@ -1,3 +1,10 @@
+## [1.1.7](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.6...v1.1.7) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ci:** APK rilis dari Flutter, Capacitor pensiun ([158f28c](https://github.com/rahmadwidiansyah/hajatmanager/commit/158f28c868c77db2e191bcdaff03ef01bc175418))
+
 ## [1.1.6](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.1.5...v1.1.6) (2026-09-16)
 
 
