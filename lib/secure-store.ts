@@ -1,12 +1,8 @@
 "use client";
 
 /**
- * Secure store abstraction:
+ * Secure store abstraction (web only — mobile full Flutter):
  * - Web: localStorage fallback (non-secure but works offline)
- * - Tauri: @tauri-apps/plugin-store (encrypted, key = "app-pin" / "jwt")
- * - Capacitor: @capacitor/preferences (EncryptedSharedPreferences on Android via plugin config)
- *
- * Native wrappers set the adapter via setSecureStoreAdapter() on init (native/.../src/main.ts).
  */
 
 type StoreAdapter = {

@@ -87,7 +87,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 await SyncEngine.instance.flushAll();
                 await _load();
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  showTopSnack(context, const SnackBar(
                       content: Text('Sync dicoba — lihat badge antrean')));
                 }
               },
@@ -305,7 +305,7 @@ class _EventsScreenState extends State<EventsScreen> {
     await SyncEngine.instance.flush(id);
     await _load();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      showTopSnack(context, const SnackBar(
           content: Text('Acara tersimpan (offline-first).')));
     }
   }

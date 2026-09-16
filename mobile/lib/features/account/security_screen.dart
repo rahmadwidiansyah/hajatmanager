@@ -57,8 +57,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
   void _snack(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(m)));
+    showTopSnack(context, SnackBar(content: Text(m)));
   }
 
   @override

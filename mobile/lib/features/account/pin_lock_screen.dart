@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
+import '../../widgets/app_widgets.dart';
 
 const _graceOptions = [0, 1, 5, 15];
 String _graceLabel(int v) =>
@@ -74,8 +75,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
 
   void _snack(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(m)));
+    showTopSnack(context, SnackBar(content: Text(m)));
   }
 
   @override
@@ -96,8 +96,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                         if (!mounted) return;
                         setState(() => grace = g);
                         // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(
+                        showTopSnack(context, SnackBar(
                                 content: Text(
                                     'Kunci: ${_graceLabel(g)}')));
                       },

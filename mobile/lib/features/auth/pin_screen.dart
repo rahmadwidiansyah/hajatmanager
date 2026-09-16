@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../events/events_screen.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
+import '../../widgets/app_widgets.dart';
 
 /// Tentukan layar berikutnya setelah login sukses:
 /// - PIN lokal ada → langsung acara.
@@ -67,7 +68,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
     final pin = c.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnack(context, 
           const SnackBar(content: Text('PIN harus 6 digit angka')));
       return;
     }
@@ -148,7 +149,7 @@ class _PinRestoreScreenState extends State<PinRestoreScreen> {
     if (checking) return;
     final pin = c.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnack(context, 
           const SnackBar(content: Text('PIN harus 6 digit angka')));
       return;
     }
@@ -171,8 +172,7 @@ class _PinRestoreScreenState extends State<PinRestoreScreen> {
             MaterialPageRoute(builder: (_) => const PinSetupScreen()));
         return;
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(err ?? 'PIN salah')));
+      showTopSnack(context, SnackBar(content: Text(err ?? 'PIN salah')));
     } finally {
       if (mounted) setState(() => checking = false);
     }
@@ -259,8 +259,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
     } else {
       setState(() => checking = false);
       c.clear();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('PIN salah')));
+      showTopSnack(context, const SnackBar(content: Text('PIN salah')));
     }
   }
 }

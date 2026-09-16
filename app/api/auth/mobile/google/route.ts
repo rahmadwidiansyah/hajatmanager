@@ -16,7 +16,7 @@ type GoogleInfo = {
   aud?: string;
   sub?: string;
   email?: string;
-  email_verified?: string;
+  email_verified?: string | boolean;
   name?: string;
   picture?: string;
 };
@@ -60,7 +60,8 @@ export async function POST(req: Request) {
 
   const allowedAud = [process.env.GOOGLE_CLIENT_ID, process.env.ANDROID_GOOGLE_CLIENT_ID]
     .filter((s): s is string => !!s && s.length > 0);
-  if (!info.sub || !info.email || info.email_verified !== "true") {
+  const verified = info.email_verified === true || info.email_verified === "true";
+  if (!info.sub || !info.email || !verified) {
     return NextResponse.json({ error: "INVALID_GOOGLE_TOKEN" }, { status: 401 });
   }
   if (allowedAud.length > 0 && (!info.aud || !allowedAud.includes(info.aud))) {

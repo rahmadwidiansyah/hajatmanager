@@ -1512,7 +1512,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     </div>
 <div className="flex mt-1.5 gap-2 items-center">
                         <span className="text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
-                        <input ref={nominalInputRef} id="nominal-input" value={nominalStr} onChange={e => setNominalStr(e.target.value.replace(/\D/g, ""))} onFocus={() => setNominalHighlighted(-1)}
+                        <input ref={nominalInputRef} id="nominal-input" type="text" value={nominalStr} onChange={e => setNominalStr(e.target.value.replace(/\D/g, "").slice(0, 15))} onPaste={e => { e.preventDefault(); const digits = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 15); if (digits) setNominalStr(digits); }} onFocus={() => setNominalHighlighted(-1)}
                           onKeyDown={e => {
                             if (!nominalOptions.length) return;
                             if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); setNominalHighlighted(h => h < 0 ? 0 : Math.min(h + 1, nominalOptions.length - 1)); }
@@ -1521,7 +1521,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                             else if (e.key === "Escape") { setNominalHighlighted(-1); }
                           }}
                           aria-activedescendant={nominalHighlighted >= 0 ? `nominal-opt-${nominalHighlighted}` : undefined}
-                          required disabled={!isEditor} placeholder="100000" autoComplete="off" inputMode="numeric"
+                          required disabled={!isEditor} placeholder="100000" autoComplete="off" inputMode="numeric" pattern="[0-9]*" maxLength={15}
                           className={`${inputCls} font-semibold`} />
                     </div>
                     <div role="group" aria-label="Pilihan nominal" className="mt-2 flex flex-wrap gap-1.5">
@@ -2261,9 +2261,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <input value={editGuestData.nama} onChange={e => setEditGuestData({ ...editGuestData, nama: e.target.value })} required placeholder="Nama" className={inputCls} />
             <input value={editGuestData.alamat} onChange={e => setEditGuestData({ ...editGuestData, alamat: e.target.value })} required placeholder="Alamat" className={inputCls} />
 <div className="flex gap-2 items-center">
-               <span className="text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
-               <input value={editGuestData.nominal} onChange={e => setEditGuestData({ ...editGuestData, nominal: e.target.value.replace(/\D/g, "") })} required className={`${inputCls} font-semibold`} placeholder="Nominal" />
-             </div>
+                <span className="text-xs font-bold text-[var(--on-surface-variant)]">Rp</span>
+                <input value={editGuestData.nominal} onChange={e => setEditGuestData({ ...editGuestData, nominal: e.target.value.replace(/\D/g, "").slice(0, 15) })} onPaste={e => { e.preventDefault(); const digits = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 15); if (digits) setEditGuestData({ ...editGuestData, nominal: digits }); }} required type="text" inputMode="numeric" pattern="[0-9]*" maxLength={15} autoComplete="off" className={`${inputCls} font-semibold`} placeholder="Nominal" />
+              </div>
             <select value={editGuestData.metode} onChange={e => setEditGuestData({ ...editGuestData, metode: e.target.value })}
               className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none">
               <option>AMPLOP</option><option>QRIS</option><option>TRANSFER</option>

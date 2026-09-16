@@ -29,7 +29,7 @@ jobs:
       - name: Cek RELEASE_PAT
         run: |
           if [ -z "${{ secrets.RELEASE_PAT }}" ]; then
-            echo "::warning::RELEASE_PAT belum diisi — tag rilis tidak akan memicu build aset (Tauri/Flutter/APK). Lihat docs/release.md."
+            echo "::warning::RELEASE_PAT belum diisi — tag rilis tidak akan memicu build aset (Flutter Windows/APK). Lihat docs/release.md."
           else
             echo "RELEASE_PAT terisi ✓"
           fi

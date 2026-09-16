@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-// Wajib force-static agar lolos `output: export` saat NATIVE_BUILD (Tauri).
+// Manifest PWA — selalu force-static.
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {

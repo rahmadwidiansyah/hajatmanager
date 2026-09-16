@@ -357,7 +357,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
       Navigator.of(context)
         ..pop(true)
         ..pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnack(context, 
           const SnackBar(content: Text('Acara dihapus')));
     } on DioException catch (e) {
       _snack(serverMsg(e));
@@ -368,8 +368,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
 
   void _snack(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(m)));
+    showTopSnack(context, SnackBar(content: Text(m)));
   }
 
   @override

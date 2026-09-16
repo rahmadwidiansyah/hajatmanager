@@ -45,8 +45,11 @@ class _AboutScreenState extends State<AboutScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
-              Icon(Icons.celebration_outlined,
-                  size: 48, color: scheme.primary),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset('assets/app_icon.png',
+                    width: 56, height: 56),
+              ),
               const SizedBox(height: 8),
               const Text('Hajat Manager',
                   style: TextStyle(

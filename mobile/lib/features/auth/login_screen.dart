@@ -5,6 +5,7 @@ import '../../core/app_config.dart';
 import '../../core/auth_store.dart';
 import '../../core/sync_engine.dart';
 import 'pin_screen.dart';
+import '../../widgets/app_widgets.dart';
 
 /// Login Email — mirror /login web (credentials).
 /// Sukses -> cache user -> wajib buat PIN offline -> ke daftar acara.
@@ -15,9 +16,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Prefill tester (seed: tester@test.com / 123456) — tinggal tap Masuk.
-  final emailC = TextEditingController(text: 'tester@test.com');
-  final passC = TextEditingController(text: '123456');
+  // Form kosong — user ketik sendiri.
+  final emailC = TextEditingController(text: '');
+  final passC = TextEditingController(text: '');
   final nameC = TextEditingController();
   final serverC = TextEditingController();
   String serverStatus = '…';
@@ -61,10 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
           googleId = gid;
           googleChecked = true;
         });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        showTopSnack(context, SnackBar(
             content: Text(ok
                 ? 'Server tersambung ✓'
-                : 'Masih tak terjangkau — cek URL / kabel USB (adb reverse) / WiFi')));
+                : 'Masih tak terjangkau — cek URL / koneksi internet')));
       }
     } finally {
       if (mounted) setState(() => testing = false);
@@ -88,8 +89,11 @@ class _LoginScreenState extends State<LoginScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: ListView(padding: const EdgeInsets.all(24), children: [
-            Icon(Icons.celebration_outlined,
-                size: 64, color: Theme.of(context).colorScheme.primary),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset('assets/app_icon.png',
+                  width: 72, height: 72),
+            ),
             const SizedBox(height: 12),
             Text('Catat pemberian satset,\nonline maupun offline.',
                 textAlign: TextAlign.center,
@@ -242,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: serverC,
                       keyboardType: TextInputType.url,
                       decoration: const InputDecoration(
-                          hintText: 'http://192.168.1.85:3000',
+                          hintText: 'https://hajat.widihhh.my.id',
                           border: OutlineInputBorder(),
                         filled: true,
                           prefixIcon: Icon(Icons.dns_outlined),
@@ -262,9 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-                ApiClient.supportsGoogleSignIn
-                    ? 'USB: http://127.0.0.1:3000 (adb reverse) • WiFi: http://IP-laptop:3000 • Emulator: http://10.0.2.2:3000'
-                    : 'Server di PC ini: http://127.0.0.1:3000 • Server di laptop lain: http://IP-laptop:3000',
+                'Default: https://hajat.widihhh.my.id — tap Tes dulu sebelum masuk.',
                 style: const TextStyle(fontSize: 11)),
           ]),
         ),
@@ -277,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final pass = passC.text;
     if (!email.contains('@') || pass.length < 6) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnack(context, 
           const SnackBar(content: Text('Email valid + password min 6')));
       return;
     }
@@ -292,8 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
             pass);
         if (!ok) {
           if (mounted) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(err ?? 'Gagal daftar')));
+            showTopSnack(context, SnackBar(content: Text(err ?? 'Gagal daftar')));
           }
           return;
         }
@@ -301,8 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final (ok, err) = await ApiClient.instance.loginEmail(email, pass);
       if (!ok) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(err ?? 'Gagal masuk')));
+          showTopSnack(context, SnackBar(content: Text(err ?? 'Gagal masuk')));
         }
         return;
       }
@@ -330,8 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
           .loginGoogle(serverClientId: googleId);
       if (!ok) {
         if (err != null && mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(err)));
+          showTopSnack(context, SnackBar(content: Text(err)));
         }
         return;
       }

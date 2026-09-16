@@ -9,7 +9,7 @@ plugins {
 
 // Keystore rilis — kondisional. CI menulis android/app/key.properties dari
 // secrets hanya bila ANDROID_KEYSTORE_BASE64 ada; tanpa itu fallback debug
-// agar APK tetap installable (sideload), setara status APK Capacitor lama.
+// agar APK tetap installable (sideload).
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasKeystore = keystorePropertiesFile.exists()
 val keystoreProperties = Properties()

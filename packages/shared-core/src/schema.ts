@@ -1,10 +1,7 @@
 /**
- * Drizzle SQLite schema — mirror Prisma untuk native offline.
+ * Drizzle SQLite schema — mirror Prisma untuk offline.
  * Keep in sync with prisma/schema.prisma (EventMode, User appPinHash, offline fields).
- * Used by:
- * - Tauri via @tauri-apps/plugin-sql (sqlx sqlite)
- * - Capacitor via @capacitor-community/sqlite
- * - Tests via better-sqlite3
+ * Used by tests via better-sqlite3.
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 

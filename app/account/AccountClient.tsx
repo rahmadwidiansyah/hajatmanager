@@ -643,9 +643,9 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
         </div>
       )}
 
-      {/* Snackbar global — M3: inverse-surface, role=status */}
+      {/* Snackbar global — M3: inverse-surface, role=status (top, auto-hilang 4 dtk) */}
       {snack && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[560px]">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-32px)] max-w-[560px] pt-[env(safe-area-inset-top)]">
           <div
             role="status"
             aria-live="polite"

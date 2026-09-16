@@ -32,7 +32,6 @@ public/swe-worker-*.js
 *.apk
 *.aab
 **/build/
-native/windows/src-tauri/target/
 test-results/
 playwright-report/
 

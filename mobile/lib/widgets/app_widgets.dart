@@ -1,9 +1,32 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import '../core/app_theme.dart';
 import '../core/sync_engine.dart';
+
+/// Tampilkan SnackBar di ATAS (floating, di bawah AppBar) — bukan bottom default.
+/// Menerima SnackBar apa adanya, paksa posisi top + auto-hilang sesuai
+/// [SnackBar.duration] (default Flutter 4 dtk).
+void showTopSnack(BuildContext context, SnackBar bar) {
+  final mq = MediaQuery.of(context);
+  final h = mq.size.height;
+  final topPad = mq.padding.top;
+  // Dorong ke atas: margin bottom besar agar floating muncul di bawah AppBar.
+  final bottomMargin = (h - topPad - kToolbarHeight - 76).clamp(0.0, h);
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(SnackBar(
+    content: bar.content,
+    backgroundColor: bar.backgroundColor,
+    elevation: bar.elevation,
+    margin: EdgeInsets.fromLTRB(12, 0, 12, bottomMargin),
+    padding: bar.padding,
+    behavior: SnackBarBehavior.floating,
+    duration: bar.duration,
+    action: bar.action,
+    shape: bar.shape ??
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  ));
+}
 
 /// Cek online cepat sebelum aksi yang wajib server.
 /// False = sudah tampilkan snackbar, batalkan aksi.
@@ -12,9 +35,11 @@ Future<bool> ensureOnline(BuildContext context) async {
   await SyncEngine.instance.checkNow();
   if (SyncEngine.instance.online) return true;
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'Butuh online — tidak ada perubahan, coba lagi saat tersambung')));
+    showTopSnack(
+        context,
+        const SnackBar(
+            content: Text(
+                'Butuh online — tidak ada perubahan, coba lagi saat tersambung')));
   }
   return false;
 }
@@ -48,11 +73,7 @@ String serverMsg(DioException e) {
   if (e.type == DioExceptionType.connectionError ||
       e.type == DioExceptionType.connectionTimeout ||
       e.type == DioExceptionType.receiveTimeout) {
-    final viaUsb =
-        !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    return viaUsb
-        ? 'Server tak terjangkau (>12 dtk) — cek URL server / kabel USB (adb reverse) / WiFi, lalu coba lagi'
-        : 'Server tak terjangkau (>12 dtk) — cek URL server / koneksi WiFi, lalu coba lagi';
+    return 'Server tak terjangkau (>12 dtk) — cek URL server / koneksi internet, lalu coba lagi';
   }
   final s = e.response?.statusCode ?? 0;
   if (s == 404) return 'Tidak ketemu di server (mungkin sudah dihapus)';

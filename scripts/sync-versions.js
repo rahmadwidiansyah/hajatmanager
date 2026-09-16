@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Sync semantic-release version to Tauri + Cargo + Android versionCode
+// Sync semantic-release version to web + Flutter (native Capacitor/Tauri dihapus)
 const fs = require("fs");
 const path = require("path");
 
@@ -19,23 +19,9 @@ function updateJson(file, updater) {
   console.log(`updated ${file} -> ${clean}`);
 }
 
-function updateCargo(file) {
-  const p = path.join(__dirname, "..", file);
-  if (!fs.existsSync(p)) return;
-  let s = fs.readFileSync(p, "utf8");
-  s = s.replace(/^version = ".*"/m, `version = "${clean}"`);
-  fs.writeFileSync(p, s);
-  console.log(`updated ${file} -> ${clean}`);
-}
-
 // root package.json
 updateJson("package.json", (j) => { j.version = clean; });
-updateJson("native/windows/package.json", (j) => { j.version = clean; });
-updateJson("native/android/package.json", (j) => { j.version = clean; });
 updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
-
-// tauri.conf.json (canonical: di dalam src-tauri/)
-updateJson("native/windows/src-tauri/tauri.conf.json", (j) => { j.version = clean; });
 
 // mobile/pubspec.yaml — version: x.y.z+N (N = GITHUB_RUN_NUMBER agar naik tiap rilis)
 (function updatePubspec() {
@@ -51,11 +37,5 @@ updateJson("native/windows/src-tauri/tauri.conf.json", (j) => { j.version = clea
   fs.writeFileSync(p, s);
   console.log(`updated mobile/pubspec.yaml -> ${clean}+${build}`);
 })();
-
-// Cargo.toml
-updateCargo("native/windows/src-tauri/Cargo.toml");
-
-// optional: patch android versionCode via gradle if needed — we bump via git rev-list count
-// keep capacitor.config.ts appVersion if present (not required)
 
 console.log(`sync-versions done -> ${clean}`);

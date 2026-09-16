@@ -162,7 +162,8 @@ class ApiClient {
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   /// Login Google native: popup akun HP → ID token → session cookie server.
-  /// Returns (sukses, pesanError). pesanError null = user membatalkan (diam).
+  /// Returns (sukses, pesanError). pesanError selalu terisi bila gagal,
+  /// termasuk saat user membatalkan (agar UI tidak diam).
   Future<(bool, String?)> loginGoogle({String? serverClientId}) async {
     if (!supportsGoogleSignIn) {
       return (false, 'Login Google hanya di Android/iOS — pakai email');
@@ -187,7 +188,7 @@ class ApiClient {
       return (false, 'Login Google gagal (${r.statusCode})');
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        return (false, null);
+        return (false, 'Login Google dibatalkan');
       }
       if (e.code ==
           GoogleSignInExceptionCode.clientConfigurationError) {

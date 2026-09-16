@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/api_client.dart';
 import '../../core/app_config.dart';
@@ -129,7 +130,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (v == null || v.isEmpty) return;
     if (mejaList.length >= 10) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnack(context, 
             const SnackBar(content: Text('Maksimal 10 meja')));
       }
       return;
@@ -313,12 +314,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final alamat = alamatC.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     final nominal = parseNominal(nominalC.text);
     if (!isValidNama(nama)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      showTopSnack(context, const SnackBar(
           content: Text('Nama hanya boleh huruf (min 2), tanpa angka/simbol')));
       return;
     }
     if (alamat.length < 2 || nominal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      showTopSnack(context, const SnackBar(
           content: Text('Lengkapi alamat (min 2) dan nominal > 0')));
       return;
     }
@@ -403,7 +404,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       await _loadLocal();
       await SyncEngine.instance.pending(widget.event.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        showTopSnack(context, SnackBar(
             content: Text(err ??
                 (pending == 0
                     ? 'Tersimpan & tersinkron ✓'
@@ -458,7 +459,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     await SyncEngine.instance.flush(widget.event.id);
                 await _refreshAll();
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  showTopSnack(context, SnackBar(
                       content: Text(e == null
                           ? 'Sync: $f terkirim, $c konflik'
                           : 'Sync tertunda ($e) — data aman di lokal')));
@@ -629,6 +630,10 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               TextField(
                   controller: nominalC,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(15),
+                  ],
                   decoration: const InputDecoration(
                       labelText: 'Nominal (Rp)',
                       border: OutlineInputBorder(),
@@ -884,7 +889,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final nama = capitalizeWords(n.text);
     if (ok != true || !isValidNama(nama)) {
       if (ok == true && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        showTopSnack(context, const SnackBar(
             content:
                 Text('Nama hanya boleh huruf (min 2), tanpa angka/simbol')));
       }
@@ -1006,7 +1011,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (ok != true) return;
     if (c.text.trim().isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        showTopSnack(context, const SnackBar(
             content: Text('Catatan wajib untuk bedakan duplikat')));
       }
       return;
@@ -1131,6 +1136,10 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         TextField(
                             controller: nom,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(15),
+                            ],
                             decoration: const InputDecoration(
                                 labelText: 'Nominal')),
                         const SizedBox(height: 8),
@@ -1171,7 +1180,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final nama = capitalizeWords(n.text);
     if (!isValidNama(nama)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnack(context, 
             const SnackBar(
                 content: Text(
                     'Nama hanya boleh huruf, tanpa angka/simbol')));
@@ -1338,7 +1347,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final nama = capitalizeWords(n.text);
     if (!isValidNama(nama)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnack(context, 
             const SnackBar(
                 content: Text(
                     'Nama hanya boleh huruf, tanpa angka/simbol')));
@@ -1603,7 +1612,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       final rows = await exportRows(widget.event.id, opt);
       if (rows.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          showTopSnack(context, 
               const SnackBar(
                   content: Text('Tidak ada data untuk diexport')));
         }
@@ -1634,7 +1643,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnack(context, 
             SnackBar(content: Text('Export gagal: $e')));
       }
     }

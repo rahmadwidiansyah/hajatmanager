@@ -8,11 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate || exit 0",
-    "native:windows:dev": "npm --prefix native/windows run tauri:dev",
-    "native:windows:build": "npm --prefix native/windows run tauri:build",
-    "native:android:dev": "npm --prefix native/android run cap:sync",
-    "native:android:build": "npm --prefix native/android run cap:build"
+    "postinstall": "prisma generate || exit 0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

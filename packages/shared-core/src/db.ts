@@ -1,6 +1,6 @@
 /**
- * SQLite adapter abstraction — same interface for Tauri, Capacitor, and better-sqlite3 tests.
- * Web fallback remains lib/offline-sync.ts localStorage queue; native will inject real adapter.
+ * SQLite adapter abstraction — dipakai tests (better-sqlite3).
+ * Web fallback tetap lib/offline-sync.ts localStorage queue.
  */
 export type SqliteAdapter = {
   exec(sql: string, params?: unknown[]): Promise<void>;
@@ -9,16 +9,6 @@ export type SqliteAdapter = {
 };
 
 export function getAdapter(): SqliteAdapter | null {
-  // Detect Tauri
-  if (typeof window !== "undefined" && (window as unknown as { __TAURI__?: unknown }).__TAURI__) {
-    // Tauri: use @tauri-apps/plugin-sql Database wrapper (create lazily in tauri code)
-    // Keep returning null here so lib/offline-sync falls back to localStorage until tauri DB is injected via setAdapter
-    return injected ?? null;
-  }
-  // Detect Capacitor handled similarly via window.Capacitor
-  if (typeof window !== "undefined" && (window as unknown as { Capacitor?: unknown }).Capacitor) {
-    return injected ?? null;
-  }
   return injected ?? null;
 }
 
@@ -28,7 +18,7 @@ export function setAdapter(a: SqliteAdapter | null) {
 }
 
 /**
- * SQL to create tables — used by Tauri/Capacitor ensureSchema and by tests.
+ * SQL to create tables — dipakai tests.
  * Matches src/schema.ts drizzle definitions.
  */
 export const CREATE_TABLES_SQL = `

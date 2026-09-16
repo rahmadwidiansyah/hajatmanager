@@ -3,25 +3,37 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Config server — bisa diganti di Settings.
-/// Default: localhost untuk desktop, 10.0.2.2 untuk emulator Android.
+/// Config server — bisa diganti di layar Login (kolom Server + Tes).
+/// Default: server produksi. Install lama yang masih menyimpan IP dev
+/// otomatis dimigrasi ke domain produksi (kecuali URL custom).
 class AppConfig {
   static const _kBaseUrl = 'base_url';
   static const _kDeviceId = 'device_id';
   static const _kMeja = 'meja_label';
 
-  static const defaultEmulator = 'http://192.168.1.85:3000';
-  static const defaultDesktop = 'http://192.168.1.85:3000';
-  static const defaultLaptop = 'http://192.168.1.85:3000';
+  static const defaultProd = 'https://hajat.widihhh.my.id';
+  static const defaultEmulator = defaultProd;
+  static const defaultDesktop = defaultProd;
+  static const defaultLaptop = defaultProd;
+
+  /// Nilai lama (dev) yang otomatis dimigrasi ke produksi bila tersimpan.
+  static const _legacyDefaults = {
+    'http://192.168.1.85:3000',
+    'http://127.0.0.1:3000',
+    'http://10.0.2.2:3000',
+  };
 
   static Future<String> getBaseUrl() async {
     final p = await SharedPreferences.getInstance();
     final saved = p.getString(_kBaseUrl);
-    if (saved != null && saved.isNotEmpty) return saved;
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      return defaultDesktop;
+    if (saved != null && saved.isNotEmpty) {
+      if (_legacyDefaults.contains(saved.trim())) {
+        await p.setString(_kBaseUrl, defaultProd);
+        return defaultProd;
+      }
+      return saved;
     }
-    return defaultEmulator;
+    return defaultProd;
   }
 
   static Future<void> setBaseUrl(String v) async {

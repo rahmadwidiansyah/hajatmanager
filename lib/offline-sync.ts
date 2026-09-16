@@ -18,10 +18,8 @@ import {
 
 export type { OutboxAction, OutboxOp };
 
-// Lightweight background sync foundation for web + native WebView.
+// Lightweight background sync foundation for web.
 // - Queue format: localStorage `offlineQueue:${eventId}` JSON array (web fallback)
-// - Native (Tauri SQLite / Capacitor SQLite) injects SqliteAdapter via setSqliteAdapter()
-//   then queue lives in SQLite `syncQueue` instead — pendingCount tetap via getPendingCount()
 // - Fase 1: flush tahan gagal (timeout + try/catch + reachability), auto-push 1 menit + backoff,
 //   status jaringan real via subscribeNetworkStatus(). Bukan SW/PWA penuh (Fase 3).
 // - Fase 2: Dexie outbox generik (semua mutasi) + read-cache + pull delta. LS jadi fallback/migrasi.
