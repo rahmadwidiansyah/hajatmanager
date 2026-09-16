@@ -324,6 +324,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Login Google native: popup akun HP → session server → alur PIN sama.
   Future<void> _google() async {
+    // Refresh ID server dulu (jangan percaya cache lama — env bisa ganti).
+    if (googleId == null) await _loadServer();
+    if (!mounted) return;
     setState(() => gBusy = true);
     try {
       final (ok, err) = await ApiClient.instance

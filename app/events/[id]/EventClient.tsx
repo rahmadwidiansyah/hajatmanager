@@ -1459,7 +1459,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {/* ═══════════════════════ PEMBERIAN TAB ═══════════════════════ */}
         {tab === "pemberian" && (
           <div className="flex flex-col gap-2 sm:gap-4">
-            {/* Form input — M3 shape tetap (bukan berubah per breakpoint) */}
+            {/* Form input — hanya editor; viewer langsung ke tabel + search */}
+            {isEditor && (
             <div className="bg-[var(--surface-container-lowest)] rounded-2xl border border-[var(--outline-variant)] p-3 sm:p-5 shadow-[var(--shadow-elevation-1)]">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
@@ -1601,6 +1602,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 )}
               </form>
             </div>
+            )}
 
             {/* Tabel pemberian */}
             <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-4 border border-[var(--outline-variant)]">
@@ -1758,6 +1760,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {/* ═══════════════════════ BUKU TAMU TAB ═══════════════════════ */}
         {tab === "buku" && (
           <div className="flex flex-col gap-4">
+            {isEditor && (
             <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
               <h3 className="font-semibold text-[var(--on-surface)] mb-4">Tambah Tamu</h3>
               <form onSubmit={handleAddBook} className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -1774,6 +1777,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 </div>
               </form>
             </div>
+            )}
 
             <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-5 border border-[var(--outline-variant)]">
               <div className="flex items-center justify-between mb-3">

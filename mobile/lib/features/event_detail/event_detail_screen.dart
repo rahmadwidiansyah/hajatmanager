@@ -48,6 +48,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   int pending = 0;
   bool saving = false;
   String bookQ = '';
+  String guestQ = '';
   List<Map<String, dynamic>> conflicts = [];
   bool goneServer = false;
   List<String> mejaList = ['MEJA-1', 'MEJA-2'];
@@ -652,6 +653,26 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           filled: true,
           prefixIcon: Icon(Icons.note_outlined)));
 
+  /// Search pemberian (viewer) + daftar filter untuk list/tabel.
+  Widget _guestSearchField() => TextField(
+      onChanged: (v) => setState(() => guestQ = v),
+      decoration: InputDecoration(
+          hintText: 'Cari nama / alamat… (${guests.length})',
+          border: const OutlineInputBorder(),
+          filled: true,
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_outlined)));
+
+  List<Map<String, dynamic>> get shownGuests {
+    final q = guestQ.trim().toLowerCase();
+    if (q.isEmpty) return guests;
+    return guests
+        .where((g) =>
+            '${g['nama']}'.toLowerCase().contains(q) ||
+            '${g['alamat']}'.toLowerCase().contains(q))
+        .toList();
+  }
+
   /// Tile pemberian (HP) — dipakai ulang di list vertikal.
   Widget _guestTile(Map<String, dynamic> g) => Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -688,8 +709,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       );
 
   /// Tabel pemberian (desktop lebar) — cermin tabel web.
-  Widget _guestTable() {
-    final rows = guests.take(20).toList();
+  Widget _guestTable([List<Map<String, dynamic>>? rows]) {
+    final data = (rows ?? guests).take(20).toList();
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       clipBehavior: Clip.antiAlias,
@@ -703,7 +724,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             DataColumn(label: Text('Metode')),
             DataColumn(label: Text('Aksi')),
           ],
-          rows: rows
+          rows: data
               .map((g) => DataRow(cells: [
                     DataCell(Text('${g['nama']}',
                         style: const TextStyle(
@@ -775,7 +796,32 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ),
           ),
         if (conflicts.isNotEmpty) const SizedBox(height: 12),
+        // VIEWER: tanpa form/meja sama sekali — hanya search + lihat.
+        if (!canEdit) ...[
+          _guestSearchField(),
+          const SizedBox(height: 8),
+          Text('Pemberian (${shownGuests.length})',
+              style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          if (shownGuests.isEmpty)
+            EmptyState(
+              icon: guests.isEmpty
+                  ? Icons.inbox_outlined
+                  : Icons.search_off_outlined,
+              title: guests.isEmpty
+                  ? 'Belum ada pemberian tercatat'
+                  : 'Tidak ketemu “$guestQ”',
+              subtitle: guests.isEmpty
+                  ? 'Minta OWNER/ADMIN untuk menambah data.'
+                  : 'Coba kata kunci lain.',
+            )
+          else ...(wide
+              ? [_guestTable(shownGuests)]
+              : shownGuests.take(20).map((g) => _guestTile(g))),
+        ],
+        // EDITOR: form input lengkap.
         // Meja kasir: bar kompak paling atas, selalu terlihat.
+        if (canEdit)
         Card(
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -819,6 +865,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         ),
         const SizedBox(height: 12),
+        if (canEdit)
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -854,6 +901,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         ),
         const SizedBox(height: 12),
+        if (canEdit)
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -893,7 +941,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ]),
           ),
         ),
-        const SizedBox(height: 12),
+        if (canEdit) const SizedBox(height: 12),
         if (canEdit)
           Align(
             alignment:
@@ -917,33 +965,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         : 'Simpan (offline-first)')),
               ),
             ),
-          )
-        else
-          Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Padding(
-              padding: EdgeInsets.all(12),
-              child: Row(children: [
-                Icon(Icons.visibility_outlined, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                    child: Text(
-                        'Mode lihat saja — kamu VIEWER di acara ini. Cari & lihat tetap bisa.')),
-              ]),
-            ),
           ),
-        const SizedBox(height: 16),
-        Text('Terakhir di perangkat ini (${guests.length})',
-            style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        if (guests.isEmpty)
+        if (canEdit) const SizedBox(height: 16),
+        if (canEdit)
+          Text('Terakhir di perangkat ini (${guests.length})',
+              style: Theme.of(context).textTheme.titleSmall),
+        if (canEdit) const SizedBox(height: 8),
+        if (canEdit && guests.isEmpty)
           const Card(
               child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text('Belum ada pemberian tercatat.'))),
-        ...(wide
-            ? [_guestTable()]
-            : guests.take(20).map((g) => _guestTile(g))),
+        if (canEdit)
+          ...(wide
+              ? [_guestTable()]
+              : guests.take(20).map((g) => _guestTile(g))),
           ]);
       });
 

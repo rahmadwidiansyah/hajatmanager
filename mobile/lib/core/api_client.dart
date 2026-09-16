@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path_provider/path_provider.dart';
 import 'app_config.dart';
@@ -161,6 +161,18 @@ class ApiClient {
   static bool get supportsGoogleSignIn =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
+  /// serverClientId yang dipakai initialize() terakhir.
+  /// SDK mewajibkan initialize() exactly-once — jangan panggil tiap tap.
+  String? _googleInitFor;
+
+  /// Pastikan GoogleSignIn ter-init sekali per serverClientId.
+  Future<void> ensureGoogleInitialized(String? serverClientId) async {
+    if (_googleInitFor == serverClientId && serverClientId != null) return;
+    await GoogleSignIn.instance
+        .initialize(serverClientId: serverClientId);
+    _googleInitFor = serverClientId;
+  }
+
   /// Login Google native: popup akun HP → ID token → session cookie server.
   /// Returns (sukses, pesanError). pesanError selalu terisi bila gagal,
   /// termasuk saat user membatalkan (agar UI tidak diam).
@@ -169,8 +181,12 @@ class ApiClient {
       return (false, 'Login Google hanya di Android/iOS — pakai email');
     }
     try {
-      await GoogleSignIn.instance
-          .initialize(serverClientId: serverClientId);
+      await ensureGoogleInitialized(serverClientId);
+      // Bersihkan credential state basi (SDK: jangan authenticate ulang
+      // tanpa signOut) — abaikan bila gagal, bukan fatal.
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
       final account =
           await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
@@ -187,8 +203,12 @@ class ApiClient {
       }
       return (false, 'Login Google gagal (${r.statusCode})');
     } on GoogleSignInException catch (e) {
+      // Catat detail agar cancel-sistem (CredentialManager) bisa dibedakan
+      // dari user-back — kirim via logcat: adb logcat | grep GoogleSignIn
+      debugPrint(
+          '[GoogleSignIn] code=${e.code.name} description=${e.description} details=${e.details}');
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        return (false, 'Login Google dibatalkan');
+        return (false, 'Login Google dibatalkan — tap lagi untuk coba');
       }
       if (e.code ==
           GoogleSignInExceptionCode.clientConfigurationError) {
