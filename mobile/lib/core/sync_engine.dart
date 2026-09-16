@@ -94,16 +94,25 @@ class SyncEngine extends ChangeNotifier {
           final data = Map<String, dynamic>.from(res.data as Map);
           final cfl = (data['conflicts'] as List? ?? []);
           final cIds = cfl.map((e) => '${(e as Map)['id']}').toSet();
+          // Item ditolak server karena role (VIEWER) langsung dibuang, bukan retry.
+          final forbidden = cfl
+              .where((e) => (e as Map)['reason'] == 'FORBIDDEN')
+              .map((e) => '${(e as Map)['id']}')
+              .toList();
           final done = creates
               .where((o) => !cIds.contains('${o['id']}'))
               .map((o) => '${o['id']}')
               .toList();
           await LocalDb.instance.outboxRemove(done);
+          if (forbidden.isNotEmpty) {
+            await LocalDb.instance.outboxRemove(forbidden);
+          }
           flushed = (data['synced']?['guests'] as int? ?? 0) +
               (data['synced']?['guestBooks'] as int? ?? 0) +
               (data['synced']?['events'] as int? ?? 0);
           conflicts = cIds.length;
           for (final id in cIds) {
+            if (forbidden.contains(id)) continue;
             await LocalDb.instance.outboxBump(id, 'DUPLICATE_NEED_NOTE');
           }
         } on DioException catch (e) {

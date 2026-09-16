@@ -592,7 +592,7 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
                 <span className="block text-xs text-[var(--on-surface-variant)]">Aktif di perangkat ini</span>
               </span>
               <Link
-                href="/api/auth/signout"
+                href="/auth/signout"
                 className="h-10 px-4 inline-flex items-center rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] transition-colors shrink-0"
               >
                 Keluar

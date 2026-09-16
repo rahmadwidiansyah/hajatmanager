@@ -733,8 +733,19 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     return () => clearTimeout(t);
   }, [nama, alamat, eventId]);
 
+  // VIEWER read-only: tolak aksi tulis di client (server tetap enforce 403).
+  // Dipanggil di awal tiap handler tulis; true = ditolak, hentikan.
+  function denyViewer(): boolean {
+    if (!isEditor) {
+      setSyncError("Mode lihat saja — perlu peran OWNER/ADMIN untuk mengubah.");
+      return true;
+    }
+    return false;
+  }
+
   async function handleSubmitPemberian(e: React.FormEvent) {
     e.preventDefault();
+    if (denyViewer()) return;
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
     if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
@@ -780,6 +791,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   async function handleSubmitDuplicate() {
     if (!dupModal) return;
+    if (denyViewer()) return;
     if (!dupNote.trim()) { setSyncError("Catatan wajib untuk bedakan duplikat."); return; }
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
@@ -821,6 +833,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   async function handleAddBook(e: React.FormEvent) {
     e.preventDefault();
+    if (denyViewer()) return;
     const namaB = toTitleCasePerKata(bookNama);
     const alamatB = toTitleCasePerKata(bookAlamat);
     if (!isOnline()) {
@@ -858,6 +871,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   async function handleUpdateBook(e: React.FormEvent) {
     e.preventDefault();
     if (!editBook) return;
+    if (denyViewer()) { setEditBook(null); return; }
     const fields = { nama: toTitleCasePerKata(editBookData.nama), alamat: toTitleCasePerKata(editBookData.alamat) };
     const prev = books;
     // Optimistic dulu agar satset.
@@ -885,6 +899,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     }
   }
   async function handleDeleteBook(id: string) {
+    if (denyViewer()) return;
     if (!confirm("Hapus buku tamu ini?")) return;
     const prev = books;
     setBooks((list) => list.filter((b) => b.id !== id));
@@ -905,6 +920,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     }
   }
   async function handleAddMember(userId: string) {
+    if (event?.myRole !== "OWNER") { setSyncError("Hanya OWNER bisa kelola anggota."); return; }
     const fields = { userId, role: addRole };
     if (!isOnline()) {
       await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
@@ -936,6 +952,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     }
   }
   async function handleRemoveMember(userId: string) {
+    if (event?.myRole !== "OWNER") { setSyncError("Hanya OWNER bisa kelola anggota."); return; }
     if (!confirm("Hapus anggota?")) return;
     const prev = members;
     setMembers((list) => list.filter((m) => m.user.id !== userId));
@@ -956,6 +973,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     }
   }
   async function handleDeleteGuest(id: string) {
+    if (denyViewer()) return;
     if (!confirm("Hapus data ini?")) return;
     // Jika masih antrean lokal (belum pernah ke server), hapus dari antrean saja.
     if (id.startsWith("local-")) {
@@ -995,6 +1013,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   async function handleUpdateGuest(e: React.FormEvent) {
     e.preventDefault();
     if (!editGuest) return;
+    if (denyViewer()) { setEditGuest(null); return; }
     const nominal = parseInt(editGuestData.nominal.replace(/\D/g, ""), 10);
     if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
     // Jika edit item yang masih pending lokal → update antrean LS langsung.
@@ -1040,6 +1059,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     }
   }
   async function updateMejaListOffline(next: string[]) {
+    if (denyViewer()) return;
     if (event) setEvent({ ...event, mejaList: next });
     try {
       const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
@@ -1058,6 +1078,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   }
   async function handleUpdateEvent(e: React.FormEvent) {
     e.preventDefault();
+    if (denyViewer()) { setEditMode(false); return; }
     if (!editNamaTuanRumah.trim() || editNamaTuanRumah.trim().length < 2) { setSyncError("Nama tuan rumah wajib minimal 2 huruf."); return; }
     const fields = { namaAcara: editNama, namaTuanRumah: toTitleCasePerKata(editNamaTuanRumah), tanggal: editTanggal, lokasi: editLokasi, catatan: editCatatan };
     const prevEvent = event;
@@ -2013,7 +2034,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     ))}
                     <div className="pt-3 mt-3 border-t border-[var(--outline-variant)]">
                       <button
-                        disabled={event.myRole === "VIEWER"}
+                        disabled={event.myRole !== "OWNER"}
                         onClick={async () => { if (!confirm("Hapus acara ini secara permanen?")) return; const res = await fetch(`/api/events/${eventId}`, { method: "DELETE" }); if (res.ok) window.location.href = "/dashboard"; }}
                         className="w-full h-10 rounded-xl border border-red-200 dark:border-red-800 text-[var(--error)] text-sm hover:bg-[var(--error-container)] transition-colors disabled:opacity-50"
                       >

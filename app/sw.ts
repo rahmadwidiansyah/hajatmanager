@@ -18,6 +18,18 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    // Auth & API: jangan pernah dicegat SW — callback OAuth (/api/auth/*)
+    // dan halaman error login harus selalu dari network, bukan precache.
+    {
+      matcher: ({ request, sameOrigin, url }) =>
+        request.method === "GET" &&
+        sameOrigin &&
+        url.pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: "hajat-api-passthrough",
+        networkTimeoutSeconds: 10,
+      }),
+    },
     // Fase 3: bacaan kritis hajatan — NetworkFirst dengan timeout pendek (5s)
     // agar fallback cache cepat saat sinyal hilang. Mutasi (POST/PATCH/DELETE)
     // tidak pernah di-cache (hanya GET yang bisa masuk Cache API) dan tetap

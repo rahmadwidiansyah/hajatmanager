@@ -48,10 +48,20 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   bool saving = false;
   String bookQ = '';
   List<Map<String, dynamic>> conflicts = [];
+  bool goneServer = false;
   List<String> mejaList = ['MEJA-1', 'MEJA-2'];
   String mejaSelected = 'MEJA-1';
   bool get canEdit =>
       widget.event.myRole == 'OWNER' || widget.event.myRole == 'ADMIN';
+
+  /// VIEWER read-only: tolak aksi tulis di client (server tetap enforce 403).
+  /// True = ditolak, hentikan.
+  bool denyViewer() {
+    if (canEdit) return false;
+    showTopSnack(context, const SnackBar(
+        content: Text('Mode lihat saja — perlu peran OWNER/ADMIN untuk mengubah')));
+    return true;
+  }
   // Anti-double: token jalan + sidik payload terakhir (abaikan kirim ulang <3 dtk).
   int _saveToken = 0;
   String _lastSig = '';
@@ -103,6 +113,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   /// Tambah meja baru (OWNER/ADMIN → PATCH server, else lokal sesi).
   Future<void> _addMeja() async {
+    if (denyViewer()) return;
     final c = TextEditingController();
     final v = await showDialog<String>(
         context: context,
@@ -282,6 +293,11 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         if (at.isNotEmpty) alamatTop = at.take(4).toList();
         if (nt.isNotEmpty) nominalTop = nt.take(4).toList();
       } catch (_) {}
+    } on DioException catch (e) {
+      // Acara dihapus dari web (404) — tandai agar UI tampilkan banner.
+      if (e.response?.statusCode == 404 && mounted) {
+        setState(() => goneServer = true);
+      }
     } catch (_) {}
   }
 
@@ -309,6 +325,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Future<void> _saveGuest() async {
+    if (denyViewer()) return;
     // Kapital tiap awal kata + validasi huruf saja (tanpa angka/simbol).
     final nama = capitalizeWords(namaC.text);
     final alamat = alamatC.text.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -483,6 +500,25 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Widget _inputTab() => ListView(padding: const EdgeInsets.all(16), children: [
+        if (goneServer)
+          Card(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: ListTile(
+              leading: Icon(Icons.search_off_outlined,
+                  color: Theme.of(context).colorScheme.onErrorContainer),
+              title: Text('Acara ini sudah dihapus dari server',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onErrorContainer)),
+              subtitle: const Text('Data lokal masih bisa dilihat.'),
+              trailing: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Kembali'),
+              ),
+            ),
+          ),
         if (conflicts.isNotEmpty)
           Card(
             color: Theme.of(context).colorScheme.errorContainer,
@@ -599,6 +635,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         const SizedBox(height: 12),
         TextField(
             controller: alamatC,
+            enabled: canEdit,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
                 labelText: 'Alamat / Desa',
@@ -612,7 +649,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               children: alamatTop
                   .map((a) => ActionChip(
                       label: Text(a),
-                      onPressed: () => setState(() => alamatC.text = a)))
+                      onPressed: canEdit
+                          ? () => setState(() => alamatC.text = a)
+                          : null))
                   .toList()),
         ],
             ]),
@@ -629,6 +668,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               const SizedBox(height: 12),
               TextField(
                   controller: nominalC,
+                  enabled: canEdit,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
@@ -646,8 +686,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     children: nominalTop
                         .map((n) => ActionChip(
                             label: Text(formatRp(n)),
-                            onPressed: () =>
-                                setState(() => nominalC.text = '$n')))
+                            onPressed: canEdit
+                                ? () => setState(() => nominalC.text = '$n')
+                                : null))
                         .toList()),
               ],
               const SizedBox(height: 12),
@@ -687,14 +728,16 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         color: selected
                             ? scheme.primary
                             : scheme.outlineVariant),
-                    onSelected: (_) =>
-                        setState(() => metode = m),
+                    onSelected: canEdit
+                        ? (_) => setState(() => metode = m)
+                        : null,
                   );
                 }).toList(),
               ),
               const SizedBox(height: 12),
               TextField(
                   controller: catatanC,
+                  enabled: canEdit,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                       labelText: 'Catatan (wajib jika duplikat)',
@@ -705,18 +748,33 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: saving ? null : _saveGuest,
-          icon: saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.save_outlined),
-          label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(saving ? 'Menyimpan...' : 'Simpan (offline-first)')),
-        ),
+        if (canEdit)
+          FilledButton.icon(
+            onPressed: saving ? null : _saveGuest,
+            icon: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_outlined),
+            label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(saving ? 'Menyimpan...' : 'Simpan (offline-first)')),
+          )
+        else
+          Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(children: [
+                Icon(Icons.visibility_outlined, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        'Mode lihat saja — kamu VIEWER di acara ini. Cari & lihat tetap bisa.')),
+              ]),
+            ),
+          ),
         const SizedBox(height: 16),
         Text('Terakhir di perangkat ini (${guests.length})',
             style: Theme.of(context).textTheme.titleSmall),
@@ -778,12 +836,13 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: Row(children: [
-            Expanded(
-                child: FilledButton.icon(
-                    onPressed: _addBookDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Tamu'))),
-            const SizedBox(width: 8),
+            if (canEdit)
+              Expanded(
+                  child: FilledButton.icon(
+                      onPressed: _addBookDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Tamu'))),
+            if (canEdit) const SizedBox(width: 8),
             Expanded(
                 child: OutlinedButton.icon(
                     onPressed: () async {
@@ -813,9 +872,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ? 'Buku tamu kosong'
                       : 'Tidak ketemu “$bookQ”',
                   subtitle: books.isEmpty
-                      ? 'Tambah manual atau tarik Sync untuk data dari web.'
+                      ? 'Minta OWNER/ADMIN untuk menambah data.'
                       : 'Coba kata kunci lain.',
-                  action: books.isEmpty
+                  action: books.isEmpty && canEdit
                       ? FilledButton.icon(
                           onPressed: _addBookDialog,
                           icon: const Icon(Icons.person_add_outlined),
@@ -858,6 +917,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Future<void> _addBookDialog() async {
+    if (denyViewer()) return;
     final n = TextEditingController();
     final a = TextEditingController();
     final ok = await showDialog<bool>(
@@ -1199,6 +1259,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// Optimistic update lokal + antre UPDATE + coba PATCH langsung.
   Future<void> _pushGuestEdit(
       String id, Map<String, dynamic> fields) async {
+    if (denyViewer()) return;
     await LocalDb.instance.updateGuestLocal(id, fields);
     await LocalDb.instance.enqueue(widget.event.id, 'UPDATE_GUEST',
         'guests', {'id': id, 'fields': fields});
@@ -1231,6 +1292,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Future<void> _deleteGuest(String id, String nama) async {
+    if (denyViewer()) return;
     final ok = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
@@ -1313,6 +1375,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Future<void> _editBookDialog(Map<String, dynamic> b) async {
+    if (denyViewer()) return;
     final id = '${b['id']}';
     final n = TextEditingController(text: '${b['nama']}');
     final a = TextEditingController(text: '${b['alamat']}');
@@ -1369,6 +1432,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   Future<void> _deleteBook(String id, String nama) async {
+    if (denyViewer()) return;
     final ok = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(

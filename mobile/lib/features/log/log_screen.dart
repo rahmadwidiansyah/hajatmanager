@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
-import '../../widgets/app_widgets.dart';
+import '../../widgets/error_screen.dart';
 
 const _aksiList = [
   'Semua',
@@ -34,6 +34,7 @@ class _LogScreenState extends State<LogScreen> {
   String aksi = 'Semua';
   String q = '';
   String? error;
+  int? errorStatus;
 
   @override
   void initState() {
@@ -85,6 +86,7 @@ class _LogScreenState extends State<LogScreen> {
       setState(() {
         loading = false;
         more = false;
+        errorStatus = offline ? null : e.response?.statusCode;
         error = offline
             ? 'Log butuh koneksi — data aman, coba lagi saat online.'
             : 'Gagal memuat log (${e.response?.statusCode ?? '?'})';
@@ -146,15 +148,28 @@ class _LogScreenState extends State<LogScreen> {
           child: loading
               ? const Center(child: CircularProgressIndicator())
               : error != null && logs.isEmpty
-                  ? EmptyState(
-                      icon: Icons.cloud_off_outlined,
-                      title: 'Belum bisa memuat',
+                  ? ErrorBody(
+                      icon: errorStatus == null
+                          ? Icons.cloud_off_outlined
+                          : errorStatus == 404
+                              ? Icons.search_off_outlined
+                              : errorStatus == 403
+                                  ? Icons.lock_outlined
+                                  : errorStatus != null && errorStatus! >= 500
+                                      ? Icons.error_outline_outlined
+                                      : Icons.cloud_off_outlined,
+                      title: errorStatus == null
+                          ? 'Belum bisa memuat'
+                          : errorStatus == 404
+                              ? 'Tidak ketemu di server'
+                              : errorStatus == 403
+                                  ? 'Tidak punya izin'
+                                  : errorStatus != null && errorStatus! >= 500
+                                      ? 'Server bermasalah'
+                                      : 'Belum bisa memuat',
                       subtitle: error,
-                      action: FilledButton.icon(
-                        onPressed: () => _load(reset: true),
-                        icon: const Icon(Icons.refresh_outlined),
-                        label: const Text('Coba lagi'),
-                      ),
+                      primaryLabel: 'Coba lagi',
+                      onPrimary: () => _load(reset: true),
                     )
                   : RefreshIndicator(
                       onRefresh: () => _load(reset: true),

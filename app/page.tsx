@@ -91,7 +91,7 @@ export default function Home() {
       </main>
 
       <footer className="py-5 text-center text-xs text-[var(--on-surface-variant)] border-t border-[var(--outline-variant)]">
-        Hajat Manager — dibuat untuk hajatan Indonesia
+        Made by Rahmad Widiansyah
       </footer>
     </div>
   );

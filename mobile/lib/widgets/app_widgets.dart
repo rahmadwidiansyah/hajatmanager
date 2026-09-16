@@ -79,6 +79,7 @@ String serverMsg(DioException e) {
   if (s == 404) return 'Tidak ketemu di server (mungkin sudah dihapus)';
   if (s == 403) return 'Tidak punya izin — perlu peran OWNER/ADMIN';
   if (s == 400) return 'Data ditolak server — periksa isian';
+  if (s >= 500) return 'Server bermasalah (HTTP $s) — coba lagi sebentar';
   return 'Gagal (${s == 0 ? 'jaringan' : 'HTTP $s'}) — coba lagi';
 }
 

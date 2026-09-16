@@ -76,7 +76,7 @@ export function DashboardHeader({ user, displayName }: Props) {
                   {isDark ? "Mode terang" : "Mode gelap"}
                 </button>
                 <Link
-                  href="/api/auth/signout"
+                  href="/auth/signout"
                   className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-[var(--error-container)] text-[var(--error)] transition-colors"
                 >
                   <LogOut size={16} /> Keluar

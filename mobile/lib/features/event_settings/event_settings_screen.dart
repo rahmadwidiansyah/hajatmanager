@@ -758,13 +758,31 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                   vertical: 4),
-                              child: Text(
-                                  searchNetError
-                                      ? 'Server tak terjangkau — cek URL server / WiFi, lalu ketik ulang.'
-                                      : 'Tidak ketemu "${searchC.text.trim()}" — coba nama, username, atau email lain.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall),
+                              child: Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    searchNetError
+                                        ? Icons.cloud_off_outlined
+                                        : Icons.search_off_outlined,
+                                    size: 20,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                        searchNetError
+                                            ? 'Server tak terjangkau — cek URL server / koneksi internet, lalu ketik ulang.'
+                                            : 'Tidak ketemu "${searchC.text.trim()}" — coba nama, username, atau email lain.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                  ),
+                                ],
+                              ),
                             ),
                           if (searchResults.isNotEmpty)
                             Container(

@@ -87,21 +87,43 @@ class _AboutScreenState extends State<AboutScreen> {
           onPressed: () async {
             final ok = await showDialog<bool>(
                 context: context,
-                builder: (_) => AlertDialog(
-                      title: const Text('Keluar akun?'),
-                      content: const Text(
-                          'Session + PIN di perangkat ini dihapus. Data antrean yang belum sync ikut terhapus.'),
-                      actions: [
-                        TextButton(
-                            onPressed: () =>
-                                Navigator.pop(context, false),
-                            child: const Text('Batal')),
-                        FilledButton(
-                            onPressed: () =>
-                                Navigator.pop(context, true),
-                            child: const Text('Keluar')),
-                      ],
-                    ));
+                builder: (_) {
+                  final scheme = Theme.of(context).colorScheme;
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    title: Row(children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.logout_outlined,
+                            size: 20, color: scheme.onErrorContainer),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Keluar akun?'),
+                    ]),
+                    content: const Text(
+                        'Session + PIN di perangkat ini dihapus. Data antrean yang belum sync ikut terhapus.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () =>
+                              Navigator.pop(context, false),
+                          child: const Text('Batal')),
+                      FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: scheme.error,
+                            foregroundColor: scheme.onError,
+                          ),
+                          onPressed: () =>
+                              Navigator.pop(context, true),
+                          child: const Text('Keluar')),
+                    ],
+                  );
+                });
             if (ok != true || !context.mounted) return;
             await ApiClient.instance.logout();
             await AuthStore.logout();

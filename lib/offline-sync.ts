@@ -457,13 +457,16 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
         return { flushed: 0, conflicts: 0, error: r.error };
       }
     } else {
-      const j = r.json as { synced?: { events?: number }; conflicts?: { id: string }[] };
+      const j = r.json as { synced?: { events?: number }; conflicts?: { id: string; reason?: string }[] };
+      const forbiddenIds = new Set((j.conflicts || []).filter((c) => c.reason === "FORBIDDEN").map((c) => c.id));
       const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
       const doneIds = eventCreates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
       if (doneIds.length) await outboxRemove(doneIds);
+      // Item ditolak server karena role (VIEWER) langsung dibuang, bukan retry.
+      if (forbiddenIds.size) await outboxRemove([...forbiddenIds]);
       flushed += j.synced?.events ?? doneIds.length;
       conflicts += conflictIds.size;
-      for (const o of eventCreates) if (conflictIds.has(o.id)) await outboxBump(o.id, "EVENT_CONFLICT");
+      for (const o of eventCreates) if (conflictIds.has(o.id) && !forbiddenIds.has(o.id)) await outboxBump(o.id, "EVENT_CONFLICT");
     }
   }
 
@@ -482,13 +485,15 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
         return { flushed: 0, conflicts: 0, error: r.error };
       }
     } else {
-      const j = r.json as { synced?: { guests?: number }; conflicts?: { id: string }[] };
+      const j = r.json as { synced?: { guests?: number }; conflicts?: { id: string; reason?: string }[] };
+      const forbiddenIds = new Set((j.conflicts || []).filter((c) => c.reason === "FORBIDDEN").map((c) => c.id));
       const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
       const doneIds = creates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
       if (doneIds.length) await outboxRemove(doneIds);
+      if (forbiddenIds.size) await outboxRemove([...forbiddenIds]);
       flushed += j.synced?.guests ?? doneIds.length;
       conflicts += conflictIds.size;
-      for (const o of creates) if (conflictIds.has(o.id)) await outboxBump(o.id, "DUPLICATE_NEED_NOTE");
+      for (const o of creates) if (conflictIds.has(o.id) && !forbiddenIds.has(o.id)) await outboxBump(o.id, "DUPLICATE_NEED_NOTE");
     }
   }
 
@@ -500,10 +505,14 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
       firstError = firstError || r.error;
       for (const o of bookCreates) await outboxBump(o.id, r.error || "push-failed");
     } else {
-      const j = r.json as { synced?: { guestBooks?: number }; conflicts?: { id: string }[] };
-      // Server push untuk buku bersifat upsert-skip (tanpa conflicts detail) → anggap semua done jika ok.
-      const doneIds = bookCreates.map((o) => o.id);
-      await outboxRemove(doneIds);
+      const j = r.json as { synced?: { guestBooks?: number }; conflicts?: { id: string; reason?: string }[] };
+      // Server push untuk buku bersifat upsert-skip; yang done dihapus,
+      // yang FORBIDDEN (VIEWER) juga dibuang bukan retry.
+      const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
+      const doneIds = bookCreates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
+      if (doneIds.length) await outboxRemove(doneIds);
+      const forbiddenIds = bookCreates.filter((o) => conflictIds.has(o.id)).map((o) => o.id);
+      if (forbiddenIds.length) await outboxRemove(forbiddenIds);
       flushed += j.synced?.guestBooks ?? doneIds.length;
       conflicts += (j.conflicts || []).length;
     }
