@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.0...v1.6.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **windows:** ternary dalam interpolasi string SettingsWindow ([40c62e4](https://github.com/rahmadwidiansyah/hajatmanager/commit/40c62e463f7c8c27b0998917c9af08bd5778cdaf))
+
 # [1.6.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.5.0...v1.6.0) (2026-09-16)
 
 
