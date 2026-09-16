@@ -37,7 +37,19 @@ playwright-report/
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+*.swp
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# build caches & logs
+.turbo/
+dist/
+*.log
 
 # debug
 npm-debug.log*
@@ -62,3 +74,7 @@ key.properties
 **/keystore.properties
 **/release.keystore
 app/release.keystore
+
+# runtime uploads - data user di VPS, jangan commit (kecuali penanda folder)
+public/uploads/*
+!public/uploads/.gitkeep

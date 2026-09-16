@@ -8,6 +8,7 @@ import '../../core/app_theme.dart';
 import '../../core/auth_store.dart';
 import '../../core/exporter.dart';
 import '../../core/format_rp.dart';
+import '../../core/window_ui.dart';
 import '../../core/local_db.dart';
 import '../../core/name_rules.dart';
 import '../../core/sync_engine.dart';
@@ -499,7 +500,238 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     );
   }
 
-  Widget _inputTab() => ListView(padding: const EdgeInsets.all(16), children: [
+  /// Field form input — diekstrak agar bisa disusun vertikal (HP)
+  /// maupun grid (desktop lebar) tanpa duplikasi.
+  Widget _namaField() => TextField(
+        controller: namaC,
+        onChanged: _onNamaChanged,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+            labelText: 'Nama (huruf saja)',
+            helperText: 'Ketik 2 huruf untuk suggest • tanpa angka/simbol',
+            border: OutlineInputBorder(),
+            filled: true,
+            prefixIcon: Icon(Icons.person_search_outlined)),
+      );
+
+  Widget _suggestCard() => Card(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        child: Column(
+            children: suggest
+                .map((s) => ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 14,
+                        child: Text(
+                            '${s['nama']}'.isNotEmpty
+                                ? '${s['nama']}'.substring(0, 1).toUpperCase()
+                                : '?',
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                      title: Text('${s['nama']}'),
+                      subtitle: Text('${s['alamat'] ?? ''}'),
+                      trailing:
+                          const Icon(Icons.north_west, size: 16),
+                      onTap: () {
+                        namaC.text = '${s['nama']}';
+                        alamatC.text = '${s['alamat'] ?? ''}';
+                        setState(() => suggest = []);
+                      },
+                    ))
+                .toList()),
+      );
+
+  Widget _alamatField() => TextField(
+      controller: alamatC,
+      enabled: canEdit,
+      textCapitalization: TextCapitalization.words,
+      decoration: const InputDecoration(
+          labelText: 'Alamat / Desa',
+          border: OutlineInputBorder(),
+          filled: true,
+          prefixIcon: Icon(Icons.home_outlined)));
+
+  Widget _alamatChips() => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Wrap(
+                spacing: 8,
+                children: alamatTop
+                    .map((a) => ActionChip(
+                        label: Text(a),
+                        onPressed: canEdit
+                            ? () => setState(() => alamatC.text = a)
+                            : null))
+                    .toList()),
+          ]);
+
+  Widget _nominalField() => TextField(
+      controller: nominalC,
+      enabled: canEdit,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(15),
+      ],
+      decoration: const InputDecoration(
+          labelText: 'Nominal (Rp)',
+          border: OutlineInputBorder(),
+          filled: true,
+          prefixIcon: Icon(Icons.payments_outlined)));
+
+  Widget _nominalChips() => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Wrap(
+                spacing: 8,
+                children: nominalTop
+                    .map((n) => ActionChip(
+                        label: Text(formatRp(n)),
+                        onPressed: canEdit
+                            ? () =>
+                                setState(() => nominalC.text = '$n')
+                            : null))
+                    .toList()),
+          ]);
+
+  Widget _metodeSection() => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Metode',
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: methodes.map((m) {
+                final scheme = Theme.of(context).colorScheme;
+                final b = Theme.of(context).brightness;
+                final selected = metode == m;
+                final (bg, fg) = AppColors.methodChip(m, scheme);
+                return ChoiceChip(
+                  label: Text(m,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? scheme.onPrimary : fg)),
+                  avatar: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? scheme.onPrimary
+                          : AppColors.methodDot(m, scheme, b),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  selected: selected,
+                  selectedColor: scheme.primary,
+                  backgroundColor: bg,
+                  side: BorderSide(
+                      color: selected
+                          ? scheme.primary
+                          : scheme.outlineVariant),
+                  onSelected: canEdit
+                      ? (_) => setState(() => metode = m)
+                      : null,
+                );
+              }).toList(),
+            ),
+          ]);
+
+  Widget _catatanField() => TextField(
+      controller: catatanC,
+      enabled: canEdit,
+      textCapitalization: TextCapitalization.sentences,
+      decoration: const InputDecoration(
+          labelText: 'Catatan (wajib jika duplikat)',
+          border: OutlineInputBorder(),
+          filled: true,
+          prefixIcon: Icon(Icons.note_outlined)));
+
+  /// Tile pemberian (HP) — dipakai ulang di list vertikal.
+  Widget _guestTile(Map<String, dynamic> g) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          dense: true,
+          leading: CircleAvatar(
+              backgroundColor:
+                  Theme.of(context).colorScheme.secondaryContainer,
+              child: Text(
+                  '${g['nama']}'.isNotEmpty
+                      ? '${g['nama']}'.substring(0, 1).toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSecondaryContainer))),
+          title: Text(
+              '${g['nama']} • ${formatRp((g['nominal'] as int?) ?? 0)}',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text('${g['alamat']}'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MethodChip('${g['metode'] ?? 'AMPLOP'}'),
+              if (canEdit)
+                IconButton(
+                  tooltip: 'Aksi',
+                  icon: const Icon(Icons.more_vert_outlined),
+                  onPressed: () => _guestSheet(g),
+                ),
+            ],
+          ),
+        ),
+      );
+
+  /// Tabel pemberian (desktop lebar) — cermin tabel web.
+  Widget _guestTable() {
+    final rows = guests.take(20).toList();
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          columns: const [
+            DataColumn(label: Text('Nama')),
+            DataColumn(label: Text('Alamat')),
+            DataColumn(label: Text('Nominal'), numeric: true),
+            DataColumn(label: Text('Metode')),
+            DataColumn(label: Text('Aksi')),
+          ],
+          rows: rows
+              .map((g) => DataRow(cells: [
+                    DataCell(Text('${g['nama']}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600))),
+                    DataCell(Text('${g['alamat']}')),
+                    DataCell(Text(
+                        formatRp((g['nominal'] as int?) ?? 0))),
+                    DataCell(
+                        MethodChip('${g['metode'] ?? 'AMPLOP'}')),
+                    DataCell(canEdit
+                        ? IconButton(
+                            tooltip: 'Aksi',
+                            icon: const Icon(
+                                Icons.more_vert_outlined),
+                            onPressed: () => _guestSheet(g),
+                          )
+                        : const SizedBox.shrink()),
+                  ]))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _inputTab() => LayoutBuilder(builder: (context, cons) {
+        final wide = WindowUi.isWide(cons.maxWidth);
+        return ListView(
+            padding: WindowUi.pagePadding(cons.maxWidth), children: [
         if (goneServer)
           Card(
             color: Theme.of(context).colorScheme.errorContainer,
@@ -595,65 +827,29 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               Text('Siapa yang memberi?',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
-              TextField(
-                controller: namaC,
-                onChanged: _onNamaChanged,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                    labelText: 'Nama (huruf saja)',
-                    helperText: 'Ketik 2 huruf untuk suggest • tanpa angka/simbol',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    prefixIcon: Icon(Icons.person_search_outlined)),
-              ),
-        if (suggest.isNotEmpty)
-          Card(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Column(
-                children: suggest
-                    .map((s) => ListTile(
-                          dense: true,
-                          leading: CircleAvatar(
-                            radius: 14,
-                            child: Text(
-                                '${s['nama']}'.isNotEmpty
-                                    ? '${s['nama']}'.substring(0, 1).toUpperCase()
-                                    : '?',
-                                style: const TextStyle(fontSize: 12)),
-                          ),
-                          title: Text('${s['nama']}'),
-                          subtitle: Text('${s['alamat'] ?? ''}'),
-                          trailing: const Icon(Icons.north_west, size: 16),
-                          onTap: () {
-                            namaC.text = '${s['nama']}';
-                            alamatC.text = '${s['alamat'] ?? ''}';
-                            setState(() => suggest = []);
-                          },
-                        ))
-                    .toList()),
-          ),
-        const SizedBox(height: 12),
-        TextField(
-            controller: alamatC,
-            enabled: canEdit,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-                labelText: 'Alamat / Desa',
-                border: OutlineInputBorder(),
-                filled: true,
-                prefixIcon: Icon(Icons.home_outlined))),
-        if (alamatTop.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-              spacing: 8,
-              children: alamatTop
-                  .map((a) => ActionChip(
-                      label: Text(a),
-                      onPressed: canEdit
-                          ? () => setState(() => alamatC.text = a)
-                          : null))
-                  .toList()),
-        ],
+              if (wide)
+                Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          child: Column(children: [
+                        _namaField(),
+                        if (suggest.isNotEmpty) _suggestCard(),
+                      ])),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Column(children: [
+                        _alamatField(),
+                        if (alamatTop.isNotEmpty) _alamatChips(),
+                      ])),
+                    ])
+              else ...[
+                _namaField(),
+                if (suggest.isNotEmpty) _suggestCard(),
+                const SizedBox(height: 12),
+                _alamatField(),
+                if (alamatTop.isNotEmpty) _alamatChips(),
+              ],
             ]),
           ),
         ),
@@ -666,100 +862,61 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               Text('Nominal & metode',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
-              TextField(
-                  controller: nominalC,
-                  enabled: canEdit,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(15),
-                  ],
-                  decoration: const InputDecoration(
-                      labelText: 'Nominal (Rp)',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      prefixIcon: Icon(Icons.payments_outlined))),
-              if (nominalTop.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                    spacing: 8,
-                    children: nominalTop
-                        .map((n) => ActionChip(
-                            label: Text(formatRp(n)),
-                            onPressed: canEdit
-                                ? () => setState(() => nominalC.text = '$n')
-                                : null))
-                        .toList()),
+              if (wide)
+                Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          flex: 4,
+                          child: Column(children: [
+                            _nominalField(),
+                            if (nominalTop.isNotEmpty)
+                              _nominalChips(),
+                          ])),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          flex: 8,
+                          child: Column(children: [
+                            _metodeSection(),
+                            const SizedBox(height: 12),
+                            _catatanField(),
+                          ])),
+                    ])
+              else ...[
+                _nominalField(),
+                if (nominalTop.isNotEmpty) _nominalChips(),
+                const SizedBox(height: 12),
+                _metodeSection(),
+                const SizedBox(height: 12),
+                _catatanField(),
               ],
-              const SizedBox(height: 12),
-              Text('Metode', style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: methodes.map((m) {
-                  final scheme = Theme.of(context).colorScheme;
-                  final b = Theme.of(context).brightness;
-                  final selected = metode == m;
-                  final (bg, fg) =
-                      AppColors.methodChip(m, scheme);
-                  return ChoiceChip(
-                    label: Text(m,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: selected
-                                ? scheme.onPrimary
-                                : fg)),
-                    avatar: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? scheme.onPrimary
-                            : AppColors.methodDot(m, scheme, b),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    selected: selected,
-                    selectedColor: scheme.primary,
-                    backgroundColor: bg,
-                    side: BorderSide(
-                        color: selected
-                            ? scheme.primary
-                            : scheme.outlineVariant),
-                    onSelected: canEdit
-                        ? (_) => setState(() => metode = m)
-                        : null,
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                  controller: catatanC,
-                  enabled: canEdit,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                      labelText: 'Catatan (wajib jika duplikat)',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      prefixIcon: Icon(Icons.note_outlined))),
             ]),
           ),
         ),
         const SizedBox(height: 12),
         if (canEdit)
-          FilledButton.icon(
-            onPressed: saving ? null : _saveGuest,
-            icon: saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            label: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(saving ? 'Menyimpan...' : 'Simpan (offline-first)')),
+          Align(
+            alignment:
+                wide ? Alignment.centerRight : Alignment.center,
+            child: SizedBox(
+              width: wide ? 280 : double.infinity,
+              child: FilledButton.icon(
+                onPressed: saving ? null : _saveGuest,
+                icon: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2))
+                    : const Icon(Icons.save_outlined),
+                label: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(saving
+                        ? 'Menyimpan...'
+                        : 'Simpan (offline-first)')),
+              ),
+            ),
           )
         else
           Card(
@@ -784,41 +941,68 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text('Belum ada pemberian tercatat.'))),
-        ...guests.take(20).map((g) => Card(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              child: ListTile(
-                dense: true,
-                leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.secondaryContainer,
-                    child: Text(
-                        '${g['nama']}'.isNotEmpty
-                            ? '${g['nama']}'.substring(0, 1).toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSecondaryContainer))),
-                title: Text(
-                    '${g['nama']} • ${formatRp((g['nominal'] as int?) ?? 0)}',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('${g['alamat']}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MethodChip('${g['metode'] ?? 'AMPLOP'}'),
-                    if (canEdit)
-                      IconButton(
-                        tooltip: 'Aksi',
-                        icon: const Icon(
-                            Icons.more_vert_outlined),
-                        onPressed: () => _guestSheet(g),
-                      ),
-                  ],
-                ),
-              ),
-            )),
-      ]);
+        ...(wide
+            ? [_guestTable()]
+            : guests.take(20).map((g) => _guestTile(g))),
+          ]);
+      });
+
+  /// Tile buku tamu (HP) — dipakai ulang di list vertikal.
+  Widget _bookTile(Map<String, dynamic> b) {
+    final nm = '${b['nama']}';
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        dense: true,
+        leading: CircleAvatar(
+            child: Text(nm.isNotEmpty
+                ? nm.substring(0, 1).toUpperCase()
+                : '?')),
+        title: Text(nm,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('${b['alamat']}'),
+        trailing: canEdit
+            ? IconButton(
+                tooltip: 'Aksi',
+                icon: const Icon(Icons.more_vert_outlined),
+                onPressed: () => _bookSheet(b),
+              )
+            : null,
+      ),
+    );
+  }
+
+  /// Tabel buku tamu (desktop lebar) — cermin tabel web.
+  Widget _bookTable(List<Map<String, dynamic>> shown) => Card(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Nama')),
+              DataColumn(label: Text('Alamat')),
+              DataColumn(label: Text('Aksi')),
+            ],
+            rows: shown
+                .map((b) => DataRow(cells: [
+                      DataCell(Text('${b['nama']}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600))),
+                      DataCell(Text('${b['alamat']}')),
+                      DataCell(canEdit
+                          ? IconButton(
+                              tooltip: 'Aksi',
+                              icon: const Icon(
+                                  Icons.more_vert_outlined),
+                              onPressed: () => _bookSheet(b),
+                            )
+                          : const SizedBox.shrink()),
+                    ]))
+                .toList(),
+          ),
+        ),
+      );
 
   Widget _booksTab() {
     final shown = bookQ.trim().isEmpty
@@ -832,7 +1016,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     .toLowerCase()
                     .contains(bookQ.toLowerCase()))
             .toList();
-    return Column(children: [
+    return LayoutBuilder(builder: (context, cons) {
+      final wide = WindowUi.isWide(cons.maxWidth);
+      // Pusatkan max 1120px di layar lebar (cermin page-shell web).
+      final side = (cons.maxWidth - WindowUi.maxContentWidth) / 2;
+      final hPad = side > 0 ? side : 0.0;
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: hPad),
+        child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: Row(children: [
@@ -882,38 +1073,19 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         )
                       : null,
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                  itemCount: shown.length,
-                  itemBuilder: (_, i) {
-                    final b = shown[i];
-                    final nm = '${b['nama']}';
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        dense: true,
-                        leading: CircleAvatar(
-                            child: Text(nm.isNotEmpty
-                                ? nm.substring(0, 1).toUpperCase()
-                                : '?')),
-                        title: Text(nm,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text('${b['alamat']}'),
-                        trailing: canEdit
-                            ? IconButton(
-                                tooltip: 'Aksi',
-                                icon: const Icon(
-                                    Icons.more_vert_outlined),
-                                onPressed: () => _bookSheet(b),
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                ),
+              : wide
+                  ? SingleChildScrollView(child: _bookTable(shown))
+                  : ListView.builder(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                      itemCount: shown.length,
+                      itemBuilder: (_, i) =>
+                          _bookTile(shown[i]),
+                    ),
         ),
-      ]);
+        ]),
+      );
+    });
   }
 
   Future<void> _addBookDialog() async {
@@ -1469,56 +1641,101 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (t == null) return const Center(child: CircularProgressIndicator());
     final perAlamat = (t['perAlamat'] as List).cast<Map>();
     final perMetode = (t['perMetode'] as List).cast<Map>();
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      Card.filled(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(children: [
-            Text('${t['totalTamu']} tamu',
-                style: Theme.of(context).textTheme.headlineSmall),
-            Text(formatRp(t['totalNominal'] as int),
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            PendingBadge(eventId: widget.event.id),
-          ]),
-        ),
-      ),
-      const SizedBox(height: 12),
-      FilledButton.tonalIcon(
-        onPressed: () => _exportDialog(),
-        icon: const Icon(Icons.ios_share_outlined),
-        label: const Text('Export PDF / Excel'),
-      ),
-      const SizedBox(height: 12),
-      Text('Per alamat', style: Theme.of(context).textTheme.titleMedium),
-      ...perAlamat.map((e) => Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.location_on_outlined),
-              title: Text('${e['alamat']}',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              trailing: Text(
-                  '${e['jumlah']} • ${formatRp(e['total'] as int)}'),
+    return LayoutBuilder(builder: (context, cons) {
+      final wide = WindowUi.isWide(cons.maxWidth);
+      return ListView(
+          padding: WindowUi.pagePadding(cons.maxWidth),
+          children: [
+            Card.filled(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(children: [
+                  Text('${t['totalTamu']} tamu',
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(formatRp(t['totalNominal'] as int),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  PendingBadge(eventId: widget.event.id),
+                ]),
+              ),
             ),
-          )),
-      const SizedBox(height: 8),
-      Text('Per metode', style: Theme.of(context).textTheme.titleMedium),
-      ...perMetode.map((e) => Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              dense: true,
-              leading: MethodChip('${e['metode']}'),
-              title: Text('${e['jumlah']} tamu',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              trailing: Text(formatRp(e['total'] as int)),
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: () => _exportDialog(),
+              icon: const Icon(Icons.ios_share_outlined),
+              label: const Text('Export PDF / Excel'),
             ),
-          )),
-    ]);
+            const SizedBox(height: 12),
+            if (wide)
+              Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                          Text('Per alamat',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium),
+                          ...perAlamat.map((e) =>
+                              _rekapAlamatTile(e)),
+                        ])),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                          Text('Per metode',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium),
+                          ...perMetode.map((e) =>
+                              _rekapMetodeTile(e)),
+                        ])),
+                  ])
+            else ...[
+              Text('Per alamat',
+                  style: Theme.of(context).textTheme.titleMedium),
+              ...perAlamat.map((e) => _rekapAlamatTile(e)),
+              const SizedBox(height: 8),
+              Text('Per metode',
+                  style: Theme.of(context).textTheme.titleMedium),
+              ...perMetode.map((e) => _rekapMetodeTile(e)),
+            ],
+          ]);
+    });
   }
+
+  /// Tile rekap per alamat — dipakai vertikal (HP) maupun 2-kolom (desktop).
+  Widget _rekapAlamatTile(Map e) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          dense: true,
+          leading: const Icon(Icons.location_on_outlined),
+          title: Text('${e['alamat']}',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          trailing:
+              Text('${e['jumlah']} • ${formatRp(e['total'] as int)}'),
+        ),
+      );
+
+  /// Tile rekap per metode.
+  Widget _rekapMetodeTile(Map e) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          dense: true,
+          leading: MethodChip('${e['metode']}'),
+          title: Text('${e['jumlah']} tamu',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          trailing: Text(formatRp(e['total'] as int)),
+        ),
+      );
 
   /// Dialog opsi export ala web + unduh/share file beneran (offline OK).
   Future<void> _exportDialog() async {

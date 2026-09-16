@@ -7,6 +7,7 @@ import '../../core/local_db.dart';
 import '../../core/sync_engine.dart';
 import '../../models/models.dart';
 import '../../widgets/app_widgets.dart';
+import '../../core/window_ui.dart';
 import '../account/account_screen.dart';
 import '../event_detail/event_detail_screen.dart';
 
@@ -101,133 +102,148 @@ class _EventsScreenState extends State<EventsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: Column(children: [
-          if (user != null)
+        // LayoutBuilder agar resize window desktop update kolom live.
+        child: LayoutBuilder(builder: (context, cons) {
+          final w = cons.maxWidth;
+          // Pusatkan konten max 1120px di layar lebar (cermin page-shell web).
+          final side = (w - WindowUi.maxContentWidth) / 2;
+          final pad = side > WindowUi.horizontalPadding(w)
+              ? side
+              : WindowUi.horizontalPadding(w);
+          final cols = WindowUi.columnsForWidth(w);
+          return Column(children: [
+            if (user != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(pad, 12, pad, 0),
+                child: Row(children: [
+                  CircleAvatar(
+                      backgroundColor: scheme.primaryContainer,
+                      child: Icon(Icons.waving_hand_outlined,
+                          color: scheme.onPrimaryContainer)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Halo, ${user!['name'] ?? user!['email'] ?? ''}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700)),
+                          Text('${items.length} acara • tarik ke bawah untuk refresh',
+                              style: Theme.of(context).textTheme.bodySmall),
+                        ]),
+                  ),
+                ]),
+              ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(children: [
-                CircleAvatar(
-                    backgroundColor: scheme.primaryContainer,
-                    child: Icon(Icons.waving_hand_outlined,
-                        color: scheme.onPrimaryContainer)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Halo, ${user!['name'] ?? user!['email'] ?? ''}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700)),
-                        Text('${items.length} acara • tarik ke bawah untuk refresh',
-                            style: Theme.of(context).textTheme.bodySmall),
-                      ]),
-                ),
-              ]),
+              padding: EdgeInsets.fromLTRB(pad, 12, pad, 4),
+              child: TextField(
+                  onChanged: (v) => setState(() => q = v),
+                  decoration: const InputDecoration(
+                      hintText: 'Cari acara / lokasi…',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      isDense: true,
+                      prefixIcon: Icon(Icons.search_outlined))),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-                onChanged: (v) => setState(() => q = v),
-                decoration: const InputDecoration(
-                    hintText: 'Cari acara / lokasi…',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    isDense: true,
-                    prefixIcon: Icon(Icons.search_outlined))),
-          ),
-          Expanded(
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : shown.isEmpty
-                    ? ListView(children: [
-                        const SizedBox(height: 40),
-                        EmptyState(
-                          icon: Icons.celebration_outlined,
-                          title: items.isEmpty
-                              ? 'Belum ada acara'
-                              : 'Tidak ketemu “$q”',
-                          subtitle: items.isEmpty
-                              ? 'Buat acara pertama via tombol + Acara.'
-                              : 'Coba kata kunci lain.',
-                          action: items.isEmpty
-                              ? FilledButton.icon(
-                                  onPressed: _createDialog,
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Buat acara'),
-                                )
-                              : null,
-                        ),
-                      ])
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
-                        itemCount: shown.length,
-                        itemBuilder: (_, i) {
-                          final e = shown[i];
-                          final tgl = e.tanggal
-                              .toLocal()
-                              .toString()
-                              .split(' ')
-                              .first;
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            child: ListTile(
-                              leading: Container(
-                                width: 52,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                decoration: BoxDecoration(
-                                    color: scheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(12)),
-                                child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                          tgl.split('-').length == 3
-                                              ? tgl.split('-')[2]
-                                              : '•',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: scheme
-                                                  .onSecondaryContainer)),
-                                      Text(
-                                          tgl.split('-').length == 3
-                                              ? tgl.split('-')[1]
-                                              : '',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              color: scheme
-                                                  .onSecondaryContainer)),
-                                    ]),
+            Expanded(
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : shown.isEmpty
+                      ? ListView(children: [
+                          const SizedBox(height: 40),
+                          EmptyState(
+                            icon: Icons.celebration_outlined,
+                            title: items.isEmpty
+                                ? 'Belum ada acara'
+                                : 'Tidak ketemu “$q”',
+                            subtitle: items.isEmpty
+                                ? 'Buat acara pertama via tombol + Acara.'
+                                : 'Coba kata kunci lain.',
+                            action: items.isEmpty
+                                ? FilledButton.icon(
+                                    onPressed: _createDialog,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Buat acara'),
+                                  )
+                                : null,
+                          ),
+                        ])
+                      : cols > 1
+                          // Desktop: grid kartu fluida ala dashboard web.
+                          ? GridView.builder(
+                              padding:
+                                  EdgeInsets.fromLTRB(pad, 4, pad, 88),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cols,
+                                mainAxisExtent: 104,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
                               ),
-                              title: Text(e.namaAcara,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                              subtitle: Text(
-                                  '${e.lokasi ?? '-'} • $tgl'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  RoleChip(e.myRole),
-                                  const Icon(Icons.chevron_right),
-                                ],
-                              ),
-                              onTap: () =>
-                                  Navigator.of(context)
-                                      .push(MaterialPageRoute(
-                                          builder: (_) =>
-                                              EventDetailScreen(event: e)))
-                                      .then((_) => _load()),
+                              itemCount: shown.length,
+                              itemBuilder: (_, i) =>
+                                  _eventCard(shown[i], scheme, grid: true),
+                            )
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 4, 12, 88),
+                              itemCount: shown.length,
+                              itemBuilder: (_, i) =>
+                                  _eventCard(shown[i], scheme),
                             ),
-                          );
-                        },
-                      ),
-          ),
-        ]),
+            ),
+          ]);
+        }),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createDialog,
         icon: const Icon(Icons.add),
         label: const Text('Acara'),
+      ),
+    );
+  }
+
+  /// Kartu acara — dipakai list HP maupun grid desktop.
+  Widget _eventCard(EventModel e, ColorScheme scheme, {bool grid = false}) {
+    final tgl = e.tanggal.toLocal().toString().split(' ').first;
+    return Card(
+      margin: grid
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(vertical: 6),
+      child: ListTile(
+        leading: Container(
+          width: 52,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12)),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tgl.split('-').length == 3 ? tgl.split('-')[2] : '•',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: scheme.onSecondaryContainer)),
+                Text(tgl.split('-').length == 3 ? tgl.split('-')[1] : '',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: scheme.onSecondaryContainer)),
+              ]),
+        ),
+        title: Text(e.namaAcara,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('${e.lokasi ?? '-'} • $tgl'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RoleChip(e.myRole),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute(
+                builder: (_) => EventDetailScreen(event: e)))
+            .then((_) => _load()),
       ),
     );
   }

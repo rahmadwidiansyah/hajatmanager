@@ -20,6 +20,15 @@ stitch_*
 stitch_hajat_manager_web_app
 coverage
 .vercel
+# flutter + e2e + artefak lokal — tidak dibutuhkan image web
+mobile/
+e2e/
+test-results/
+playwright-report/
+release/
+*.keystore
+.turbo/
+dist/
 *.tsbuildinfo
 next-env.d.ts
 public/uploads/*

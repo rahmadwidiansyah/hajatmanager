@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
+import '../../core/window_ui.dart';
 import 'about_screen.dart';
 import 'pin_lock_screen.dart';
 import 'profile_screen.dart';
@@ -41,8 +42,9 @@ class _AccountScreenState extends State<AccountScreen> {
     final email = '${me?['email'] ?? ''}';
     return Scaffold(
       appBar: AppBar(title: const Text('Akun')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        Card(
+      body: LayoutBuilder(builder: (context, cons) {
+        final wide = WindowUi.isWide(cons.maxWidth);
+        final profile = Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
@@ -75,37 +77,64 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ]),
           ),
-        ),
-        const SizedBox(height: 12),
-        _tile(
-          context,
-          icon: Icons.person_outline,
-          title: 'Profil',
-          subtitle: 'Nama, username, email',
-          page: const ProfileScreen(),
-        ),
-        _tile(
-          context,
-          icon: Icons.lock_reset_outlined,
-          title: 'Keamanan & Password',
-          subtitle: 'Ganti password (butuh online)',
-          page: const SecurityScreen(),
-        ),
-        _tile(
-          context,
-          icon: Icons.phonelink_lock_outlined,
-          title: 'PIN & Kunci Layar',
-          subtitle: 'Ganti PIN + jeda kunci otomatis',
-          page: const PinLockScreen(),
-        ),
-        _tile(
-          context,
-          icon: Icons.info_outline,
-          title: 'Tentang & Keluar',
-          subtitle: 'Versi, server, keluar akun',
-          page: const AboutScreen(),
-        ),
-      ]),
+        );
+        final tiles = [
+          _tile(
+            context,
+            icon: Icons.person_outline,
+            title: 'Profil',
+            subtitle: 'Nama, username, email',
+            page: const ProfileScreen(),
+          ),
+          _tile(
+            context,
+            icon: Icons.lock_reset_outlined,
+            title: 'Keamanan & Password',
+            subtitle: 'Ganti password (butuh online)',
+            page: const SecurityScreen(),
+          ),
+          _tile(
+            context,
+            icon: Icons.phonelink_lock_outlined,
+            title: 'PIN & Kunci Layar',
+            subtitle: 'Ganti PIN + jeda kunci otomatis',
+            page: const PinLockScreen(),
+          ),
+          _tile(
+            context,
+            icon: Icons.info_outline,
+            title: 'Tentang & Keluar',
+            subtitle: 'Versi, server, keluar akun',
+            page: const AboutScreen(),
+          ),
+        ];
+        if (!wide) {
+          return ListView(
+              padding: WindowUi.pagePadding(cons.maxWidth),
+              children: [
+                profile,
+                const SizedBox(height: 12),
+                ...tiles,
+              ]);
+        }
+        // Desktop: profil penuh + menu 2 kolom ala settings web.
+        return SingleChildScrollView(
+          padding: WindowUi.pagePadding(cons.maxWidth),
+          child: Column(children: [
+            profile,
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 2,
+              mainAxisExtent: 84,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 0,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: tiles,
+            ),
+          ]),
+        );
+      }),
     );
   }
 

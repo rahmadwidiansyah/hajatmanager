@@ -6,6 +6,7 @@ import '../../core/auth_store.dart';
 import '../../core/local_db.dart';
 import '../../core/sync_engine.dart';
 import '../../models/models.dart';
+import '../../core/window_ui.dart';
 import '../../widgets/app_widgets.dart';
 
 /// Pengaturan acara: info, edit (OWNER/ADMIN), meja, anggota (OWNER), hapus.
@@ -385,7 +386,11 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(padding: const EdgeInsets.all(16), children: [
+          : LayoutBuilder(builder: (context, cons) {
+              final wide = WindowUi.isWide(cons.maxWidth);
+              return ListView(
+                  padding: WindowUi.pagePadding(cons.maxWidth),
+                  children: [
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -421,53 +426,132 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
                                 .textTheme
                                 .titleSmall),
                         const SizedBox(height: 12),
-                        TextField(
-                            controller: namaC,
-                            enabled: canEdit,
-                            textCapitalization:
-                                TextCapitalization.words,
-                            decoration: const InputDecoration(
-                                labelText: 'Nama acara',
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                prefixIcon: Icon(
-                                    Icons.celebration_outlined))),
+                        if (wide)
+                          Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                    child: TextField(
+                                        controller: namaC,
+                                        enabled: canEdit,
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        decoration:
+                                            const InputDecoration(
+                                                labelText:
+                                                    'Nama acara',
+                                                border:
+                                                    OutlineInputBorder(),
+                                                filled: true,
+                                                prefixIcon: Icon(Icons
+                                                    .celebration_outlined)))),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: TextField(
+                                        controller: tuanC,
+                                        enabled: canEdit,
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        decoration:
+                                            const InputDecoration(
+                                                labelText:
+                                                    'Tuan rumah',
+                                                border:
+                                                    OutlineInputBorder(),
+                                                filled: true,
+                                                prefixIcon: Icon(Icons
+                                                    .person_outline)))),
+                              ])
+                        else ...[
+                          TextField(
+                              controller: namaC,
+                              enabled: canEdit,
+                              textCapitalization:
+                                  TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                  labelText: 'Nama acara',
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  prefixIcon: Icon(
+                                      Icons.celebration_outlined))),
+                          const SizedBox(height: 12),
+                          TextField(
+                              controller: tuanC,
+                              enabled: canEdit,
+                              textCapitalization:
+                                  TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                  labelText: 'Tuan rumah',
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  prefixIcon:
+                                      Icon(Icons.person_outline))),
+                        ],
                         const SizedBox(height: 12),
-                        TextField(
-                            controller: tuanC,
-                            enabled: canEdit,
-                            textCapitalization:
-                                TextCapitalization.words,
-                            decoration: const InputDecoration(
-                                labelText: 'Tuan rumah',
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                prefixIcon:
-                                    Icon(Icons.person_outline))),
-                        const SizedBox(height: 12),
-                        TextField(
-                            controller: tglC,
-                            enabled: canEdit,
-                            readOnly: true,
-                            onTap: canEdit ? _pickDate : null,
-                            decoration: const InputDecoration(
-                                labelText: 'Tanggal',
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                prefixIcon: Icon(
-                                    Icons.calendar_month_outlined))),
-                        const SizedBox(height: 12),
-                        TextField(
-                            controller: lokC,
-                            enabled: canEdit,
-                            textCapitalization:
-                                TextCapitalization.words,
-                            decoration: const InputDecoration(
-                                labelText: 'Lokasi',
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                prefixIcon:
-                                    Icon(Icons.location_on_outlined))),
+                        if (wide)
+                          Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                    child: TextField(
+                                        controller: tglC,
+                                        enabled: canEdit,
+                                        readOnly: true,
+                                        onTap: canEdit
+                                            ? _pickDate
+                                            : null,
+                                        decoration:
+                                            const InputDecoration(
+                                                labelText:
+                                                    'Tanggal',
+                                                border:
+                                                    OutlineInputBorder(),
+                                                filled: true,
+                                                prefixIcon: Icon(Icons
+                                                    .calendar_month_outlined)))),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: TextField(
+                                        controller: lokC,
+                                        enabled: canEdit,
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        decoration:
+                                            const InputDecoration(
+                                                labelText: 'Lokasi',
+                                                border:
+                                                    OutlineInputBorder(),
+                                                filled: true,
+                                                prefixIcon: Icon(Icons
+                                                    .location_on_outlined)))),
+                              ])
+                        else ...[
+                          TextField(
+                              controller: tglC,
+                              enabled: canEdit,
+                              readOnly: true,
+                              onTap: canEdit ? _pickDate : null,
+                              decoration: const InputDecoration(
+                                  labelText: 'Tanggal',
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  prefixIcon: Icon(
+                                      Icons.calendar_month_outlined))),
+                          const SizedBox(height: 12),
+                          TextField(
+                              controller: lokC,
+                              enabled: canEdit,
+                              textCapitalization:
+                                  TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                  labelText: 'Lokasi',
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  prefixIcon:
+                                      Icon(Icons.location_on_outlined))),
+                        ],
                         const SizedBox(height: 12),
                         TextField(
                             controller: catC,
@@ -866,7 +950,8 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
                       deleting ? 'Menghapus…' : 'Hapus Acara Permanen'),
                 ),
               ],
-            ]),
+                  ]);
+              }),
     );
   }
 }

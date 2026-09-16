@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(title: const Text('Hajat Manager')),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
+          constraints: const BoxConstraints(maxWidth: 480),
           child: ListView(padding: const EdgeInsets.all(24), children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),

@@ -1,9 +1,9 @@
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -13,7 +13,7 @@ ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 ENV AUTH_SECRET=dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
 RUN npx prisma generate && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -21,10 +21,11 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 # Runtime deps + Prisma CLI 6.19.3 untuk `npx prisma migrate deploy`
-# prisma & @prisma/client berada di dependencies (package.json) sehingga terbawa oleh --omit=dev
-# Install prod deps saja (tanpa devDependencies seperti semantic-release) agar image lebih ramping
+# prisma & @prisma/client berada di dependencies (package.json) sehingga terbawa oleh --omit=dev.
+# Pakai ulang node_modules dari stage deps + prune devDeps (tanpa download ulang).
+COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN npm prune --omit=dev --ignore-scripts && npm cache clean --force
 
 # Next.js standalone output
 COPY --from=builder /app/public ./public
