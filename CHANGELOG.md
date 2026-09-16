@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.5.0...v1.6.0) (2026-09-16)
+
+
+### Features
+
+* **windows,brand:** ikon favicon_io + app WPF C# paritas penuh ([bbfe422](https://github.com/rahmadwidiansyah/hajatmanager/commit/bbfe422918c6663041cb680d7371b3dc3b95a24c))
+
 # [1.5.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.4.1...v1.5.0) (2026-09-16)
 
 
