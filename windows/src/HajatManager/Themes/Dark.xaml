@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Fase A: tema Gelap — key 1:1 dengan Light.xaml.
+       Nilai cermin ColorScheme dark Flutter (app_theme.dart) = web dark. -->
+  <Color x:Key="Primary">#34D399</Color>
+  <Color x:Key="OnPrimary">#022C22</Color>
+  <Color x:Key="Surface">#0A0F1A</Color>
+  <Color x:Key="SurfaceLowest">#111827</Color>
+  <Color x:Key="SurfaceContainer">#1E2A3A</Color>
+  <Color x:Key="OnSurface">#E8EEF5</Color>
+  <Color x:Key="OnSurfaceVariant">#94A3B8</Color>
+  <Color x:Key="Outline">#475569</Color>
+  <Color x:Key="OutlineVariant">#1E2A3A</Color>
+  <Color x:Key="Error">#F87171</Color>
+  <Color x:Key="ErrorContainer">#450A0A</Color>
+  <Color x:Key="PrimaryContainer">#064E3B</Color>
+  <Color x:Key="OnPrimaryContainer">#A7F3D0</Color>
+  <Color x:Key="Secondary">#94A3B8</Color>
+  <Color x:Key="Warning">#FBBF24</Color>
+  <Color x:Key="WarningContainer">#451A03</Color>
+  <Color x:Key="Info">#38BDF8</Color>
+  <Color x:Key="InfoContainer">#0C4A6E</Color>
+
+  <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
+  <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimary}"/>
+  <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
+  <SolidColorBrush x:Key="CardBrush" Color="{StaticResource SurfaceLowest}"/>
+  <SolidColorBrush x:Key="SurfaceContainerBrush" Color="{StaticResource SurfaceContainer}"/>
+  <SolidColorBrush x:Key="OnSurfaceBrush" Color="{StaticResource OnSurface}"/>
+  <SolidColorBrush x:Key="OnVariantBrush" Color="{StaticResource OnSurfaceVariant}"/>
+  <SolidColorBrush x:Key="OutlineBrush" Color="{StaticResource OutlineVariant}"/>
+  <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Error}"/>
+  <SolidColorBrush x:Key="PrimaryContainerBrush" Color="{StaticResource PrimaryContainer}"/>
+  <SolidColorBrush x:Key="OnPrimaryContainerBrush" Color="{StaticResource OnPrimaryContainer}"/>
+  <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}"/>
+  <SolidColorBrush x:Key="WarningContainerBrush" Color="{StaticResource WarningContainer}"/>
+  <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource Info}"/>
+  <SolidColorBrush x:Key="InfoContainerBrush" Color="{StaticResource InfoContainer}"/>
+
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="{StaticResource SurfaceLowest}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="{StaticResource OnSurface}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="{StaticResource SurfaceContainer}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="{StaticResource OnSurface}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="{StaticResource SurfaceContainer}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="{StaticResource OutlineVariant}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="{StaticResource Primary}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{StaticResource OnPrimary}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource PrimaryContainer}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="{StaticResource OnPrimaryContainer}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="{StaticResource SurfaceLowest}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="{StaticResource OnSurface}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="{StaticResource OnSurfaceVariant}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.InfoBrushKey}" Color="{StaticResource InfoContainer}"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.InfoTextBrushKey}" Color="{StaticResource OnSurface}"/>
+</ResourceDictionary>

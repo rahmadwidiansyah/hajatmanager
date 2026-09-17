@@ -2,12 +2,30 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="8" MaxWidth="700">
-      <Border Padding="16" Background="{StaticResource CardBrush}"
-              BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+    <!-- Fase 5: page-shell cermin web (dulu 700, terlalu sempit di desktop) -->
+    <StackPanel Margin="8" MaxWidth="1120">
+      <Border Padding="16" Background="{DynamicResource CardBrush}"
+              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
         <StackPanel>
           <TextBlock x:Name="NameText" FontWeight="Bold" FontSize="16"/>
-          <TextBlock x:Name="EmailText" Foreground="{StaticResource OnVariantBrush}"/>
+          <TextBlock x:Name="EmailText" Foreground="{DynamicResource OnVariantBrush}"/>
+        </StackPanel>
+      </Border>
+      <!-- Fase A: pilihan Terang/Gelap/Sistem, berlaku instan -->
+      <Border Margin="0,12,0,0" Padding="16" Background="{DynamicResource CardBrush}"
+              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+        <StackPanel>
+          <TextBlock Text="Tampilan" FontWeight="SemiBold"/>
+          <TextBlock Text="Terang, gelap, atau ikut sistem" FontSize="12"
+                     Foreground="{DynamicResource OnVariantBrush}" Margin="0,2,0,8"/>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="ThemeLight" Content="Terang" GroupName="Theme"
+                         Margin="0,0,16,0" Tag="light" Checked="OnThemeChecked"/>
+            <RadioButton x:Name="ThemeDark" Content="Gelap" GroupName="Theme"
+                         Margin="0,0,16,0" Tag="dark" Checked="OnThemeChecked"/>
+            <RadioButton x:Name="ThemeSystem" Content="Sistem" GroupName="Theme"
+                         Tag="system" Checked="OnThemeChecked"/>
+          </StackPanel>
         </StackPanel>
       </Border>
       <UniformGrid Columns="2" Margin="0,12,0,0">

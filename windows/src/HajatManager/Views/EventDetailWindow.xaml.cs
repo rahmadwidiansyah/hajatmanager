@@ -49,7 +49,11 @@ public partial class EventDetailWindow : Window
                 _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
         BuildInputPanel();
         await RefreshRekapAsync();
-        PendingText.Text = $"Antre: {await LocalDb.Instance.OutboxCountAsync(_ev.Id)}";
+        // Fase 5: status online + antre konsisten seperti MainWindow.
+        var online = await SyncEngine.Instance.CheckNowAsync();
+        PendingText.Text =
+            $"Antre: {await LocalDb.Instance.OutboxCountAsync(_ev.Id)} • " +
+            (online ? "Online ✓" : "Offline ✗");
     }
 
     // ---------- Tab Input ----------
@@ -149,16 +153,19 @@ public partial class EventDetailWindow : Window
             tb.ToolTip = tip;
         }
         sp.Children.Add(field);
-        return new Border
+        // Fase A: SetResourceReference agar ikut ganti tema
+        // (FindResource hanya snapshot sekali).
+        var card = new Border
         {
             Padding = new Thickness(12),
             Margin = new Thickness(0, 0, 8, 0),
-            Background = (System.Windows.Media.Brush)FindResource("CardBrush"),
-            BorderBrush = (System.Windows.Media.Brush)FindResource("OutlineBrush"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Child = sp,
         };
+        card.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+        card.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+        return card;
     }
 
     private void ApplyGuestFilter()
@@ -262,7 +269,7 @@ public partial class EventDetailWindow : Window
         PreviewTextInputRegistrar.DigitsOnly(nob);
         var win = new Window
         {
-            Title = "Edit Pemberian", Width = 380, Height = 300,
+            Title = "Edit Pemberian", Width = 480, Height = 320,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Content = new StackPanel
             {
@@ -312,7 +319,7 @@ public partial class EventDetailWindow : Window
         var n = new TextBox(); var a = new TextBox();
         var win = new Window
         {
-            Title = "Buku tamu baru", Width = 360, Height = 260,
+            Title = "Buku tamu baru", Width = 480, Height = 280,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Content = new StackPanel
             {
@@ -365,7 +372,7 @@ public partial class EventDetailWindow : Window
         var a = new TextBox { Text = b.Alamat, Margin = new Thickness(0, 0, 0, 8) };
         var win = new Window
         {
-            Title = "Edit buku tamu", Width = 360, Height = 260,
+            Title = "Edit buku tamu", Width = 480, Height = 280,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Content = new StackPanel
             {

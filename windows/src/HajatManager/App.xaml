@@ -3,61 +3,158 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="Views/LoginWindow.xaml">
   <Application.Resources>
-    <!-- Token M3 cermin app/globals.css (light) -->
-    <Color x:Key="Primary">#059669</Color>
-    <Color x:Key="OnPrimary">#FFFFFF</Color>
-    <Color x:Key="Surface">#F8FAFC</Color>
-    <Color x:Key="SurfaceLowest">#FFFFFF</Color>
-    <Color x:Key="SurfaceContainer">#E8EDF4</Color>
-    <Color x:Key="OnSurface">#0F172A</Color>
-    <Color x:Key="OnSurfaceVariant">#475569</Color>
-    <Color x:Key="OutlineVariant">#CBD5E1</Color>
-    <Color x:Key="Error">#DC2626</Color>
-    <Color x:Key="ErrorContainer">#FEE2E2</Color>
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
-    <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimary}"/>
-    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
-    <SolidColorBrush x:Key="CardBrush" Color="{StaticResource SurfaceLowest}"/>
-    <SolidColorBrush x:Key="OnSurfaceBrush" Color="{StaticResource OnSurface}"/>
-    <SolidColorBrush x:Key="OnVariantBrush" Color="{StaticResource OnSurfaceVariant}"/>
-    <SolidColorBrush x:Key="OutlineBrush" Color="{StaticResource OutlineVariant}"/>
-    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Error}"/>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- Fase A: tema aktif ditukar runtime oleh ThemeManager.
+             Default Terang; key Light/Dark 1:1. -->
+        <ResourceDictionary Source="Themes/Light.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
 
-    <Style TargetType="Button" x:Key="PrimaryButton">
-      <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-      <Setter Property="Foreground" Value="{StaticResource OnPrimaryBrush}"/>
-      <Setter Property="Padding" Value="16,10"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border Background="{TemplateBinding Background}" CornerRadius="12"
-                    Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Style.Triggers>
-        <Trigger Property="IsEnabled" Value="False">
-          <Setter Property="Opacity" Value="0.5"/>
-        </Trigger>
-      </Style.Triggers>
-    </Style>
+      <Style TargetType="Button" x:Key="PrimaryButton">
+        <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}"/>
+        <Setter Property="Padding" Value="16,10"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border Background="{TemplateBinding Background}" CornerRadius="12"
+                      Padding="{TemplateBinding Padding}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+          <Trigger Property="IsEnabled" Value="False">
+            <Setter Property="Opacity" Value="0.5"/>
+          </Trigger>
+        </Style.Triggers>
+      </Style>
 
-    <Style TargetType="TextBox">
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="BorderBrush" Value="{StaticResource OutlineBrush}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
-    </Style>
+      <Style TargetType="TextBox">
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
 
-    <Style TargetType="PasswordBox">
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="BorderBrush" Value="{StaticResource OutlineBrush}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
-    </Style>
+      <Style TargetType="PasswordBox">
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
+
+      <!-- Fase A: kontrol bawaan yang dipakai app ikut tema gelap. -->
+      <Style TargetType="DataGrid">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+        <Setter Property="RowBackground" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
+        <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
+      </Style>
+
+      <Style TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{DynamicResource SurfaceContainerBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      </Style>
+
+      <Style TargetType="DataGridRow">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Style.Triggers>
+          <Trigger Property="IsSelected" Value="True">
+            <Setter Property="Background" Value="{DynamicResource PrimaryContainerBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
+          </Trigger>
+        </Style.Triggers>
+      </Style>
+
+      <Style TargetType="DataGridCell">
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Style.Triggers>
+          <Trigger Property="IsSelected" Value="True">
+            <Setter Property="Background" Value="{DynamicResource PrimaryContainerBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
+          </Trigger>
+        </Style.Triggers>
+      </Style>
+
+      <Style TargetType="Menu">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
+
+      <Style TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
+
+      <Style TargetType="StatusBar">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
+      </Style>
+
+      <Style TargetType="TabControl">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+      </Style>
+
+      <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Style.Triggers>
+          <Trigger Property="IsSelected" Value="True">
+            <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+          </Trigger>
+        </Style.Triggers>
+      </Style>
+
+      <Style TargetType="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+      </Style>
+
+      <Style TargetType="DatePicker">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+      </Style>
+
+      <Style TargetType="ListBox">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
+      </Style>
+
+      <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+        <Setter Property="Margin" Value="0,4"/>
+      </Style>
+
+      <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
+
+      <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+      </Style>
+
+      <Style TargetType="ProgressBar">
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+      </Style>
+    </ResourceDictionary>
   </Application.Resources>
 </Application>

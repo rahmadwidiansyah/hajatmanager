@@ -38,6 +38,31 @@ public partial class AccountView : UserControl
     {
         NameText.Text = u.TryGetProperty("name", out var n) ? n.GetString() ?? "…" : "…";
         EmailText.Text = u.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "";
+        // Fase A: tandai pilihan tema tersimpan (tanpa memicu Checked).
+        try
+        {
+            var cur = ThemeManager.Current;
+            ThemeLight.IsChecked = cur == ThemeManager.Light;
+            ThemeDark.IsChecked = cur == ThemeManager.Dark;
+            ThemeSystem.IsChecked = cur != ThemeManager.Light && cur != ThemeManager.Dark;
+        }
+        catch { }
+    }
+
+    // Fase A: ganti tema instan, tersimpan untuk startup berikutnya.
+    private void OnThemeChecked(object s, RoutedEventArgs e)
+    {
+        try
+        {
+            // Abaikan event inisialisasi (SetHeader menandai radio tersimpan).
+            if (s is RadioButton rb && rb.Tag is string tag && rb.IsChecked == true
+                && tag != ThemeManager.Current)
+                ThemeManager.Apply(tag);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException("Ganti tema gagal", ex);
+        }
     }
 
     private void GoProfile(object s, RoutedEventArgs e) => SubHost.Content = new ProfileView();
