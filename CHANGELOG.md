@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.2...v1.9.0) (2026-09-17)
+
+
+### Features
+
+* **windows:** Setup self-contained, hapus ZIP portable, porting UI Linux/tablet ([63805ee](https://github.com/rahmadwidiansyah/hajatmanager/commit/63805ee5af989988f0e80f416ab30b147c941ceb))
+
 ## [1.8.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.1...v1.8.2) (2026-09-17)
 
 
