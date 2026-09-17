@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { encode } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { verifyGoogleIdToken } from "@/lib/google-verify";
 
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // sama seperti lib/auth.ts
 
@@ -11,15 +12,6 @@ function useSecureCookies() {
 function sessionCookieName() {
   return `${useSecureCookies() ? "__Secure-" : ""}authjs.session-token`;
 }
-
-type GoogleInfo = {
-  aud?: string;
-  sub?: string;
-  email?: string;
-  email_verified?: string | boolean;
-  name?: string;
-  picture?: string;
-};
 
 /**
  * Login Google native dari APK.
@@ -43,33 +35,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "VALIDATION_ERROR" }, { status: 400 });
   }
 
-  // 1. Verifikasi ke Google
-  let info: GoogleInfo;
-  try {
-    const res = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
-      { cache: "no-store" }
-    );
-    if (!res.ok) {
-      return NextResponse.json({ error: "INVALID_GOOGLE_TOKEN" }, { status: 401 });
-    }
-    info = (await res.json()) as GoogleInfo;
-  } catch {
-    return NextResponse.json({ error: "GOOGLE_UNREACHABLE" }, { status: 502 });
+  // 1. Verifikasi ke Google (logika bersama di lib/google-verify.ts)
+  const verified = await verifyGoogleIdToken(idToken);
+  if (!verified.ok) {
+    const status =
+      verified.error === "GOOGLE_UNREACHABLE" ? 502 : verified.error === "VALIDATION_ERROR" ? 400 : 401;
+    return NextResponse.json({ error: verified.error }, { status });
   }
-
-  const allowedAud = [process.env.GOOGLE_CLIENT_ID, process.env.ANDROID_GOOGLE_CLIENT_ID]
-    .filter((s): s is string => !!s && s.length > 0);
-  const verified = info.email_verified === true || info.email_verified === "true";
-  if (!info.sub || !info.email || !verified) {
-    return NextResponse.json({ error: "INVALID_GOOGLE_TOKEN" }, { status: 401 });
-  }
-  if (allowedAud.length > 0 && (!info.aud || !allowedAud.includes(info.aud))) {
-    return NextResponse.json({ error: "AUD_MISMATCH" }, { status: 401 });
-  }
-
-  const email = info.email.toLowerCase();
-  const name = (info.name ?? email.split("@")[0]).trim().slice(0, 50) || "Pengguna Google";
+  const info = verified.info;
+  const email = info.email;
+  const name = info.name;
 
   // 2. Upsert user + link akun Google (sub sama seperti login web)
   let user = await prisma.user.findUnique({ where: { email } });

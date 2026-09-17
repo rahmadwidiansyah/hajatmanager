@@ -25,6 +25,43 @@ model User {
   sessions       Session[]
   eventMembers   EventMember[]
   auditLogs      AuditLog[]
+  deviceSessions DeviceSession[]
+  deviceGrants   DeviceGrant[]
+}
+
+// Fase 3: token perangkat untuk client native (WPF/Flutter).
+// Token mentah hanya diperlihatkan sekali saat diterbitkan;
+// yang disimpan hanya sha256 hex (tokenHash). Revoke = soft-delete.
+model DeviceSession {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  deviceName  String?
+  platform    String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Fase 4: kode sekali-pakai untuk login Google desktop via browser.
+// Browser (sesi web) menukar login Google menjadi grant; app native
+// menukar grant menjadi Bearer lewat POST /api/auth/device/code.
+model DeviceGrant {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Account {

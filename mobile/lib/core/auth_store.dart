@@ -11,7 +11,32 @@ class AuthStore {
   static const _kPinHash = 'app_pin_hash';
   static const _kLastUnlock = 'last_unlock_ms';
   static const _kPinGraceMin = 'pin_grace_min';
+  // Fase 3: Bearer device-token (token mentah, hanya di secure storage).
+  static const _kDeviceToken = 'device_token';
   static const _storage = FlutterSecureStorage();
+
+  static Future<String?> deviceToken() => _storage.read(key: _kDeviceToken);
+
+  static Future<void> saveDeviceToken(String t) =>
+      _storage.write(key: _kDeviceToken, value: t);
+
+  static Future<void> clearDeviceToken() => _storage.delete(key: _kDeviceToken);
+
+  // Fase A: pilihan tema — 'system' | 'light' | 'dark'. Default system.
+  static const _kThemeMode = 'theme_mode';
+  static const _themeModes = {'system', 'light', 'dark'};
+
+  static Future<String> themeMode() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getString(_kThemeMode) ?? 'system';
+    return _themeModes.contains(v) ? v : 'system';
+  }
+
+  static Future<void> setThemeMode(String v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+        _kThemeMode, _themeModes.contains(v) ? v : 'system');
+  }
 
   /// Grace period default 5 menit (bisa diubah di Pengaturan Akun).
   /// 0 = selalu kunci.
@@ -81,6 +106,8 @@ class AuthStore {
   static Future<void> logout({bool keepPin = false}) async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kUser);
+    // Fase 3: token perangkat selalu dihapus saat logout (sesi berakhir).
+    await _storage.delete(key: _kDeviceToken);
     if (!keepPin) await _storage.delete(key: _kPinHash);
   }
 }

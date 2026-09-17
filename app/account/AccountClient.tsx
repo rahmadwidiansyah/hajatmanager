@@ -125,6 +125,19 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
   const [pinOpen, setPinOpen] = useState(false);
   const [confirmDeletePin, setConfirmDeletePin] = useState(false);
 
+  // Fase 3: perangkat native tertaut (Bearer device-token) — bisa revoke dari web.
+  type Device = {
+    id: string;
+    deviceName: string | null;
+    platform: string | null;
+    createdAt: string;
+    lastUsedAt: string;
+    expiresAt: string;
+    current: boolean;
+  };
+  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
   const [snack, setSnack] = useState<{ id: number; text: string } | null>(null);
 
   const { mode, systemMode, setMode } = useColorScheme();
@@ -168,6 +181,31 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
   useEffect(() => {
     fetch("/api/users/pin").then((r) => r.json()).then((j) => setHasPin(!!j.hasPin)).catch(() => setHasPin(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/device/list").then((r) => r.json()).then((j) => {
+      if (Array.isArray(j.devices)) setDevices(j.devices);
+      else setDevices([]);
+    }).catch(() => setDevices([]));
+  }, []);
+
+  async function revokeDevice(id: string) {
+    setRevoking(id);
+    try {
+      const res = await fetch("/api/auth/device/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Gagal");
+      setDevices((d) => (d ?? []).filter((x) => x.id !== id));
+      notify("Perangkat dihapus — sesi di perangkat itu ikut keluar");
+    } catch {
+      notify("Gagal hapus perangkat");
+    } finally {
+      setRevoking(null);
+    }
+  }
 
   // Dialog hapus PIN: fokus ke tombol Batal + tutup dengan Escape
   useEffect(() => {
@@ -552,6 +590,47 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
                 </form>
               )}
             </div>
+          </Section>
+
+          {/* Section — Perangkat Tertaut (Fase 3: sesi native WPF/Flutter) */}
+          <Section title="Perangkat Tertaut" desc="HP / laptop / PC yang login via aplikasi. Hapus bila hilang atau tidak dikenal.">
+            {devices === null ? (
+              <p className="text-sm text-[var(--on-surface-variant)]">Memuat...</p>
+            ) : devices.length === 0 ? (
+              <p className="text-sm text-[var(--on-surface-variant)]">
+                Belum ada — perangkat app akan muncul di sini setelah login.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {devices.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex items-center gap-3 rounded-xl border border-[var(--outline-variant)] px-4 py-3"
+                  >
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-medium text-[var(--on-surface)] truncate">
+                        {d.deviceName || d.platform || "Perangkat"}
+                        {d.current && (
+                          <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full bg-[var(--primary-container)] text-[var(--on-primary-container)]">
+                            Ini
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-xs text-[var(--on-surface-variant)] truncate">
+                        Aktif terakhir {new Date(d.lastUsedAt).toLocaleString("id-ID")}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => revokeDevice(d.id)}
+                      disabled={revoking === d.id}
+                      className="h-10 px-4 rounded-full text-sm font-medium text-[var(--error)] hover:bg-[var(--error-container)] disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {revoking === d.id ? "Menghapus..." : "Hapus"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Section>
 
           {/* Section 3 — Preferensi */}

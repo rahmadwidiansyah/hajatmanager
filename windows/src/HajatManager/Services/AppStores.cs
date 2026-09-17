@@ -119,6 +119,51 @@ public sealed class AppConfig
 
     private const string PinStoreKey = "app_pin_hash_dpapi";
 
+    // Fase A: pilihan tema — "system" | "light" | "dark". Default system.
+    private const string ThemeModeKey = "theme_mode";
+
+    public string GetThemeMode()
+    {
+        if (_kv.TryGetValue(ThemeModeKey, out var v) &&
+            (v == "light" || v == "dark" || v == "system"))
+            return v;
+        return "system";
+    }
+
+    public void SetThemeMode(string v)
+    {
+        _kv[ThemeModeKey] = (v == "light" || v == "dark") ? v : "system";
+        Save();
+    }
+
+    // Fase 3: Bearer device-token, dilindungi DPAPI (ganti secure storage).
+    // Token mentah tidak pernah ditulis plain ke disk.
+    private const string DeviceTokenKey = "device_token_dpapi";
+
+    public string? GetDeviceToken()
+    {
+        if (!_kv.TryGetValue(DeviceTokenKey, out var blob)) return null;
+        return PinCrypto.Unprotect(blob);
+    }
+
+    public void SetDeviceToken(string token)
+    {
+        _kv[DeviceTokenKey] = PinCrypto.Protect(token);
+        Save();
+    }
+
+    public void ClearDeviceToken() { _kv.Remove(DeviceTokenKey); Save(); }
+
+    public static string DeviceLabel()
+    {
+        try
+        {
+            var name = $"{Environment.MachineName} (Windows)";
+            return name.Length <= 100 ? name : name[..100];
+        }
+        catch { return "PC Windows"; }
+    }
+
     public int GetPinGraceMin()
     {
         if (_kv.TryGetValue("pin_grace_min", out var v) && int.TryParse(v, out var m))
@@ -193,6 +238,8 @@ public static class AuthStore
     public static void Logout(bool keepPin = false)
     {
         AppConfig.Instance.ClearUser();
+        // Fase 3: token perangkat selalu dihapus saat logout (sesi berakhir).
+        AppConfig.Instance.ClearDeviceToken();
         if (!keepPin) AppConfig.Instance.ClearPin();
     }
 }
