@@ -109,21 +109,24 @@ public partial class EventsView : UserControl
     private async void OnCreate(object sender, RoutedEventArgs e)
     {
         var d = new CreateEventDialog();
-        if (d.ShowDialog() != true) return;
+        if (d.ShowDialog() != true || d.Tanggal == null) return;
         var id = $"evt-{Guid.NewGuid()}";
+        var tgl = d.Tanggal.Value;
+        var cat = string.IsNullOrWhiteSpace(d.Catatan) ? null : d.Catatan;
         var payload = new Dictionary<string, object?>
         {
             ["id"] = id,
             ["namaAcara"] = d.Nama,
             ["namaTuanRumah"] = string.IsNullOrWhiteSpace(d.Tuan) ? null : d.Tuan,
-            ["tanggal"] = DateTime.Now.ToString("o"),
+            ["tanggal"] = tgl.ToString("o"),
             ["lokasi"] = string.IsNullOrWhiteSpace(d.Lokasi) ? null : d.Lokasi,
+            ["catatan"] = cat,
             ["mejaList"] = new[] { "MEJA-1", "MEJA-2" },
         };
         await LocalDb.Instance.PutEventsAsync(new[]
         {
             new EventModel { Id = id, NamaAcara = d.Nama, NamaTuanRumah = d.Tuan,
-                Lokasi = d.Lokasi, Tanggal = DateTime.Now, MyRole = "OWNER" },
+                Lokasi = d.Lokasi, Catatan = cat, Tanggal = tgl, MyRole = "OWNER" },
         });
         await LocalDb.Instance.EnqueueAsync(new OutboxOp
         {
@@ -136,8 +139,10 @@ public partial class EventsView : UserControl
             using var r = await ApiClient.Instance.PostJsonAsync("/api/events", new
             {
                 namaAcara = d.Nama,
-                tanggal = DateTime.Now.ToString("o"),
+                namaTuanRumah = d.Tuan,
+                tanggal = tgl.ToString("o"),
                 lokasi = d.Lokasi,
+                catatan = cat,
             });
             if (r.IsSuccessStatusCode)
                 await LocalDb.Instance.OutboxRemoveAsync(new[] { id });

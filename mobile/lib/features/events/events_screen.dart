@@ -252,11 +252,16 @@ class _EventsScreenState extends State<EventsScreen> {
     final namaC = TextEditingController();
     final tuanC = TextEditingController();
     final lokC = TextEditingController();
+    final catC = TextEditingController();
+    DateTime? pickedDate;
+    bool saving = false;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
         title: const Text('Acara baru'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
               controller: namaC,
               decoration:
@@ -264,36 +269,99 @@ class _EventsScreenState extends State<EventsScreen> {
           TextField(
               controller: tuanC,
               decoration:
-                  const InputDecoration(labelText: 'Tuan rumah')),
+                  const InputDecoration(labelText: 'Tuan rumah *')),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: ctx,
+                initialDate: pickedDate ?? now,
+                firstDate: DateTime(now.year - 5),
+                lastDate: DateTime(now.year + 5),
+              );
+              if (d != null) setD(() => pickedDate = d);
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                  labelText: 'Tanggal *',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  prefixIcon: Icon(Icons.calendar_month_outlined)),
+              child: Text(pickedDate == null
+                  ? 'Pilih tanggal'
+                  : '${pickedDate!.day.toString().padLeft(2, '0')}-'
+                    '${pickedDate!.month.toString().padLeft(2, '0')}-'
+                    '${pickedDate!.year}'),
+            ),
+          ),
+          const SizedBox(height: 8),
           TextField(
               controller: lokC,
               decoration: const InputDecoration(labelText: 'Lokasi')),
+          TextField(
+              controller: catC,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Catatan')),
           const SizedBox(height: 8),
           const Text(
               'Jika offline, acara disimpan lokal lalu auto-push saat online.',
               style: TextStyle(fontSize: 12)),
         ]),
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Batal')),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Simpan')),
+              onPressed: saving
+                  ? null
+                  : () {
+                      if (namaC.text.trim().length < 2) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Nama acara minimal 2 huruf')));
+                        return;
+                      }
+                      if (tuanC.text.trim().length < 2) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Nama tuan rumah minimal 2 huruf')));
+                        return;
+                      }
+                      if (pickedDate == null) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Tanggal wajib dipilih')));
+                        return;
+                      }
+                      setD(() => saving = true);
+                      Navigator.pop(context, true);
+                    },
+              child: Text(saving ? 'Menyimpan…' : 'Simpan')),
         ],
+        ),
       ),
     );
-    if (ok != true || namaC.text.trim().length < 2) return;
+    if (ok != true) return;
+    final tgl = pickedDate;
+    if (tgl == null) return;
+    final cat = catC.text.trim();
     final id = 'evt-${const Uuid().v4()}';
     final payload = {
       'id': id,
       'namaAcara': namaC.text.trim(),
       'namaTuanRumah': tuanC.text.trim().isEmpty ? null : tuanC.text.trim(),
-      'tanggal': DateTime.now().toIso8601String(),
+      'tanggal': tgl.toIso8601String(),
       'lokasi': lokC.text.trim().isEmpty ? null : lokC.text.trim(),
+      'catatan': cat.isEmpty ? null : cat,
       'mejaList': ['MEJA-1', 'MEJA-2'],
     };
-    // simpan lokal + antre (semua acara online, offline hanya antrean jaringan)
+    // simpan lokal + antre (semua acara online, offline hanya antrean jaringan).
+    // Pembuat selalu OWNER — tulis langsung agar offline pun berstatus benar.
     final db = await LocalDb.instance.db();
     await db.insert('events', {
       'id': id,
@@ -301,8 +369,9 @@ class _EventsScreenState extends State<EventsScreen> {
       'namaTuanRumah': payload['namaTuanRumah'],
       'tanggal': payload['tanggal'],
       'lokasi': payload['lokasi'],
-      'catatan': null,
+      'catatan': payload['catatan'],
       'mejaList': 'MEJA-1,MEJA-2',
+      'myRole': 'OWNER',
     });
     await LocalDb.instance
         .enqueue(id, 'CREATE_EVENT', 'events', payload, id: id);
@@ -311,8 +380,10 @@ class _EventsScreenState extends State<EventsScreen> {
       final dio = await ApiClient.instance.dio();
       await dio.post('/api/events', data: {
         'namaAcara': payload['namaAcara'],
+        'namaTuanRumah': payload['namaTuanRumah'],
         'tanggal': payload['tanggal'],
         'lokasi': payload['lokasi'],
+        'catatan': payload['catatan'],
       });
       await LocalDb.instance.outboxRemove([id]);
     } on DioException catch (_) {
