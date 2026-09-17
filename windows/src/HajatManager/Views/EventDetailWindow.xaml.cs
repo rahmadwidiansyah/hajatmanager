@@ -224,21 +224,22 @@ public partial class EventDetailWindow : Window
             _suggestList = new ListBox { MaxHeight = 220, MinWidth = 260 };
             _suggestList.MouseDoubleClick += (_, _) => SelectSuggestHi();
             _suggestList.PreviewKeyDown += OnNamaPreviewKey;
+            var suggestBorder = new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(4),
+                Child = _suggestList,
+            };
+            suggestBorder.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+            suggestBorder.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
             _suggestPopup = new Popup
             {
-                Child = new Border
-                {
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(4),
-                    Child = _suggestList,
-                },
+                Child = suggestBorder,
                 PlacementTarget = _namaBox,
                 Placement = PlacementMode.Bottom,
                 StaysOpen = false,
             };
-            _suggestPopup.Child.SetResourceReference(Border.BackgroundProperty, "CardBrush");
-            _suggestPopup.Child.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
             // Popup mandiri (jangan masuk StackPanel.Children — Popup bukan UIElement panel).
             grid.Children.Add(FieldCard("Siapa yang memberi? — Nama (huruf saja)", namaStack, null));
 
@@ -362,7 +363,7 @@ public partial class EventDetailWindow : Window
         ApplyGuestFilter();
     }
 
-    private Border FieldCard(string? title, Control field, string? hint)
+    private Border FieldCard(string? title, UIElement field, string? hint)
     {
         var sp = new StackPanel { Margin = new Thickness(8) };
         if (title != null)
