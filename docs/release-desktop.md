@@ -8,8 +8,11 @@ Semua file dilampirkan ke **1 GitHub Release yang sama** oleh job `publish`.
 
 | File | Dari | Cara install |
 |---|---|---|
-| `Hajat-Manager-<ver>-windows-x64-Setup.exe` | WPF C# self-contained + Inno Setup | Double-klik → Next → Finish. Tanpa admin (install ke Local Programs). Data `%AppData%\HajatManager` tidak dihapus saat uninstall. |
-| `Hajat-Manager-<ver>-windows-x64.zip` | WPF framework-dependent | Ekstrak → jalankan `HajatManager.exe`. Butuh .NET 10 Desktop Runtime. |
+| `Hajat-Manager-<ver>-windows-x64-Setup.exe` | WPF C# self-contained + Inno Setup | Double-klik → Next → Finish. Tanpa admin (install ke Local Programs). **Tanpa install .NET** (runtime ikut di dalam). Data `%AppData%\HajatManager` tidak dihapus saat uninstall. |
+
+> Varian ZIP portable tanpa setup **dihapus total** — sering gagal jalan
+> karena butuh .NET Desktop Runtime yang tepat (vs Runtime biasa, x86 vs x64).
+> Kini Windows hanya lewat Setup.exe mandiri.
 | `Hajat-Manager-<ver>-linux-x64.tar.gz` | Flutter (`flutter build linux`) | Ekstrak → `./hajat_manager`, atau pasang via AUR (di bawah). |
 | `Hajat-Manager-<ver>-linux-x64.AppImage` | AppImage dari bundle Flutter | `chmod +x *.AppImage` → double-klik. |
 | `SHA256SUMS.txt` | CI | `sha256sum -c SHA256SUMS.txt` untuk verifikasi. |
@@ -23,6 +26,28 @@ via `node scripts/sync-versions.js <ver>` (dipanggil semantic-release).
 Setup.exe **tidak ditandatangani** (tanpa sertifikat code-sign) sehingga
 Windows SmartScreen bisa menampilkan peringatan biru pada install pertama.
 Klik *More info → Run anyway*. Ini normal untuk installer unsigned.
+
+## Windows: Setup mandiri tanpa .NET (fix loop minta .NET 10)
+
+Setup.exe kini **self-contained penuh** — runtime .NET 10 ikut di dalam,
+user **tidak perlu install .NET** apa pun.
+
+Kalau rilis lama masih minta “.NET 10” berulang meski sudah install:
+
+1. Penyebab umum: yang terinstall **.NET Runtime (console)** bukan
+   **WindowsDesktop Runtime**, atau x86 vs x64. WPF butuh
+   `Microsoft.WindowsDesktop.App 10.x x64`.
+2. Cek yang terinstall (PowerShell):
+   ```powershell
+   dotnet --list-runtimes | Select-String WindowsDesktop
+   ```
+   Harus ada baris `Microsoft.WindowsDesktop.App 10.x.x`.
+3. Solusi: **uninstall versi lama → install Setup.exe terbaru**
+   (mandiri). Darurat saja bila masih pakai ZIP lama:
+   unduh `windowsdesktop-runtime-10.x-win-x64.exe` resmi Microsoft.
+4. “Ga bisa ping” di app = `Tes server` (`GET /api/health`) gagal, bukan
+   ICMP. Cek URL https benar, koneksi internet, lalu `Tes` ulang di layar
+   login. Lihat log `%AppData%\HajatManager\logs` bila perlu.
 
 ## Linux (Arch/CachyOS)
 
@@ -96,9 +121,10 @@ Lapor hasil tes dengan info ini (agar fix tepat sasaran):
 ## Build lokal (tanpa CI)
 
 ```bash
-# Setup.exe (di Windows + Inno Setup 6 terinstall):
+# Setup.exe mandiri (di Windows + Inno Setup 6 terinstall):
 dotnet publish windows/src/HajatManager -c Release -r win-x64 \
-  --self-contained true -p:PublishSingleFile=true -o windows/src/HajatManager/publish-setup
+  --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false \
+  -p:IncludeNativeLibrariesForSelfExtract=true -o windows/src/HajatManager/publish-setup
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows/installer/hajat-manager.iss
 
 # Linux tarball + AppImage (di Arch/CachyOS + Flutter):

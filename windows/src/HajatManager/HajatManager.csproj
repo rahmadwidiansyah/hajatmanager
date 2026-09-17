@@ -13,11 +13,14 @@
     <Company>Rahmad Widiansyah</Company>
     <Product>Hajat Manager</Product>
     <Description>Hajat Manager — buku tamu &amp; catat pemberian hajatan (Windows)</Description>
-    <!-- Single-file agar distribusi ZIP semudah Flutter -->
+    <!-- Self-contained penuh: Setup.exe mandiri tanpa install .NET.
+         ZIP portable framework-dependent dihapus total. -->
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>

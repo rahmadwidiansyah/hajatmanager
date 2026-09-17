@@ -60,30 +60,27 @@ jobs:
           dotnet restore
           dotnet build -c Release --no-restore
 
-      - name: Publish win-x64
+      # Windows hanya Setup.exe self-contained (tanpa .NET).
+      # Varian ZIP portable framework-dependent dihapus total (sering gagal
+      # jalan karena butuh .NET Desktop Runtime yang tepat).
+      - name: Publish self-contained (untuk Setup.exe)
         working-directory: windows/src/HajatManager
         run: >
-          dotnet publish -c Release --no-build
-          -r win-x64 --self-contained false
+          dotnet publish -c Release
+          -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=false
+          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ needs.resolve.outputs.version }}
-          -o publish
+          -o publish-setup
 
-      - name: Collect ZIP
+      - name: Ensure release dir
         shell: pwsh
         working-directory: windows
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Compress-Archive -Path src/HajatManager/publish/* -DestinationPath "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-x64.zip" -Force
+          Get-ChildItem src/HajatManager/publish-setup/ | Select-Object Name, Length
           Get-ChildItem release/
-
-      - name: Publish self-contained (untuk Setup.exe)
-        working-directory: windows/src/HajatManager
-        run: >
-          dotnet publish -c Release --no-build
-          -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:Version=${{ needs.resolve.outputs.version }}
-          -o publish-setup
 
       - name: Install Inno Setup
         shell: pwsh
@@ -97,13 +94,6 @@ jobs:
             "/DMyAppVersion=${{ needs.resolve.outputs.version }}" `
             hajat-manager.iss
           Get-ChildItem ..\release\*.exe
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hajat-manager-windows-csharp
-          path: windows/release/*.zip
-          if-no-files-found: error
 
       - name: Upload Setup.exe
         uses: actions/upload-artifact@v4

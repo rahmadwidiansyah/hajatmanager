@@ -21,7 +21,10 @@ OutputDir=..\release
 OutputBaseFilename=Hajat-Manager-{#MyAppVersion}-windows-x64-Setup
 Compression=lzma2/max
 SolidCompression=yes
-ArchitecturesInstallIn64BitMode=x64
+; Self-contained x64 only — ZIP portable dihapus, Setup mandiri tanpa .NET.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+MinVersion=10.0
 WizardStyle=modern
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}

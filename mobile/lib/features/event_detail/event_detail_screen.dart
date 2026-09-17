@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +43,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   List<Map<String, dynamic>> suggest = [];
   List<String> alamatTop = [];
   List<int> nominalTop = [];
+  Map<String, int> alamatCount = {};
+  Map<int, int> nominalCount = {};
+  List<Map<String, dynamic>> members = [];
+  String? mejaFilter;
+  String? kasirFilter;
+  String sortBy = 'Waktu'; // Waktu | Nama | Nominal
+  bool sortDesc = true;
+  Map<String, dynamic>? liveDup;
+  Timer? _dupDebounce;
   List<Map<String, dynamic>> guests = [];
   List<Map<String, dynamic>> books = [];
   Map<String, dynamic>? rekap;
@@ -49,6 +59,17 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   bool saving = false;
   String bookQ = '';
   String guestQ = '';
+  // Limit tampil lokal (ganti pagination server ala web).
+  int guestLimit = 20;
+  int bookLimit = 50;
+  // Suggest nama: dropdown overlay-style + navigasi keyboard.
+  final namaFocus = FocusNode();
+  final alamatFocus = FocusNode();
+  final guestSearchFocus = FocusNode();
+  final bookSearchFocus = FocusNode();
+  Timer? _suggestDebounce;
+  int suggestHi = -1;
+  bool suggestOpen = false;
   List<Map<String, dynamic>> conflicts = [];
   bool goneServer = false;
   List<String> mejaList = ['MEJA-1', 'MEJA-2'];
@@ -73,6 +94,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   void initState() {
     super.initState();
     tab = TabController(length: 3, vsync: this);
+    namaFocus.onKeyEvent = _onNamaKey;
     if (widget.event.mejaList.isNotEmpty) {
       mejaList = [...widget.event.mejaList];
       mejaSelected = mejaList.first;
@@ -94,7 +116,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     });
   }
 
-  /// Tarik mejaList terbaru dari server (best-effort).
+  /// Tarik mejaList + members terbaru dari server (best-effort).
+  /// Members dipakai untuk kolom Kasir (nama, bukan ID potong).
   Future<void> _loadMeja() async {
     try {
       final dio = await ApiClient.instance.dio();
@@ -102,15 +125,36 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       final j = Map<String, dynamic>.from(r.data as Map);
       final ml =
           (j['mejaList'] as List?)?.map((e) => '$e').toList();
-      if (ml != null && ml.isNotEmpty && mounted) {
-        setState(() {
+      final mm = (j['members'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        if (ml != null && ml.isNotEmpty) {
           mejaList = ml;
           if (!mejaList.contains(mejaSelected)) {
             mejaSelected = mejaList.first;
           }
-        });
-      }
+        }
+        if (mm.isNotEmpty) members = mm;
+      });
     } catch (_) {}
+  }
+
+  String _kasirName(Map<String, dynamic> g) {
+    final pid = '${g['petugasId'] ?? ''}';
+    if (pid.isEmpty || pid == 'null') return '—';
+    for (final m in members) {
+      final u = (m['user'] as Map?) ?? {};
+      final uid = '${u['id'] ?? m['userId'] ?? ''}';
+      if (uid == pid) {
+        final nm = '${u['name'] ?? u['email'] ?? ''}';
+        if (nm.isNotEmpty && nm != 'null') return nm;
+      }
+    }
+    if (pid == 'lokal') return 'lokal';
+    return pid.length > 6 ? pid.substring(0, 6) : pid;
   }
 
   /// Tambah meja baru (OWNER/ADMIN → PATCH server, else lokal sesi).
@@ -178,6 +222,16 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   @override
   void dispose() {
     SyncEngine.instance.removeListener(_onSync);
+    _suggestDebounce?.cancel();
+    _dupDebounce?.cancel();
+    namaFocus.dispose();
+    alamatFocus.dispose();
+    guestSearchFocus.dispose();
+    bookSearchFocus.dispose();
+    namaC.dispose();
+    alamatC.dispose();
+    nominalC.dispose();
+    catatanC.dispose();
     tab.dispose();
     super.dispose();
   }
@@ -212,7 +266,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final nCount = <int, int>{};
     for (final g in guests) {
       final a = '${g['alamat']}';
-      aCount[a] = (aCount[a] ?? 0) + 1;
+      if (a.isNotEmpty && a != 'null') aCount[a] = (aCount[a] ?? 0) + 1;
       final n = (g['nominal'] as int?) ?? 0;
       if (n > 0) nCount[n] = (nCount[n] ?? 0) + 1;
     }
@@ -222,6 +276,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       ..sort((x, y) => y.value.compareTo(x.value));
     alamatTop = as.take(4).map((e) => e.key).toList();
     nominalTop = ns.take(4).map((e) => e.key).toList();
+    alamatCount = Map.fromEntries(as.take(4));
+    nominalCount = Map.fromEntries(ns.take(4));
   }
 
   void _recalcRekap() {
@@ -281,19 +337,35 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       }
       await LocalDb.instance.setMeta(
           'lastPull:${widget.event.id}', '${j['pulledAt'] ?? ''}');
-      // shortcuts server (best-effort, merge)
+      // shortcuts server (best-effort, merge + jumlah untuk chips)
       try {
         final s = await dio
             .get('/api/events/${widget.event.id}/guests/shortcuts');
         final sj = Map<String, dynamic>.from(s.data as Map);
         final at = (sj['alamatTop'] as List? ?? [])
-            .map((e) => '${(e as Map)['alamat']}')
+            .cast<Map>()
             .toList();
         final nt = (sj['nominalTop'] as List? ?? [])
-            .map((e) => ((e as Map)['nominal'] as num).toInt())
+            .cast<Map>()
             .toList();
-        if (at.isNotEmpty) alamatTop = at.take(4).toList();
-        if (nt.isNotEmpty) nominalTop = nt.take(4).toList();
+        if (at.isNotEmpty) {
+          alamatTop = at.take(4).map((e) => '${e['alamat']}').toList();
+          alamatCount = {
+            for (final e in at.take(4))
+              '${e['alamat']}': ((e['jumlah'] as num?)?.toInt() ?? 0),
+          };
+        }
+        if (nt.isNotEmpty) {
+          nominalTop = nt
+              .take(4)
+              .map((e) => ((e['nominal'] as num).toInt()))
+              .toList();
+          nominalCount = {
+            for (final e in nt.take(4))
+              ((e['nominal'] as num).toInt()):
+                  ((e['jumlah'] as num?)?.toInt() ?? 0),
+          };
+        }
       } catch (_) {}
     } on DioException catch (e) {
       // Acara dihapus dari web (404) — tandai agar UI tampilkan banner.
@@ -303,27 +375,163 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     } catch (_) {}
   }
 
-  Future<void> _onNamaChanged(String q) async {
+  void _onNamaChanged(String q) {
+    _suggestDebounce?.cancel();
+    _scheduleDupCheck();
     if (q.trim().length < 2) {
-      setState(() => suggest = []);
+      if (mounted) {
+        setState(() {
+          suggest = [];
+          suggestHi = -1;
+          suggestOpen = false;
+        });
+      }
       return;
     }
-    // 1) lokal dulu (cepat)
+    // 1) lokal dulu (cepat, sinkron) agar responsif.
+    final ql = q.toLowerCase();
     final local = books
-        .where((b) =>
-            '${b['nama']}'.toLowerCase().contains(q.toLowerCase()))
+        .where((b) => '${b['nama']}'.toLowerCase().contains(ql))
         .take(6)
         .toList();
-    setState(() => suggest = local);
-    // 2) server suggest (hanya yg belum tercatat)
-    try {
-      final dio = await ApiClient.instance.dio();
-      final r = await dio.get(
-          '/api/events/${widget.event.id}/guests/suggest',
-          queryParameters: {'q': q});
-      final list = (r.data as List? ?? []).cast<Map<String, dynamic>>();
-      if (mounted && list.isNotEmpty) setState(() => suggest = list);
-    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        suggest = local;
+        suggestHi = -1;
+        suggestOpen = true;
+      });
+    }
+    // 2) server suggest (debounce 300ms, hanya yg belum tercatat).
+    _suggestDebounce = Timer(const Duration(milliseconds: 300), () async {
+      try {
+        final dio = await ApiClient.instance.dio();
+        final r = await dio.get(
+            '/api/events/${widget.event.id}/guests/suggest',
+            queryParameters: {'q': q.trim()});
+        final list =
+            (r.data as List? ?? []).cast<Map<String, dynamic>>();
+        if (mounted && list.isNotEmpty) {
+          setState(() {
+            suggest = list.take(8).toList();
+            suggestHi = -1;
+            suggestOpen = true;
+          });
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _selectSuggest(Map<String, dynamic> s) {
+    namaC.text = '${s['nama']}';
+    final al = '${s['alamat'] ?? ''}';
+    if (al.isNotEmpty) alamatC.text = al;
+    setState(() {
+      suggest = [];
+      suggestHi = -1;
+      suggestOpen = false;
+    });
+    _scheduleDupCheck();
+    // Lanjut ke alamat agar alur Nama→Alamat→Nominal→Enter tetap cepat.
+    alamatFocus.requestFocus();
+  }
+
+  /// Cek duplikat live ala web: lokal instan + server /check debounce.
+  /// Dipicu tiap nama/alamat berubah; hasil dipakai untuk warning +
+  /// label tombol "Simpan dengan Catatan".
+  void _scheduleDupCheck() {
+    _dupDebounce?.cancel();
+    _dupDebounce = Timer(const Duration(milliseconds: 400), () async {
+      final nama = namaC.text.trim();
+      final alamat = alamatC.text.trim();
+      if (!mounted || nama.length < 2 || alamat.length < 2) {
+        if (mounted && liveDup != null) setState(() => liveDup = null);
+        return;
+      }
+      // 1) lokal dulu (offline-first).
+      Map<String, dynamic>? local;
+      try {
+        local = guests.cast<Map<String, dynamic>?>().firstWhere(
+              (g) =>
+                  g != null &&
+                  '${g['nama']}'.toLowerCase() == nama.toLowerCase() &&
+                  '${g['alamat']}'.toLowerCase() == alamat.toLowerCase(),
+              orElse: () => null,
+            );
+      } catch (_) {
+        local = null;
+      }
+      if (mounted) {
+        final found = local;
+        setState(() => liveDup = found == null
+            ? null
+            : {
+                'nama': '${found['nama']}',
+                'nominalFormatted':
+                    formatRp((found['nominal'] as int?) ?? 0),
+                'source': 'lokal',
+              });
+      }
+      // 2) server /check (best-effort).
+      try {
+        final dio = await ApiClient.instance.dio();
+        final r = await dio.get(
+          '/api/events/${widget.event.id}/guests/check',
+          queryParameters: {'nama': nama, 'alamat': alamat},
+        );
+        final j = Map<String, dynamic>.from(r.data as Map);
+        if (!mounted) return;
+        if (j['exists'] == true && j['existing'] is Map) {
+          final ex = Map<String, dynamic>.from(j['existing'] as Map);
+          setState(() => liveDup = {
+                'nama': '${ex['nama'] ?? nama}',
+                'nominalFormatted':
+                    '${ex['nominalFormatted'] ?? formatRp((ex['nominal'] as num?)?.toInt() ?? 0)}',
+                'source': 'server',
+              });
+        } else if (local == null && mounted) {
+          setState(() => liveDup = null);
+        }
+      } catch (_) {}
+    });
+  }
+
+  KeyEventResult _onNamaKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    if (!suggestOpen || suggest.isEmpty) {
+      if (e.logicalKey == LogicalKeyboardKey.escape) {
+        setState(() {
+          suggest = [];
+          suggestHi = -1;
+          suggestOpen = false;
+        });
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(() => suggestHi = (suggestHi + 1) % suggest.length);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(() => suggestHi =
+          (suggestHi - 1 + suggest.length) % suggest.length);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.enter &&
+        suggestHi >= 0 &&
+        suggestHi < suggest.length) {
+      _selectSuggest(suggest[suggestHi]);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() {
+        suggest = [];
+        suggestHi = -1;
+        suggestOpen = false;
+      });
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<void> _saveGuest() async {
@@ -419,7 +627,13 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       namaC.clear();
       nominalC.clear();
       catatanC.clear();
-      setState(() => suggest = []);
+      setState(() {
+        suggest = [];
+        suggestHi = -1;
+        suggestOpen = false;
+        guestLimit = 20;
+        liveDup = null;
+      });
       await _loadLocal();
       await SyncEngine.instance.pending(widget.event.id);
       if (mounted) {
@@ -490,12 +704,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Ctrl+S simpan pemberian dari tab Input — standar app desktop.
+    // Ctrl+S simpan pemberian dari tab Input, Ctrl+F fokus cari —
+    // standar app desktop Linux/tablet dengan keyboard.
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyS, control: true):
             () {
           if (tab.index == 0 && canEdit && !saving) _saveGuest();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            () {
+          if (tab.index == 0) {
+            guestSearchFocus.requestFocus();
+          } else if (tab.index == 1) {
+            bookSearchFocus.requestFocus();
+          }
         },
       },
       child: LayoutBuilder(builder: (context, cons) {
@@ -568,47 +791,106 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// maupun grid (desktop lebar) tanpa duplikasi.
   Widget _namaField() => TextField(
         controller: namaC,
+        focusNode: namaFocus,
         onChanged: _onNamaChanged,
+        onTap: () {
+          if (suggest.isNotEmpty) setState(() => suggestOpen = true);
+        },
+        onSubmitted: (_) {
+          if (suggestOpen && suggestHi >= 0 && suggestHi < suggest.length) {
+            _selectSuggest(suggest[suggestHi]);
+          } else {
+            alamatFocus.requestFocus();
+          }
+        },
+        textInputAction: TextInputAction.next,
         textCapitalization: TextCapitalization.words,
         decoration: const InputDecoration(
             labelText: 'Nama (huruf saja)',
-            helperText: 'Ketik 2 huruf untuk suggest • tanpa angka/simbol',
+            helperText: 'Ketik 2 huruf • ↑↓ pilih • Enter isi • Esc tutup',
             border: OutlineInputBorder(),
             filled: true,
             prefixIcon: Icon(Icons.person_search_outlined)),
       );
 
-  Widget _suggestCard() => Card(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        child: Column(
-            children: suggest
-                .map((s) => ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        radius: 14,
-                        child: Text(
-                            '${s['nama']}'.isNotEmpty
-                                ? '${s['nama']}'.substring(0, 1).toUpperCase()
-                                : '?',
-                            style: const TextStyle(fontSize: 12)),
-                      ),
-                      title: Text('${s['nama']}'),
-                      subtitle: Text('${s['alamat'] ?? ''}'),
-                      trailing:
-                          const Icon(Icons.north_west, size: 16),
-                      onTap: () {
-                        namaC.text = '${s['nama']}';
-                        alamatC.text = '${s['alamat'] ?? ''}';
-                        setState(() => suggest = []);
-                      },
-                    ))
-                .toList()),
-      );
+  /// Dropdown suggest overlay-style: header jumlah + list scroll max 220px
+  /// + highlight keyboard. Inline (bukan OverlayEntry) agar aman di dalam
+  /// ListView tablet/Linux yang bisa scroll/resize.
+  Widget _suggestCard() {
+    if (!suggestOpen || suggest.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(top: 6),
+      color: scheme.surfaceContainerLow,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Buku Tamu (${suggest.length})',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600)),
+                Text('klik / Enter untuk pilih',
+                    style: TextStyle(
+                        fontSize: 11, color: scheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: suggest.length,
+              itemBuilder: (_, i) {
+                final s = suggest[i];
+                final hi = i == suggestHi;
+                return Material(
+                  color: hi ? scheme.surfaceContainer : Colors.transparent,
+                  child: ListTile(
+                    dense: true,
+                    selected: hi,
+                    selectedTileColor: scheme.surfaceContainer,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      child: Text(
+                          '${s['nama']}'.isNotEmpty
+                              ? '${s['nama']}'.substring(0, 1).toUpperCase()
+                              : '?',
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                    title: Text('${s['nama']}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text('${s['alamat'] ?? ''}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.north_west, size: 16),
+                    onTap: () => _selectSuggest(s),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _alamatField() => TextField(
       controller: alamatC,
+      focusNode: alamatFocus,
       enabled: canEdit,
+      textInputAction: TextInputAction.next,
       textCapitalization: TextCapitalization.words,
+      onChanged: (_) => _scheduleDupCheck(),
       decoration: const InputDecoration(
           labelText: 'Alamat / Desa',
           border: OutlineInputBorder(),
@@ -617,47 +899,105 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Widget _alamatChips() => Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
             Wrap(
                 spacing: 8,
-                children: alamatTop
-                    .map((a) => ActionChip(
-                        label: Text(a),
-                        onPressed: canEdit
-                            ? () => setState(() => alamatC.text = a)
-                            : null))
-                    .toList()),
+                runSpacing: 4,
+                children: alamatTop.map((a) {
+                  final active = alamatC.text.trim() == a;
+                  final count = alamatCount[a] ?? 0;
+                  return ActionChip(
+                      label: Text(count > 0 ? '$a • $count' : a),
+                      backgroundColor: active
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                      side: BorderSide(
+                          color: active
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant),
+                      onPressed: canEdit
+                          ? () {
+                              setState(() => alamatC.text = a);
+                              _scheduleDupCheck();
+                            }
+                          : null);
+                }).toList()),
           ]);
 
-  Widget _nominalField() => TextField(
-      controller: nominalC,
-      enabled: canEdit,
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(15),
-      ],
-      decoration: const InputDecoration(
-          labelText: 'Nominal (Rp)',
-          border: OutlineInputBorder(),
-          filled: true,
-          prefixIcon: Icon(Icons.payments_outlined)));
+  Widget _nominalField() => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Nominal *',
+                    style: Theme.of(context).textTheme.labelLarge),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: nominalC,
+                  builder: (_, v, _) {
+                    final n = parseNominal(v.text);
+                    if (n <= 0) return const SizedBox.shrink();
+                    return Text(formatRp(n),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color:
+                                Theme.of(context).colorScheme.primary));
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TextField(
+                controller: nominalC,
+                enabled: canEdit,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(15),
+                ],
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                    hintText: '100000',
+                    prefixText: 'Rp ',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    prefixIcon: Icon(Icons.payments_outlined))),
+          ]);
 
   Widget _nominalChips() => Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
             Wrap(
                 spacing: 8,
-                children: nominalTop
-                    .map((n) => ActionChip(
-                        label: Text(formatRp(n)),
-                        onPressed: canEdit
-                            ? () =>
-                                setState(() => nominalC.text = '$n')
-                            : null))
-                    .toList()),
+                runSpacing: 4,
+                children: nominalTop.map((n) {
+                  final active = nominalC.text.trim() == '$n';
+                  final count = nominalCount[n] ?? 0;
+                  return ActionChip(
+                      label: Text(count > 0
+                          ? '${formatRp(n)} • $count'
+                          : formatRp(n)),
+                      backgroundColor: active
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                      side: BorderSide(
+                          color: active
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant),
+                      onPressed: canEdit
+                          ? () => setState(() => nominalC.text = '$n')
+                          : null);
+                }).toList()),
           ]);
 
   Widget _metodeSection() => Column(
@@ -706,21 +1046,77 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ),
           ]);
 
-  Widget _catatanField() => TextField(
-      controller: catatanC,
-      enabled: canEdit,
-      textCapitalization: TextCapitalization.sentences,
-      decoration: const InputDecoration(
-          labelText: 'Catatan (wajib jika duplikat)',
-          border: OutlineInputBorder(),
-          filled: true,
-          prefixIcon: Icon(Icons.note_outlined)));
+  Widget _catatanField() {
+    final dup = liveDup != null;
+    final scheme = Theme.of(context).colorScheme;
+    return TextField(
+        controller: catatanC,
+        enabled: canEdit,
+        textCapitalization: TextCapitalization.sentences,
+        maxLength: 200,
+        decoration: InputDecoration(
+            labelText:
+                dup ? 'Catatan (wajib isi, duplikat)' : 'Catatan (opsional)',
+            hintText: dup
+                ? 'Wajib: bedakan dari data sebelumnya'
+                : 'Opsional',
+            border: const OutlineInputBorder(),
+            filled: true,
+            prefixIcon: const Icon(Icons.note_outlined),
+            enabledBorder: dup
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: scheme.error, width: 1.5),
+                  )
+                : null,
+            focusedBorder: dup
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: scheme.error, width: 1.5),
+                  )
+                : null));
+  }
+
+  Widget _dupWarning() {
+    final d = liveDup;
+    if (d == null) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_outlined,
+              size: 18, color: scheme.onErrorContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                '${d['nama']} sudah ${d['nominalFormatted']} — isi catatan penanda lalu simpan.',
+                style: TextStyle(
+                    fontSize: 12, color: scheme.onErrorContainer)),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// Search pemberian (viewer) + daftar filter untuk list/tabel.
+  /// Ctrl+F fokus ke sini di tablet/Linux.
   Widget _guestSearchField() => TextField(
-      onChanged: (v) => setState(() => guestQ = v),
+      focusNode: guestSearchFocus,
+      onChanged: (v) => setState(() {
+        guestQ = v;
+        guestLimit = 20;
+      }),
       decoration: InputDecoration(
-          hintText: 'Cari nama / alamat… (${guests.length})',
+          hintText: 'Cari nama / alamat… (${guests.length}) (Ctrl+F)',
           border: const OutlineInputBorder(),
           filled: true,
           isDense: true,
@@ -728,93 +1124,513 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   List<Map<String, dynamic>> get shownGuests {
     final q = guestQ.trim().toLowerCase();
-    if (q.isEmpty) return guests;
-    return guests
-        .where((g) =>
-            '${g['nama']}'.toLowerCase().contains(q) ||
-            '${g['alamat']}'.toLowerCase().contains(q))
-        .toList();
+    var list = guests.where((g) {
+      if (mejaFilter != null && '${g['mejaLabel'] ?? ''}' != mejaFilter) {
+        return false;
+      }
+      if (kasirFilter != null && '${g['petugasId'] ?? ''}' != kasirFilter) {
+        return false;
+      }
+      if (q.isEmpty) return true;
+      return '${g['nama']}'.toLowerCase().contains(q) ||
+          '${g['alamat']}'.toLowerCase().contains(q) ||
+          '${g['mejaLabel'] ?? ''}'.toLowerCase().contains(q) ||
+          '${g['catatan'] ?? ''}'.toLowerCase().contains(q);
+    }).toList();
+    int cmp(Map<String, dynamic> a, Map<String, dynamic> b) {
+      int r;
+      if (sortBy == 'Nama') {
+        r = '${a['nama']}'
+            .toLowerCase()
+            .compareTo('${b['nama']}'.toLowerCase());
+      } else if (sortBy == 'Nominal') {
+        r = (((a['nominal'] as int?) ?? 0))
+            .compareTo(((b['nominal'] as int?) ?? 0));
+      } else {
+        r = '${a['createdAt'] ?? ''}'.compareTo('${b['createdAt'] ?? ''}');
+      }
+      return sortDesc ? -r : r;
+    }
+
+    list.sort(cmp);
+    return list;
   }
 
-  /// Tile pemberian (HP) — dipakai ulang di list vertikal.
-  Widget _guestTile(Map<String, dynamic> g) => Card(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
-          dense: true,
-          leading: CircleAvatar(
-              backgroundColor:
-                  Theme.of(context).colorScheme.secondaryContainer,
-              child: Text(
-                  '${g['nama']}'.isNotEmpty
-                      ? '${g['nama']}'.substring(0, 1).toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSecondaryContainer))),
-          title: Text(
-              '${g['nama']} • ${formatRp((g['nominal'] as int?) ?? 0)}',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text('${g['alamat']}'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+  /// Filter meja + kasir + sort ala web (dipakai di atas tabel pemberian).
+  /// Horizontal scroll agar muat di tablet portrait / window Linux sempit.
+  Widget _guestFilters() {
+    final scheme = Theme.of(context).colorScheme;
+    final kasirSeen = <String, String>{};
+    for (final g in guests) {
+      final pid = '${g['petugasId'] ?? ''}';
+      if (pid.isEmpty || pid == 'null') continue;
+      kasirSeen.putIfAbsent(pid, () => _kasirName(g));
+    }
+    final kasirIds = kasirSeen.keys.toList()..sort();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             children: [
-              MethodChip('${g['metode'] ?? 'AMPLOP'}'),
-              if (canEdit)
-                IconButton(
-                  tooltip: 'Aksi',
-                  icon: const Icon(Icons.more_vert_outlined),
-                  onPressed: () => _guestSheet(g),
+              Text('Meja:',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant)),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Semua', style: TextStyle(fontSize: 12)),
+                selected: mejaFilter == null,
+                onSelected: (_) =>
+                    setState(() => mejaFilter = null),
+              ),
+              ...mejaList.map((m) => Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: ChoiceChip(
+                      label: Text(m, style: const TextStyle(fontSize: 12)),
+                      selected: mejaFilter == m,
+                      onSelected: (_) => setState(() =>
+                          mejaFilter = mejaFilter == m ? null : m),
+                    ),
+                  )),
+              const SizedBox(width: 12),
+              Text('Kasir:',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant)),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Semua', style: TextStyle(fontSize: 12)),
+                selected: kasirFilter == null,
+                onSelected: (_) =>
+                    setState(() => kasirFilter = null),
+              ),
+              ...kasirIds.take(8).map((pid) => Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: ChoiceChip(
+                      label: Text(kasirSeen[pid] ?? pid,
+                          style: const TextStyle(fontSize: 12)),
+                      selected: kasirFilter == pid,
+                      onSelected: (_) => setState(() => kasirFilter =
+                          kasirFilter == pid ? null : pid),
+                    ),
+                  )),
+              if (mejaFilter != null || kasirFilter != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: TextButton(
+                    onPressed: () => setState(() {
+                      mejaFilter = null;
+                      kasirFilter = null;
+                    }),
+                    child: const Text('Reset',
+                        style: TextStyle(fontSize: 12)),
+                  ),
                 ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: sortBy,
+                decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    filled: true),
+                items: const ['Waktu', 'Nama', 'Nominal']
+                    .map((e) =>
+                        DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => sortBy = v);
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<bool>(
+                initialValue: sortDesc,
+                decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    filled: true),
+                items: const [
+                  DropdownMenuItem(
+                      value: true, child: Text('↓ Desc')),
+                  DropdownMenuItem(
+                      value: false, child: Text('↑ Asc')),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => sortDesc = v);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  bool _isPendingGuest(Map<String, dynamic> g) {
+    final id = '${g['id']}';
+    // ID lokal diawali gst- (lihat _saveGuest); server pakai cuid/uuid lain.
+    // Samakan gaya web: badge pending untuk baris yang kemungkinan belum sync.
+    if (id.startsWith('gst-')) return true;
+    if ('${g['petugasId']}' == 'lokal') return true;
+    return false;
+  }
+
+  String _kasirShort(Map<String, dynamic> g) {
+    final full = _kasirName(g);
+    if (full == '—' || full == 'lokal') return full;
+    return full.length > 12 ? '${full.substring(0, 12)}…' : full;
+  }
+
+  /// Tile pemberian (HP <600px) — tampilkan semua info tanpa truncate ala web
+  /// mobile card: nomor, nama+pending, alamat, catatan, metode+meja+kasir.
+  Widget _guestTile(Map<String, dynamic> g, [int? no]) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (no != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, right: 4),
+                  child: SizedBox(
+                    width: 28,
+                    child: Text('$no',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                  ),
+                ),
+              CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.secondaryContainer,
+                  child: Text(
+                      '${g['nama']}'.isNotEmpty
+                          ? '${g['nama']}'.substring(0, 1).toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer))),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      children: [
+                        Text('${g['nama']}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
+                        if (_isPendingGuest(g))
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.error,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('pending',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onError)),
+                          ),
+                      ],
+                    ),
+                    Text('${g['alamat']}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                    if ('${g['catatan'] ?? ''}'.isNotEmpty)
+                      Text('↳ ${g['catatan']}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        MethodChip('${g['metode'] ?? 'AMPLOP'}'),
+                        if ('${g['mejaLabel'] ?? ''}'.isNotEmpty)
+                          Chip(
+                            label: Text('${g['mejaLabel']}'),
+                            labelStyle: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onTertiaryContainer),
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer,
+                            side: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          ),
+                        Text(_kasirShort(g),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(formatRp((g['nominal'] as int?) ?? 0),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontFeatures: const [FontFeature.tabularFigures()])),
+                  if (canEdit)
+                    IconButton(
+                      tooltip: 'Aksi',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.more_vert_outlined),
+                      onPressed: () => _guestSheet(g),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
       );
 
-  /// Tabel pemberian (desktop lebar) — cermin tabel web.
+  /// Tabel pemberian — cermin tabel web (No/Nama+catatan/Alamat/Nominal/
+  /// Meja/Kasir/Metode/Aksi) + footer total. Dipakai di tablet (>=600px)
+  /// maupun desktop lebar (>=900px); HP kecil tetap card.
   Widget _guestTable([List<Map<String, dynamic>>? rows]) {
-    final data = (rows ?? guests).take(20).toList();
+    final all = rows ?? shownGuests;
+    final totalShown = all.fold<int>(
+        0, (s, g) => s + (((g['nominal'] as int?) ?? 0)));
+    final data = all.take(guestLimit).toList();
+    final startNo = 1;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Nama')),
-            DataColumn(label: Text('Alamat')),
-            DataColumn(label: Text('Nominal'), numeric: true),
-            DataColumn(label: Text('Metode')),
-            DataColumn(label: Text('Aksi')),
-          ],
-          rows: data
-              .map((g) => DataRow(cells: [
-                    DataCell(Text('${g['nama']}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600))),
-                    DataCell(Text('${g['alamat']}')),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 760),
+              child: DataTable(
+                columnSpacing: 12,
+                headingRowHeight: 40,
+                dataRowMinHeight: 48,
+                dataRowMaxHeight: 64,
+                columns: const [
+                  DataColumn(label: Text('#')),
+                  DataColumn(label: Text('Nama')),
+                  DataColumn(label: Text('Alamat')),
+                  DataColumn(label: Text('Nominal'), numeric: true),
+                  DataColumn(label: Text('Meja')),
+                  DataColumn(label: Text('Kasir')),
+                  DataColumn(label: Text('Metode')),
+                  DataColumn(label: Text('Aksi')),
+                ],
+                rows: List.generate(data.length, (idx) {
+                  final g = data[idx];
+                  final no = startNo + idx;
+                  final pending = _isPendingGuest(g);
+                  final meja = '${g['mejaLabel'] ?? ''}';
+                  final catatan = '${g['catatan'] ?? ''}';
+                  return DataRow(cells: [
+                    DataCell(Text('$no',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant))),
+                    DataCell(ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxWidth: 200, minWidth: 120),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text('${g['nama']}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                              ),
+                              if (pending)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text('pending',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onError)),
+                                ),
+                            ],
+                          ),
+                          if (catatan.isNotEmpty && catatan != 'null')
+                            Text('↳ $catatan',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant)),
+                        ],
+                      ),
+                    )),
+                    DataCell(ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxWidth: 160, minWidth: 90),
+                      child: Text('${g['alamat']}',
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    )),
                     DataCell(Text(
-                        formatRp((g['nominal'] as int?) ?? 0))),
+                        formatRp((g['nominal'] as int?) ?? 0),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ]))),
+                    DataCell(meja.isNotEmpty && meja != 'null'
+                        ? Chip(
+                            label: Text(meja),
+                            labelStyle: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onTertiaryContainer),
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer,
+                            side: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          )
+                        : const Text('—')),
+                    DataCell(Tooltip(
+                      message:
+                          '${_kasirName(g)} • ${g['petugasId'] ?? '—'}',
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                            maxWidth: 110, minWidth: 60),
+                        child: Text(_kasirShort(g),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    )),
                     DataCell(
                         MethodChip('${g['metode'] ?? 'AMPLOP'}')),
                     DataCell(canEdit
                         ? IconButton(
                             tooltip: 'Aksi',
+                            visualDensity: VisualDensity.compact,
                             icon: const Icon(
                                 Icons.more_vert_outlined),
                             onPressed: () => _guestSheet(g),
                           )
                         : const SizedBox.shrink()),
-                  ]))
-              .toList(),
-        ),
+                  ]);
+                }),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              border: Border(
+                  top: BorderSide(
+                      color:
+                          Theme.of(context).colorScheme.outlineVariant)),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text(
+                    'Total tampil: ${formatRp(totalShown)} • ${all.length} data',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface)),
+                if (all.length > data.length)
+                  TextButton.icon(
+                    onPressed: () =>
+                        setState(() => guestLimit += 20),
+                    icon: const Icon(Icons.expand_more_outlined, size: 16),
+                    label: Text(
+                        'Muat 20 lagi (${all.length - data.length} sisa)'),
+                  )
+                else
+                  Text('Semua tampil',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _inputTab() => LayoutBuilder(builder: (context, cons) {
-        final wide = WindowUi.isWide(cons.maxWidth);
-        // Tablet portrait: form 2 kolom mulai 600dp (tabel tetap ≥900dp).
+        // Tablet (>=600px) + desktop lebar (>=900px) pakai tabel compact
+        // full-info; HP kecil (<600px) tetap card.
         final medium = WindowUi.isMedium(cons.maxWidth);
         return ListView(
             padding: WindowUi.pagePadding(cons.maxWidth), children: [
@@ -865,6 +1681,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         if (!canEdit) ...[
           _guestSearchField(),
           const SizedBox(height: 8),
+          _guestFilters(),
+          const SizedBox(height: 8),
           Text('Pemberian (${shownGuests.length})',
               style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -880,9 +1698,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                   ? 'Minta OWNER/ADMIN untuk menambah data.'
                   : 'Coba kata kunci lain.',
             )
-          else ...(wide
+          else ...(medium
               ? [_guestTable(shownGuests)]
-              : shownGuests.take(20).map((g) => _guestTile(g))),
+              : [
+                  ...List.generate(
+                      shownGuests.take(guestLimit).length,
+                      (i) => _guestTile(
+                          shownGuests.take(guestLimit).toList()[i], i + 1)),
+                  if (shownGuests.length > guestLimit)
+                    TextButton.icon(
+                      onPressed: () =>
+                          setState(() => guestLimit += 20),
+                      icon: const Icon(Icons.expand_more_outlined, size: 16),
+                      label: Text(
+                          'Muat 20 lagi (${shownGuests.length - guestLimit} sisa)'),
+                    ),
+                ]),
         ],
         // EDITOR: form input lengkap.
         // Meja kasir: bar kompak paling atas, selalu terlihat.
@@ -946,7 +1777,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       Expanded(
                           child: Column(children: [
                         _namaField(),
-                        if (suggest.isNotEmpty) _suggestCard(),
+                        _suggestCard(),
                       ])),
                       const SizedBox(width: 12),
                       Expanded(
@@ -957,7 +1788,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     ])
               else ...[
                 _namaField(),
-                if (suggest.isNotEmpty) _suggestCard(),
+                _suggestCard(),
                 const SizedBox(height: 12),
                 _alamatField(),
                 if (alamatTop.isNotEmpty) _alamatChips(),
@@ -1006,6 +1837,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ]),
           ),
         ),
+        if (canEdit) _dupWarning(),
         if (canEdit) const SizedBox(height: 12),
         if (canEdit)
           Align(
@@ -1027,41 +1859,79 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         const EdgeInsets.symmetric(vertical: 8),
                     child: Text(saving
                         ? 'Menyimpan...'
-                        : 'Simpan (offline-first)')),
+                        : liveDup != null
+                            ? 'Simpan dengan Catatan'
+                            : 'Simpan (offline-first)')),
               ),
             ),
           ),
         if (canEdit) const SizedBox(height: 16),
         if (canEdit)
-          Text('Terakhir di perangkat ini (${guests.length})',
+          Text('Terakhir di perangkat ini (${shownGuests.length})',
               style: Theme.of(context).textTheme.titleSmall),
         if (canEdit) const SizedBox(height: 8),
-        if (canEdit && guests.isEmpty)
-          const Card(
+        if (canEdit) _guestSearchField(),
+        if (canEdit) const SizedBox(height: 8),
+        if (canEdit) _guestFilters(),
+        if (canEdit) const SizedBox(height: 8),
+        if (canEdit && shownGuests.isEmpty)
+          Card(
               child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('Belum ada pemberian tercatat.'))),
+                  padding: const EdgeInsets.all(16),
+                  child: Text(guests.isEmpty
+                      ? 'Belum ada pemberian tercatat.'
+                      : 'Tidak ketemu “$guestQ”.'))),
         if (canEdit)
-          ...(wide
+          ...(medium
               ? [_guestTable()]
-              : guests.take(20).map((g) => _guestTile(g))),
+              : [
+                  ...List.generate(
+                      shownGuests.take(guestLimit).length,
+                      (i) => _guestTile(
+                          shownGuests.take(guestLimit).toList()[i], i + 1)),
+                  if (shownGuests.length > guestLimit)
+                    TextButton.icon(
+                      onPressed: () =>
+                          setState(() => guestLimit += 20),
+                      icon: const Icon(Icons.expand_more_outlined, size: 16),
+                      label: Text(
+                          'Muat 20 lagi (${shownGuests.length - guestLimit} sisa)'),
+                    ),
+                ]),
           ]);
       });
 
-  /// Tile buku tamu (HP) — dipakai ulang di list vertikal.
-  Widget _bookTile(Map<String, dynamic> b) {
+  /// Tile buku tamu (HP <600px) — nomor + nama + alamat + aksi.
+  Widget _bookTile(Map<String, dynamic> b, [int? no]) {
     final nm = '${b['nama']}';
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         dense: true,
-        leading: CircleAvatar(
-            child: Text(nm.isNotEmpty
-                ? nm.substring(0, 1).toUpperCase()
-                : '?')),
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (no != null)
+              SizedBox(
+                width: 28,
+                child: Text('$no',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant)),
+              ),
+            CircleAvatar(
+                child: Text(nm.isNotEmpty
+                    ? nm.substring(0, 1).toUpperCase()
+                    : '?')),
+          ],
+        ),
         title: Text(nm,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${b['alamat']}'),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('${b['alamat']}',
+            maxLines: 2, overflow: TextOverflow.ellipsis),
         trailing: canEdit
             ? IconButton(
                 tooltip: 'Aksi',
@@ -1073,37 +1943,110 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     );
   }
 
-  /// Tabel buku tamu (desktop lebar) — cermin tabel web.
-  Widget _bookTable(List<Map<String, dynamic>> shown) => Card(
-        margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Nama')),
-              DataColumn(label: Text('Alamat')),
-              DataColumn(label: Text('Aksi')),
-            ],
-            rows: shown
-                .map((b) => DataRow(cells: [
-                      DataCell(Text('${b['nama']}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600))),
-                      DataCell(Text('${b['alamat']}')),
-                      DataCell(canEdit
-                          ? IconButton(
-                              tooltip: 'Aksi',
-                              icon: const Icon(
-                                  Icons.more_vert_outlined),
-                              onPressed: () => _bookSheet(b),
-                            )
-                          : const SizedBox.shrink()),
-                    ]))
-                .toList(),
+  /// Tabel buku tamu — cermin tabel web (No/Nama/Alamat/Aksi + footer Total).
+  /// Dipakai di tablet (>=600px) dan desktop; HP kecil tetap list.
+  Widget _bookTable(List<Map<String, dynamic>> shown) {
+    final data = shown.take(bookLimit).toList();
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 520),
+              child: DataTable(
+                columnSpacing: 12,
+                headingRowHeight: 40,
+                dataRowMinHeight: 48,
+                columns: const [
+                  DataColumn(label: Text('#')),
+                  DataColumn(label: Text('Nama')),
+                  DataColumn(label: Text('Alamat')),
+                  DataColumn(label: Text('Aksi')),
+                ],
+                rows: List.generate(data.length, (i) {
+                  final b = data[i];
+                  return DataRow(cells: [
+                    DataCell(Text('${i + 1}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant))),
+                    DataCell(ConstrainedBox(
+                      constraints: const BoxConstraints(
+                          maxWidth: 220, minWidth: 120),
+                      child: Text('${b['nama']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w700)),
+                    )),
+                    DataCell(ConstrainedBox(
+                      constraints: const BoxConstraints(
+                          maxWidth: 260, minWidth: 120),
+                      child: Text('${b['alamat']}',
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    )),
+                    DataCell(canEdit
+                        ? IconButton(
+                            tooltip: 'Aksi',
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                                Icons.more_vert_outlined),
+                            onPressed: () => _bookSheet(b),
+                          )
+                        : const SizedBox.shrink()),
+                  ]);
+                }),
+              ),
+            ),
           ),
-        ),
-      );
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              border: Border(
+                  top: BorderSide(
+                      color:
+                          Theme.of(context).colorScheme.outlineVariant)),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text('Total: ${shown.length} tamu',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface)),
+                if (shown.length > data.length)
+                  TextButton.icon(
+                    onPressed: () =>
+                        setState(() => bookLimit += 50),
+                    icon: const Icon(Icons.expand_more_outlined, size: 16),
+                    label: Text(
+                        'Muat 50 lagi (${shown.length - data.length} sisa)'),
+                  )
+                else
+                  Text('Semua tampil',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _booksTab() {
     final shown = bookQ.trim().isEmpty
@@ -1118,7 +2061,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     .contains(bookQ.toLowerCase()))
             .toList();
     return LayoutBuilder(builder: (context, cons) {
-      final wide = WindowUi.isWide(cons.maxWidth);
+      // Tablet (>=600px) langsung tabel full-info; HP kecil list bernomor.
+      final medium = WindowUi.isMedium(cons.maxWidth);
       // Pusatkan max 1120px di layar lebar (cermin page-shell web).
       final side = (cons.maxWidth - WindowUi.maxContentWidth) / 2;
       final hPad = side > 0 ? side : 0.0;
@@ -1148,9 +2092,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: TextField(
-              onChanged: (v) => setState(() => bookQ = v),
+              focusNode: bookSearchFocus,
+              onChanged: (v) => setState(() {
+                bookQ = v;
+                bookLimit = 50;
+              }),
               decoration: InputDecoration(
-                  hintText: 'Cari buku tamu… (${books.length})',
+                  hintText:
+                      'Cari buku tamu… (${books.length}) (Ctrl+F)',
                   border: const OutlineInputBorder(),
                   filled: true,
                   isDense: true,
@@ -1174,14 +2123,38 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         )
                       : null,
                 )
-              : wide
+              : medium
                   ? SingleChildScrollView(child: _bookTable(shown))
                   : ListView.builder(
                       padding:
                           const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                      itemCount: shown.length,
-                      itemBuilder: (_, i) =>
-                          _bookTile(shown[i]),
+                      itemCount: shown.take(bookLimit).length + 1,
+                      itemBuilder: (_, i) {
+                        if (i >= shown.take(bookLimit).length) {
+                          if (shown.length <= bookLimit) {
+                            return Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Center(
+                                  child: Text('Semua tampil',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant))),
+                            );
+                          }
+                          return TextButton.icon(
+                            onPressed: () =>
+                                setState(() => bookLimit += 50),
+                            icon: const Icon(Icons.expand_more_outlined,
+                                size: 16),
+                            label: Text(
+                                'Muat 50 lagi (${shown.length - bookLimit} sisa)'),
+                          );
+                        }
+                        return _bookTile(
+                            shown.take(bookLimit).toList()[i], i + 1);
+                      },
                     ),
         ),
         ]),
@@ -1741,6 +2714,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final perMetode = (t['perMetode'] as List).cast<Map>();
     return LayoutBuilder(builder: (context, cons) {
       final wide = WindowUi.isWide(cons.maxWidth);
+      final medium = WindowUi.isMedium(cons.maxWidth);
       return ListView(
           padding: WindowUi.pagePadding(cons.maxWidth),
           children: [
@@ -1795,7 +2769,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                           _rekapMetodeTable(perMetode),
                         ])),
                   ])
-            else ...[
+            else if (medium) ...[
+              Text('Per alamat',
+                  style: Theme.of(context).textTheme.titleMedium),
+              _rekapAlamatTable(perAlamat),
+              const SizedBox(height: 8),
+              Text('Per metode',
+                  style: Theme.of(context).textTheme.titleMedium),
+              _rekapMetodeTable(perMetode),
+            ] else ...[
               Text('Per alamat',
                   style: Theme.of(context).textTheme.titleMedium),
               ...perAlamat.map((e) => _rekapAlamatTile(e)),
@@ -1833,27 +2815,40 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         ),
       );
 
-  /// Tabel rekap desktop (>=900px): kolom ala rekap web.
+  /// Tabel rekap tablet/desktop: kolom ala rekap web (dipakai >=600px,
+  /// stacked vertikal di tablet, side-by-side di desktop lebar).
   Widget _rekapAlamatTable(List<Map> rows) => Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Alamat')),
-              DataColumn(label: Text('Jumlah'), numeric: true),
-              DataColumn(label: Text('Total'), numeric: true),
-            ],
-            rows: rows
-                .map((e) => DataRow(cells: [
-                      DataCell(Text('${e['alamat']}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600))),
-                      DataCell(Text('${e['jumlah']}')),
-                      DataCell(Text(formatRp(e['total'] as int))),
-                    ]))
-                .toList(),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 480),
+            child: DataTable(
+              columnSpacing: 12,
+              headingRowHeight: 40,
+              columns: const [
+                DataColumn(label: Text('Alamat')),
+                DataColumn(label: Text('Jumlah'), numeric: true),
+                DataColumn(label: Text('Total'), numeric: true),
+              ],
+              rows: rows
+                  .map((e) => DataRow(cells: [
+                        DataCell(ConstrainedBox(
+                          constraints: const BoxConstraints(
+                              maxWidth: 220, minWidth: 120),
+                          child: Text('${e['alamat']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600)),
+                        )),
+                        DataCell(Text('${e['jumlah']}')),
+                        DataCell(Text(formatRp(e['total'] as int),
+                            style: TextStyle(fontWeight: FontWeight.w700))),
+                      ]))
+                  .toList(),
+            ),
           ),
         ),
       );
@@ -1863,19 +2858,25 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Metode')),
-              DataColumn(label: Text('Jumlah'), numeric: true),
-              DataColumn(label: Text('Total'), numeric: true),
-            ],
-            rows: rows
-                .map((e) => DataRow(cells: [
-                      DataCell(MethodChip('${e['metode']}')),
-                      DataCell(Text('${e['jumlah']} tamu')),
-                      DataCell(Text(formatRp(e['total'] as int))),
-                    ]))
-                .toList(),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 480),
+            child: DataTable(
+              columnSpacing: 12,
+              headingRowHeight: 40,
+              columns: const [
+                DataColumn(label: Text('Metode')),
+                DataColumn(label: Text('Jumlah'), numeric: true),
+                DataColumn(label: Text('Total'), numeric: true),
+              ],
+              rows: rows
+                  .map((e) => DataRow(cells: [
+                        DataCell(MethodChip('${e['metode']}')),
+                        DataCell(Text('${e['jumlah']} tamu')),
+                        DataCell(Text(formatRp(e['total'] as int),
+                            style: TextStyle(fontWeight: FontWeight.w700))),
+                      ]))
+                  .toList(),
+            ),
           ),
         ),
       );
