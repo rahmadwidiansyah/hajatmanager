@@ -1,3 +1,10 @@
+## [1.9.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.1...v1.9.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **mobile:** dobel pemberian + pending jujur, tabel full-width, form ala web ([8c6f9a6](https://github.com/rahmadwidiansyah/hajatmanager/commit/8c6f9a6124e9c0c448368f84a5496639a36e2d93))
+
 ## [1.9.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.0...v1.9.1) (2026-09-17)
 
 
