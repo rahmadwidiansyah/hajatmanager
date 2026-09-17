@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
@@ -24,12 +25,19 @@ class _EventsScreenState extends State<EventsScreen> {
   bool loading = true;
   String q = '';
   Map<String, dynamic>? user;
+  final searchFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     SyncEngine.instance.start();
     _load();
+  }
+
+  @override
+  void dispose() {
+    searchFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -77,7 +85,13 @@ class _EventsScreenState extends State<EventsScreen> {
                 e.namaAcara.toLowerCase().contains(q.toLowerCase()) ||
                 (e.lokasi ?? '').toLowerCase().contains(q.toLowerCase()))
             .toList();
-    return Scaffold(
+    // Ctrl+F fokus ke pencarian — standar app desktop.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            () => searchFocus.requestFocus(),
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Acara Hajatan'),
         actions: [
@@ -110,7 +124,11 @@ class _EventsScreenState extends State<EventsScreen> {
           final pad = side > WindowUi.horizontalPadding(w)
               ? side
               : WindowUi.horizontalPadding(w);
-          final cols = WindowUi.columnsForWidth(w);
+          // Tablet portrait (600–899dp): paksa 2 kolom agar tidak
+          // selebar HP raksasa; desktop/landscape tetap fluida.
+          final cols = WindowUi.isWide(w)
+              ? WindowUi.columnsForWidth(w)
+              : (WindowUi.isMedium(w) ? 2 : 1);
           return Column(children: [
             if (user != null)
               Padding(
@@ -137,9 +155,10 @@ class _EventsScreenState extends State<EventsScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(pad, 12, pad, 4),
               child: TextField(
+                  focusNode: searchFocus,
                   onChanged: (v) => setState(() => q = v),
                   decoration: const InputDecoration(
-                      hintText: 'Cari acara / lokasi…',
+                      hintText: 'Cari acara / lokasi… (Ctrl+F)',
                       border: OutlineInputBorder(),
                       filled: true,
                       isDense: true,
@@ -200,6 +219,7 @@ class _EventsScreenState extends State<EventsScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Acara'),
       ),
+      ),
     );
   }
 
@@ -255,7 +275,7 @@ class _EventsScreenState extends State<EventsScreen> {
     final catC = TextEditingController();
     DateTime? pickedDate;
     bool saving = false;
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(

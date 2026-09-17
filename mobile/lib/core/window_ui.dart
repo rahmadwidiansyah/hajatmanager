@@ -21,6 +21,10 @@ class WindowUi {
   /// Keputusan besar (tabel vs card, rail vs tab): layar lebar ≥900px.
   static bool isWide(double width) => width >= 900;
 
+  /// Layar sedang (tablet portrait 600–899dp, window desktop sempit):
+  /// form 2 kolom + grid 2 kolom, tapi tetap card (belum tabel/rail).
+  static bool isMedium(double width) => width >= 600;
+
   static bool isWideContext(BuildContext context) =>
       isWide(MediaQuery.sizeOf(context).width);
 

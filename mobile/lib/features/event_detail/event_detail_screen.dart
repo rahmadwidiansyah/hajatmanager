@@ -117,7 +117,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   Future<void> _addMeja() async {
     if (denyViewer()) return;
     final c = TextEditingController();
-    final v = await showDialog<String>(
+    final v = await showWideDialog<String>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Meja baru'),
@@ -437,67 +437,130 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     }
   }
 
+  static const _tabs = [
+    (Icons.bolt_outlined, 'Input'),
+    (Icons.book_outlined, 'Buku Tamu'),
+    (Icons.bar_chart_outlined, 'Rekap'),
+  ];
+
+  List<Widget> get _tabActions => [
+        IconButton(
+          tooltip: 'Log aktivitas',
+          icon: const Icon(Icons.history_outlined),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => LogScreen(
+                  eventId: widget.event.id,
+                  eventName: widget.event.namaAcara))),
+        ),
+        IconButton(
+          tooltip: 'Pengaturan acara',
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Navigator.of(context)
+              .push(MaterialPageRoute(
+                  builder: (_) =>
+                      EventSettingsScreen(event: widget.event)))
+              .then((v) {
+            if (v == true && context.mounted) {
+              // ignore: use_build_context_synchronously
+              Navigator.of(context).pop(true);
+            }
+            _refreshAll();
+          }),
+        ),
+        ListenableBuilder(
+          listenable: SyncEngine.instance,
+          builder: (context, _) => SyncBadge(
+            pending: SyncEngine.instance
+                    .pendingByEvent[widget.event.id] ??
+                pending,
+            onTap: () async {
+              final (f, c, e) =
+                  await SyncEngine.instance.flush(widget.event.id);
+              await _refreshAll();
+              if (context.mounted) {
+                showTopSnack(context, SnackBar(
+                    content: Text(e == null
+                        ? 'Sync: $f terkirim, $c konflik'
+                        : 'Sync tertunda ($e) — data aman di lokal')));
+              }
+            },
+          ),
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
+    // Ctrl+S simpan pemberian dari tab Input — standar app desktop.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+            () {
+          if (tab.index == 0 && canEdit && !saving) _saveGuest();
+        },
+      },
+      child: LayoutBuilder(builder: (context, cons) {
+        // Desktop lebar: NavigationRail samping (cermin tab web).
+        if (WindowUi.isWide(cons.maxWidth)) return _wideScaffold();
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.event.namaAcara,
+                overflow: TextOverflow.ellipsis),
+            actions: _tabActions,
+            bottom: TabBar(
+                controller: tab,
+                tabs: const [
+                  Tab(icon: Icon(Icons.bolt_outlined), text: 'Input'),
+                  Tab(
+                      icon: Icon(Icons.book_outlined),
+                      text: 'Buku Tamu'),
+                  Tab(
+                      icon: Icon(Icons.bar_chart_outlined),
+                      text: 'Rekap'),
+                ]),
+          ),
+          body: TabBarView(controller: tab, children: [
+            _inputTab(),
+            _booksTab(),
+            _rekapTab(),
+          ]),
+        );
+      }),
+    );
+  }
+
+  /// Scaffold desktop: rail kiri + konten tab.
+  /// AnimatedBuilder agar swipe/klik tab update rail yang dipilih.
+  Widget _wideScaffold() {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.event.namaAcara,
-            overflow: TextOverflow.ellipsis),
-        actions: [
-          IconButton(
-            tooltip: 'Log aktivitas',
-            icon: const Icon(Icons.history_outlined),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => LogScreen(
-                    eventId: widget.event.id,
-                    eventName: widget.event.namaAcara))),
-          ),
-          IconButton(
-            tooltip: 'Pengaturan acara',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(
-                    builder: (_) =>
-                        EventSettingsScreen(event: widget.event)))
-                .then((v) {
-              if (v == true && context.mounted) {
-                // ignore: use_build_context_synchronously
-                Navigator.of(context).pop(true);
-              }
-              _refreshAll();
-            }),
-          ),
-          ListenableBuilder(
-            listenable: SyncEngine.instance,
-            builder: (context, _) => SyncBadge(
-              pending: SyncEngine.instance
-                      .pendingByEvent[widget.event.id] ??
-                  pending,
-              onTap: () async {
-                final (f, c, e) =
-                    await SyncEngine.instance.flush(widget.event.id);
-                await _refreshAll();
-                if (context.mounted) {
-                  showTopSnack(context, SnackBar(
-                      content: Text(e == null
-                          ? 'Sync: $f terkirim, $c konflik'
-                          : 'Sync tertunda ($e) — data aman di lokal')));
-                }
-              },
-            ),
-          ),
-        ],
-        bottom: TabBar(controller: tab, tabs: const [
-          Tab(icon: Icon(Icons.bolt_outlined), text: 'Input'),
-          Tab(icon: Icon(Icons.book_outlined), text: 'Buku Tamu'),
-          Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Rekap'),
-        ]),
+        title:
+            Text(widget.event.namaAcara, overflow: TextOverflow.ellipsis),
+        actions: _tabActions,
       ),
-      body: TabBarView(controller: tab, children: [
-        _inputTab(),
-        _booksTab(),
-        _rekapTab(),
-      ]),
+      body: AnimatedBuilder(
+        animation: tab,
+        builder: (context, _) => Row(
+          children: [
+            NavigationRail(
+              selectedIndex: tab.index,
+              onDestinationSelected: (i) => tab.animateTo(i),
+              labelType: NavigationRailLabelType.all,
+              destinations: _tabs
+                  .map((t) => NavigationRailDestination(
+                      icon: Icon(t.$1), label: Text(t.$2)))
+                  .toList(),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: TabBarView(controller: tab, children: [
+                _inputTab(),
+                _booksTab(),
+                _rekapTab(),
+              ]),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -751,6 +814,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Widget _inputTab() => LayoutBuilder(builder: (context, cons) {
         final wide = WindowUi.isWide(cons.maxWidth);
+        // Tablet portrait: form 2 kolom mulai 600dp (tabel tetap ≥900dp).
+        final medium = WindowUi.isMedium(cons.maxWidth);
         return ListView(
             padding: WindowUi.pagePadding(cons.maxWidth), children: [
         if (goneServer)
@@ -874,7 +939,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               Text('Siapa yang memberi?',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
-              if (wide)
+              if (medium)
                 Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -910,7 +975,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               Text('Nominal & metode',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
-              if (wide)
+              if (medium)
                 Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -945,9 +1010,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         if (canEdit)
           Align(
             alignment:
-                wide ? Alignment.centerRight : Alignment.center,
+                medium ? Alignment.centerRight : Alignment.center,
             child: SizedBox(
-              width: wide ? 280 : double.infinity,
+              width: medium ? 280 : double.infinity,
               child: FilledButton.icon(
                 onPressed: saving ? null : _saveGuest,
                 icon: saving
@@ -1128,7 +1193,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (denyViewer()) return;
     final n = TextEditingController();
     final a = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Buku tamu baru'),
@@ -1194,9 +1259,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   /// Bottom-sheet daftar konflik duplikat → isi catatan / buang.
   Future<void> _conflictSheet() async {
-    await showModalBottomSheet(
+    await showAdaptiveSheet(
       context: context,
-      showDragHandle: true,
       builder: (_) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -1232,7 +1296,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   Future<void> _resolveDialog(
       String opId, Map<String, String> v) async {
     final c = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Tambah catatan penanda'),
@@ -1293,9 +1357,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// Bottom-sheet aksi satu pemberian.
   Future<void> _guestSheet(Map<String, dynamic> g) async {
     final id = '${g['id']}';
-    await showModalBottomSheet(
+    await showAdaptiveSheet(
       context: context,
-      showDragHandle: true,
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
@@ -1345,7 +1408,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _noteDialog(String id, String current) async {
     final c = TextEditingController(text: current);
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Catatan pemberian'),
@@ -1380,7 +1443,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final cat = TextEditingController(text: '${g['catatan'] ?? ''}');
     String m = '${g['metode'] ?? 'AMPLOP'}';
     if (!methodes.contains(m)) m = 'AMPLOP';
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (ctx) => StatefulBuilder(
               builder: (ctx, setS) => AlertDialog(
@@ -1501,7 +1564,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _deleteGuest(String id, String nama) async {
     if (denyViewer()) return;
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Hapus pemberian?'),
@@ -1543,9 +1606,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// Bottom-sheet aksi satu buku tamu.
   Future<void> _bookSheet(Map<String, dynamic> b) async {
     final id = '${b['id']}';
-    await showModalBottomSheet(
+    await showAdaptiveSheet(
       context: context,
-      showDragHandle: true,
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
@@ -1587,7 +1649,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final id = '${b['id']}';
     final n = TextEditingController(text: '${b['nama']}');
     final a = TextEditingController(text: '${b['alamat']}');
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Edit buku tamu'),
@@ -1641,7 +1703,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _deleteBook(String id, String nama) async {
     if (denyViewer()) return;
-    final ok = await showDialog<bool>(
+    final ok = await showWideDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
               title: const Text('Hapus buku tamu?'),
@@ -1718,8 +1780,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium),
-                          ...perAlamat.map((e) =>
-                              _rekapAlamatTile(e)),
+                          _rekapAlamatTable(perAlamat),
                         ])),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1731,8 +1792,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium),
-                          ...perMetode.map((e) =>
-                              _rekapMetodeTile(e)),
+                          _rekapMetodeTable(perMetode),
                         ])),
                   ])
             else ...[
@@ -1773,11 +1833,58 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         ),
       );
 
+  /// Tabel rekap desktop (>=900px): kolom ala rekap web.
+  Widget _rekapAlamatTable(List<Map> rows) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Alamat')),
+              DataColumn(label: Text('Jumlah'), numeric: true),
+              DataColumn(label: Text('Total'), numeric: true),
+            ],
+            rows: rows
+                .map((e) => DataRow(cells: [
+                      DataCell(Text('${e['alamat']}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600))),
+                      DataCell(Text('${e['jumlah']}')),
+                      DataCell(Text(formatRp(e['total'] as int))),
+                    ]))
+                .toList(),
+          ),
+        ),
+      );
+
+  Widget _rekapMetodeTable(List<Map> rows) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Metode')),
+              DataColumn(label: Text('Jumlah'), numeric: true),
+              DataColumn(label: Text('Total'), numeric: true),
+            ],
+            rows: rows
+                .map((e) => DataRow(cells: [
+                      DataCell(MethodChip('${e['metode']}')),
+                      DataCell(Text('${e['jumlah']} tamu')),
+                      DataCell(Text(formatRp(e['total'] as int))),
+                    ]))
+                .toList(),
+          ),
+        ),
+      );
+
   /// Dialog opsi export ala web + unduh/share file beneran (offline OK).
   Future<void> _exportDialog() async {
     var opt = const ExportOptions();
     var busy = '';
-    await showDialog(
+    await showWideDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
