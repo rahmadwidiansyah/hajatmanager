@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hajat_manager/core/exporter.dart';
+import 'package:hajat_manager/core/local_db.dart';
 import 'package:hajat_manager/core/format_rp.dart';
 import 'package:hajat_manager/core/app_theme.dart';
 import 'package:hajat_manager/core/name_rules.dart';
@@ -51,6 +52,31 @@ void main() {
     ];
     final s = sortGuests(rows, 'nominal_desc');
     expect(s.first['nama'], 'B');
+  });
+
+  test('guestDedupeKey samakan kembaran sync', () {
+    final lokal = {
+      'nama': 'Budi',
+      'alamat': 'Krajan',
+      'nominal': 50000,
+      'metode': 'amplop',
+      'catatan': null
+    };
+    final server = {
+      'nama': ' budi ',
+      'alamat': 'KRAJAN',
+      'nominal': 50000,
+      'metode': 'AMPLOP',
+      'catatan': ''
+    };
+    expect(LocalDb.guestDedupeKey(lokal),
+        LocalDb.guestDedupeKey(server));
+    final bedaCatatan = {...lokal, 'catatan': 'titip salam'};
+    expect(LocalDb.guestDedupeKey(lokal) ==
+        LocalDb.guestDedupeKey(bedaCatatan), false);
+    final bedaNominal = {...lokal, 'nominal': 100000};
+    expect(LocalDb.guestDedupeKey(lokal) ==
+        LocalDb.guestDedupeKey(bedaNominal), false);
   });
 
   test('exportFilename aman', () {

@@ -62,14 +62,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   // Limit tampil lokal (ganti pagination server ala web).
   int guestLimit = 20;
   int bookLimit = 50;
-  // Suggest nama: dropdown overlay-style + navigasi keyboard.
+  // Sumber kebenaran label pending: id op di outbox (bukan prefix id).
+  Set<String> pendingIds = {};
+  bool _pendingLoaded = false;
+  // Suggest nama: dropdown overlay absolut + navigasi keyboard.
   final namaFocus = FocusNode();
   final alamatFocus = FocusNode();
+  final nominalFocus = FocusNode();
   final guestSearchFocus = FocusNode();
   final bookSearchFocus = FocusNode();
+  final _namaKey = GlobalKey();
+  OverlayEntry? _suggestOverlay;
   Timer? _suggestDebounce;
   int suggestHi = -1;
   bool suggestOpen = false;
+  // Highlight keyboard/hover chips nominal ala web (terpisah dari nilai).
+  int nominalHi = -1;
   List<Map<String, dynamic>> conflicts = [];
   bool goneServer = false;
   List<String> mejaList = ['MEJA-1', 'MEJA-2'];
@@ -95,6 +103,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     super.initState();
     tab = TabController(length: 3, vsync: this);
     namaFocus.onKeyEvent = _onNamaKey;
+    nominalFocus.onKeyEvent = _onNominalKey;
+    tab.addListener(_onTabChanged);
     if (widget.event.mejaList.isNotEmpty) {
       mejaList = [...widget.event.mejaList];
       mejaSelected = mejaList.first;
@@ -219,13 +229,26 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     await AppConfig.setMejaFor(widget.event.id, v);
   }
 
+  void _onTabChanged() {
+    if (!suggestOpen) return;
+    setState(() {
+      suggest = [];
+      suggestHi = -1;
+      suggestOpen = false;
+    });
+    _hideSuggestOverlay();
+  }
+
   @override
   void dispose() {
     SyncEngine.instance.removeListener(_onSync);
+    tab.removeListener(_onTabChanged);
     _suggestDebounce?.cancel();
     _dupDebounce?.cancel();
+    _hideSuggestOverlay();
     namaFocus.dispose();
     alamatFocus.dispose();
+    nominalFocus.dispose();
     guestSearchFocus.dispose();
     bookSearchFocus.dispose();
     namaC.dispose();
@@ -236,10 +259,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     super.dispose();
   }
 
-  void _onSync() {
+  void _onSync() async {
     final c =
         SyncEngine.instance.pendingByEvent[widget.event.id] ?? pending;
-    if (mounted && c != pending) setState(() => pending = c);
+    final ids =
+        await LocalDb.instance.outboxIds(widget.event.id);
+    if (!mounted) return;
+    if (c != pending ||
+        ids.length != pendingIds.length ||
+        !ids.containsAll(pendingIds)) {
+      setState(() {
+        pending = c;
+        pendingIds = ids;
+        _pendingLoaded = true;
+      });
+    }
   }
 
   Future<void> _refreshAll() async {
@@ -256,6 +290,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   Future<void> _loadLocal() async {
     guests = await LocalDb.instance.guestsLocal(widget.event.id);
     books = await LocalDb.instance.booksLocal(widget.event.id);
+    pendingIds = await LocalDb.instance.outboxIds(widget.event.id);
+    _pendingLoaded = true;
+    // Bersihkan kembaran lama (bug rekonsiliasi): gst-* yang sudah punya
+    // twin id-server identik dan tak lagi antre → hapus sekali jalan.
+    final cleaned =
+        await LocalDb.instance.dedupeSyncedLocalGuests(widget.event.id);
+    if (cleaned > 0) {
+      guests = await LocalDb.instance.guestsLocal(widget.event.id);
+    }
     _recalcTops();
     _recalcRekap();
     if (mounted) setState(() {});
@@ -386,6 +429,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           suggestOpen = false;
         });
       }
+      _hideSuggestOverlay();
       return;
     }
     // 1) lokal dulu (cepat, sinkron) agar responsif.
@@ -400,6 +444,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         suggestHi = -1;
         suggestOpen = true;
       });
+      _refreshSuggestOverlay();
     }
     // 2) server suggest (debounce 300ms, hanya yg belum tercatat).
     _suggestDebounce = Timer(const Duration(milliseconds: 300), () async {
@@ -416,6 +461,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             suggestHi = -1;
             suggestOpen = true;
           });
+          _refreshSuggestOverlay();
         }
       } catch (_) {}
     });
@@ -430,9 +476,158 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       suggestHi = -1;
       suggestOpen = false;
     });
+    _hideSuggestOverlay();
     _scheduleDupCheck();
     // Lanjut ke alamat agar alur Nama→Alamat→Nominal→Enter tetap cepat.
     alamatFocus.requestFocus();
+  }
+
+  /// Overlay absolut ala web: dropdown mengambang di bawah field nama,
+  /// tidak mendorong form. Posisi dibaca dari RenderBox tiap build.
+  void _refreshSuggestOverlay() {
+    if (!mounted) return;
+    if (!suggestOpen || suggest.isEmpty) {
+      _hideSuggestOverlay();
+      return;
+    }
+    if (_suggestOverlay == null) {
+      _suggestOverlay = OverlayEntry(builder: _buildSuggestOverlay);
+      Overlay.of(context).insert(_suggestOverlay!);
+    } else {
+      _suggestOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _hideSuggestOverlay() {
+    _suggestOverlay?.remove();
+    _suggestOverlay = null;
+  }
+
+  Widget _buildSuggestOverlay(BuildContext ctx) {
+    final box =
+        _namaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return const SizedBox.shrink();
+    final pos = box.localToGlobal(Offset.zero);
+    final scheme = Theme.of(context).colorScheme;
+    final screenW = MediaQuery.sizeOf(ctx).width;
+    var left = pos.dx;
+    final width = box.size.width;
+    if (left + width > screenW - 16) {
+      left = (screenW - 16 - width).clamp(16.0, screenW - 16);
+    }
+    return Positioned(
+      left: left,
+      top: pos.dy + box.size.height + 6,
+      width: width,
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(12),
+        color: scheme.surfaceContainerLow,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 220),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(color: scheme.outlineVariant)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Buku Tamu (${suggest.length})',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600)),
+                    Text('klik / Enter untuk pilih',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: suggest.length,
+                  itemBuilder: (_, i) {
+                    final s = suggest[i];
+                    final hi = i == suggestHi;
+                    return Material(
+                      color:
+                          hi ? scheme.surfaceContainer : Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        selected: hi,
+                        selectedTileColor: scheme.surfaceContainer,
+                        leading: CircleAvatar(
+                          radius: 14,
+                          child: Text(
+                              '${s['nama']}'.isNotEmpty
+                                  ? '${s['nama']}'
+                                      .substring(0, 1)
+                                      .toUpperCase()
+                                  : '?',
+                              style: const TextStyle(fontSize: 12)),
+                        ),
+                        title: Text('${s['nama']}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600)),
+                        subtitle: Text('${s['alamat'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        trailing:
+                            const Icon(Icons.north_west, size: 16),
+                        onTap: () => _selectSuggest(s),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Navigasi keyboard chips nominal ala web: panah pilih, Enter isi,
+  /// Esc batal. Cermin onKeyDown input nominal di EventClient web.
+  KeyEventResult _onNominalKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    if (nominalTop.isEmpty) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.arrowRight ||
+        e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(() => nominalHi =
+          nominalHi < 0 ? 0 : (nominalHi + 1) % nominalTop.length);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(() => nominalHi = nominalHi < 0
+          ? nominalTop.length - 1
+          : (nominalHi - 1 + nominalTop.length) % nominalTop.length);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.enter &&
+        nominalHi >= 0 &&
+        nominalHi < nominalTop.length) {
+      setState(() {
+        nominalC.text = '${nominalTop[nominalHi]}';
+        nominalHi = -1;
+      });
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() => nominalHi = -1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Cek duplikat live ala web: lokal instan + server /check debounce.
@@ -504,17 +699,20 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           suggestHi = -1;
           suggestOpen = false;
         });
+        _hideSuggestOverlay();
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
       setState(() => suggestHi = (suggestHi + 1) % suggest.length);
+      _refreshSuggestOverlay();
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
       setState(() => suggestHi =
           (suggestHi - 1 + suggest.length) % suggest.length);
+      _refreshSuggestOverlay();
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.enter &&
@@ -529,6 +727,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         suggestHi = -1;
         suggestOpen = false;
       });
+      _hideSuggestOverlay();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -611,6 +810,24 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               if (payload['catatan'] != null) 'catatan': payload['catatan'],
             });
         if (r.statusCode == 201) {
+          // Rekonsiliasi id: server bikin id baru (bukan gst-*). Ganti baris
+          // lokal agar pull berikutnya tidak merge sebagai baris kedua.
+          try {
+            final srv = r.data is Map
+                ? Map<String, dynamic>.from(r.data as Map)
+                : null;
+            if (srv != null &&
+                '${srv['id']}'.isNotEmpty &&
+                '${srv['id']}' != id) {
+              await LocalDb.instance.replaceGuestWithServer(
+                eventId: widget.event.id,
+                oldId: id,
+                server: srv,
+              );
+            }
+          } catch (_) {
+            // Bentuk respons tak dikenal — biarkan baris lokal apa adanya.
+          }
           await LocalDb.instance.outboxRemove([id]);
         }
       } on DioException catch (e) {
@@ -633,7 +850,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         suggestOpen = false;
         guestLimit = 20;
         liveDup = null;
+        nominalHi = -1;
       });
+      _hideSuggestOverlay();
       await _loadLocal();
       await SyncEngine.instance.pending(widget.event.id);
       if (mounted) {
@@ -790,6 +1009,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// Field form input — diekstrak agar bisa disusun vertikal (HP)
   /// maupun grid (desktop lebar) tanpa duplikasi.
   Widget _namaField() => TextField(
+        key: _namaKey,
         controller: namaC,
         focusNode: namaFocus,
         onChanged: _onNamaChanged,
@@ -813,77 +1033,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             prefixIcon: Icon(Icons.person_search_outlined)),
       );
 
-  /// Dropdown suggest overlay-style: header jumlah + list scroll max 220px
-  /// + highlight keyboard. Inline (bukan OverlayEntry) agar aman di dalam
-  /// ListView tablet/Linux yang bisa scroll/resize.
-  Widget _suggestCard() {
-    if (!suggestOpen || suggest.isEmpty) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(top: 6),
-      color: scheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Buku Tamu (${suggest.length})',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600)),
-                Text('klik / Enter untuk pilih',
-                    style: TextStyle(
-                        fontSize: 11, color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: suggest.length,
-              itemBuilder: (_, i) {
-                final s = suggest[i];
-                final hi = i == suggestHi;
-                return Material(
-                  color: hi ? scheme.surfaceContainer : Colors.transparent,
-                  child: ListTile(
-                    dense: true,
-                    selected: hi,
-                    selectedTileColor: scheme.surfaceContainer,
-                    leading: CircleAvatar(
-                      radius: 14,
-                      child: Text(
-                          '${s['nama']}'.isNotEmpty
-                              ? '${s['nama']}'.substring(0, 1).toUpperCase()
-                              : '?',
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                    title: Text('${s['nama']}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${s['alamat'] ?? ''}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.north_west, size: 16),
-                    onTap: () => _selectSuggest(s),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _alamatField() => TextField(
       controller: alamatC,
       focusNode: alamatFocus,
@@ -897,36 +1046,49 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           filled: true,
           prefixIcon: Icon(Icons.home_outlined)));
 
-  Widget _alamatChips() => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: alamatTop.map((a) {
-                  final active = alamatC.text.trim() == a;
-                  final count = alamatCount[a] ?? 0;
-                  return ActionChip(
-                      label: Text(count > 0 ? '$a • $count' : a),
-                      backgroundColor: active
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : null,
-                      side: BorderSide(
-                          color: active
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .outlineVariant),
-                      onPressed: canEdit
-                          ? () {
-                              setState(() => alamatC.text = a);
-                              _scheduleDupCheck();
-                            }
-                          : null);
-                }).toList()),
-          ]);
+  /// Chips alamat ala web: rapat di bawah input + count redup.
+  /// Dibungkus ValueListenable agar status aktif ikut ketikan
+  /// tanpa rebuild seluruh form.
+  Widget _alamatChips() => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: alamatC,
+          builder: (_, v, _) => Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: alamatTop.map((a) {
+                final active = v.text.trim() == a;
+                final count = alamatCount[a] ?? 0;
+                final scheme = Theme.of(context).colorScheme;
+                return ActionChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: a),
+                        if (count > 0)
+                          TextSpan(
+                            text: '  $count',
+                            style: TextStyle(
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6)),
+                          ),
+                      ]),
+                    ),
+                    backgroundColor:
+                        active ? scheme.primaryContainer : null,
+                    side: BorderSide(
+                        color: active
+                            ? scheme.primary
+                            : scheme.outlineVariant),
+                    onPressed: canEdit
+                        ? () {
+                            alamatC.text = a;
+                            _scheduleDupCheck();
+                          }
+                        : null);
+              }).toList()),
+        ),
+      );
 
   Widget _nominalField() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -955,13 +1117,20 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             const SizedBox(height: 6),
             TextField(
                 controller: nominalC,
+                focusNode: nominalFocus,
                 enabled: canEdit,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(15),
                 ],
-                onChanged: (_) => setState(() {}),
+                // Tanpa setState tiap ketik (preview + chips ikut
+                // ValueListenable sendiri) agar chips tidak loncat.
+                onChanged: (_) {
+                  if (nominalHi != -1) {
+                    setState(() => nominalHi = -1);
+                  }
+                },
                 decoration: const InputDecoration(
                     hintText: '100000',
                     prefixText: 'Rp ',
@@ -970,35 +1139,69 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     prefixIcon: Icon(Icons.payments_outlined))),
           ]);
 
-  Widget _nominalChips() => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: nominalTop.map((n) {
-                  final active = nominalC.text.trim() == '$n';
-                  final count = nominalCount[n] ?? 0;
-                  return ActionChip(
-                      label: Text(count > 0
-                          ? '${formatRp(n)} • $count'
-                          : formatRp(n)),
-                      backgroundColor: active
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : null,
-                      side: BorderSide(
-                          color: active
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .outlineVariant),
-                      onPressed: canEdit
-                          ? () => setState(() => nominalC.text = '$n')
-                          : null);
-                }).toList()),
-          ]);
+  /// Chips nominal ala web: rapat + count redup + highlight keyboard
+  /// (panah/hover) + klik. Nilai aktif ikut ValueListenable agar form
+  /// tidak rebuild tiap ketik.
+  Widget _nominalChips() => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: nominalC,
+          builder: (_, v, _) => Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: nominalTop.asMap().entries.map((e) {
+                final i = e.key;
+                final n = e.value;
+                final active = v.text.trim() == '$n';
+                final hi = i == nominalHi;
+                final count = nominalCount[n] ?? 0;
+                final scheme = Theme.of(context).colorScheme;
+                final chip = ActionChip(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: active
+                        ? scheme.primaryContainer
+                        : hi
+                            ? scheme.surfaceContainer
+                            : null,
+                    side: BorderSide(
+                        color: active || hi
+                            ? scheme.primary
+                            : scheme.outlineVariant),
+                    label: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: formatRp(n)),
+                        if (count > 0)
+                          TextSpan(
+                            text: '  $count',
+                            style: TextStyle(
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6)),
+                          ),
+                      ]),
+                    ),
+                    onPressed: canEdit
+                        ? () => setState(() {
+                              nominalC.text = '$n';
+                              nominalHi = -1;
+                            })
+                        : null);
+                // Hover mouse = highlight ala web (desktop/Linux).
+                return MouseRegion(
+                  onEnter: (_) {
+                    if (nominalHi != i) {
+                      setState(() => nominalHi = i);
+                    }
+                  },
+                  onExit: (_) {
+                    if (nominalHi == i) {
+                      setState(() => nominalHi = -1);
+                    }
+                  },
+                  child: chip,
+                );
+              }).toList()),
+        ),
+      );
 
   Widget _metodeSection() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1054,12 +1257,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         enabled: canEdit,
         textCapitalization: TextCapitalization.sentences,
         maxLength: 200,
+        maxLines: 1,
         decoration: InputDecoration(
             labelText:
                 dup ? 'Catatan (wajib isi, duplikat)' : 'Catatan (opsional)',
             hintText: dup
                 ? 'Wajib: bedakan dari data sebelumnya'
                 : 'Opsional',
+            // Sembunyikan counter agar field ramping sebaris ala web.
+            counterText: '',
             border: const OutlineInputBorder(),
             filled: true,
             prefixIcon: const Icon(Icons.note_outlined),
@@ -1106,6 +1312,25 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       ),
     );
   }
+
+  /// Tombol simpan dipakai ulang di dalam kartu (medium, sebaris dengan
+  /// catatan ala web) maupun di bawah kartu (HP).
+  Widget _saveButton() => FilledButton.icon(
+        onPressed: saving ? null : _saveGuest,
+        icon: saving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.save_outlined),
+        label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(saving
+                ? 'Menyimpan...'
+                : liveDup != null
+                    ? 'Simpan dengan Catatan'
+                    : 'Simpan (offline-first)')),
+      );
 
   /// Search pemberian (viewer) + daftar filter untuk list/tabel.
   /// Ctrl+F fokus ke sini di tablet/Linux.
@@ -1281,10 +1506,11 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   bool _isPendingGuest(Map<String, dynamic> g) {
     final id = '${g['id']}';
-    // ID lokal diawali gst- (lihat _saveGuest); server pakai cuid/uuid lain.
-    // Samakan gaya web: badge pending untuk baris yang kemungkinan belum sync.
-    if (id.startsWith('gst-')) return true;
+    // Jujur ikut antrean outbox (cermin badge pending web untuk local-*).
+    if (pendingIds.contains(id)) return true;
     if ('${g['petugasId']}' == 'lokal') return true;
+    // Fallback sebelum outbox sempat dibaca: prefix gst- = belum sync.
+    if (!_pendingLoaded && id.startsWith('gst-')) return true;
     return false;
   }
 
@@ -1433,158 +1659,63 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   /// Tabel pemberian — cermin tabel web (No/Nama+catatan/Alamat/Nominal/
   /// Meja/Kasir/Metode/Aksi) + footer total. Dipakai di tablet (>=600px)
   /// maupun desktop lebar (>=900px); HP kecil tetap card.
+  /// Lebar: kolom Nama/Alamat dilebarkan proporsional mengisi viewport
+  /// (cermin `w-full` web); scroll horizontal hanya bila viewport sempit.
   Widget _guestTable([List<Map<String, dynamic>>? rows]) {
     final all = rows ?? shownGuests;
     final totalShown = all.fold<int>(
         0, (s, g) => s + (((g['nominal'] as int?) ?? 0)));
     final data = all.take(guestLimit).toList();
     final startNo = 1;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 760),
-              child: DataTable(
-                columnSpacing: 12,
-                headingRowHeight: 40,
-                dataRowMinHeight: 48,
-                dataRowMaxHeight: 64,
-                columns: const [
-                  DataColumn(label: Text('#')),
-                  DataColumn(label: Text('Nama')),
-                  DataColumn(label: Text('Alamat')),
-                  DataColumn(label: Text('Nominal'), numeric: true),
-                  DataColumn(label: Text('Meja')),
-                  DataColumn(label: Text('Kasir')),
-                  DataColumn(label: Text('Metode')),
-                  DataColumn(label: Text('Aksi')),
-                ],
-                rows: List.generate(data.length, (idx) {
-                  final g = data[idx];
-                  final no = startNo + idx;
-                  final pending = _isPendingGuest(g);
-                  final meja = '${g['mejaLabel'] ?? ''}';
-                  final catatan = '${g['catatan'] ?? ''}';
-                  return DataRow(cells: [
-                    DataCell(Text('$no',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant))),
-                    DataCell(ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: 200, minWidth: 120),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text('${g['nama']}',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700)),
-                              ),
-                              if (pending)
-                                Container(
-                                  margin: const EdgeInsets.only(left: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Theme.of(context).colorScheme.error,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text('pending',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onError)),
-                                ),
-                            ],
-                          ),
-                          if (catatan.isNotEmpty && catatan != 'null')
-                            Text('↳ $catatan',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
-                        ],
-                      ),
-                    )),
-                    DataCell(ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: 160, minWidth: 90),
-                      child: Text('${g['alamat']}',
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    )),
-                    DataCell(Text(
-                        formatRp((g['nominal'] as int?) ?? 0),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.primary,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures()
-                            ]))),
-                    DataCell(meja.isNotEmpty && meja != 'null'
-                        ? Chip(
-                            label: Text(meja),
-                            labelStyle: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onTertiaryContainer),
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .tertiaryContainer,
-                            side: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                          )
-                        : const Text('—')),
-                    DataCell(Tooltip(
-                      message:
-                          '${_kasirName(g)} • ${g['petugasId'] ?? '—'}',
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                            maxWidth: 110, minWidth: 60),
-                        child: Text(_kasirShort(g),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    )),
-                    DataCell(
-                        MethodChip('${g['metode'] ?? 'AMPLOP'}')),
-                    DataCell(canEdit
-                        ? IconButton(
-                            tooltip: 'Aksi',
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                                Icons.more_vert_outlined),
-                            onPressed: () => _guestSheet(g),
-                          )
-                        : const SizedBox.shrink()),
-                  ]);
-                }),
+    return LayoutBuilder(builder: (context, cons) {
+      final avail = cons.maxWidth;
+      final spacing = avail >= 1000 ? 20.0 : 12.0;
+      // Estimasi kolom fix: #32 + Nominal110 + Meja80 + Kasir100 +
+      // Metode100 + Aksi44 + margin DataTable 24+24.
+      const fixedCols = 32.0 + 110.0 + 80.0 + 100.0 + 100.0 + 44.0;
+      const margins = 48.0;
+      final flex = avail - fixedCols - margins - spacing * 7;
+      // Bagi sisa ruang Nama 58% : Alamat 42%; bila tak muat, pakai lebar
+      // fallback dan biarkan scroll horizontal.
+      double? namaW;
+      double? alamatW;
+      if (flex >= 250) {
+        var n = (flex * 0.58).clamp(140.0, 340.0);
+        var a = flex - n;
+        if (a < 100) {
+          a = 100;
+          n = flex - 100;
+        }
+        if (n >= 140) {
+          namaW = n;
+          alamatW = a;
+        }
+      }
+      final contentMin = fixedCols +
+          margins +
+          spacing * 7 +
+          (namaW ?? 160) +
+          (alamatW ?? 120);
+      final minWidth = contentMin > avail ? contentMin : avail;
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minWidth),
+                child: _guestDataTable(
+                  data,
+                  startNo,
+                  spacing,
+                  namaW ?? 160,
+                  alamatW ?? 120,
+                ),
               ),
             ),
-          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -1625,6 +1756,150 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         ],
       ),
+      );
+    });
+  }
+
+  /// Isi DataTable pemberian dengan lebar kolom Nama/Alamat fix hasil
+  /// hitung viewport (agar tabel selalu selebar wadah, cermin `w-full`).
+  Widget _guestDataTable(
+    List<Map<String, dynamic>> data,
+    int startNo,
+    double spacing,
+    double namaW,
+    double alamatW,
+  ) {
+    return DataTable(
+      columnSpacing: spacing,
+      headingRowHeight: 40,
+      dataRowMinHeight: 48,
+      dataRowMaxHeight: 64,
+      columns: const [
+        DataColumn(label: Text('#')),
+        DataColumn(label: Text('Nama')),
+        DataColumn(label: Text('Alamat')),
+        DataColumn(label: Text('Nominal'), numeric: true),
+        DataColumn(label: Text('Meja')),
+        DataColumn(label: Text('Kasir')),
+        DataColumn(label: Text('Metode')),
+        DataColumn(label: Text('Aksi')),
+      ],
+      rows: List.generate(data.length, (idx) {
+        final g = data[idx];
+        final no = startNo + idx;
+        final pending = _isPendingGuest(g);
+        final meja = '${g['mejaLabel'] ?? ''}';
+        final catatan = '${g['catatan'] ?? ''}';
+        return DataRow(cells: [
+          DataCell(Text('$no',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant))),
+          DataCell(SizedBox(
+            width: namaW,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text('${g['nama']}',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700)),
+                    ),
+                    if (pending)
+                      Container(
+                        margin: const EdgeInsets.only(left: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).colorScheme.error,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text('pending',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onError)),
+                      ),
+                  ],
+                ),
+                if (catatan.isNotEmpty && catatan != 'null')
+                  Text('↳ $catatan',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+              ],
+            ),
+          )),
+          DataCell(SizedBox(
+            width: alamatW,
+            child: Text('${g['alamat']}',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          )),
+          DataCell(Text(
+              formatRp((g['nominal'] as int?) ?? 0),
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontFeatures: const [
+                    FontFeature.tabularFigures()
+                  ]))),
+          DataCell(meja.isNotEmpty && meja != 'null'
+              ? Chip(
+                  label: Text(meja),
+                  labelStyle: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onTertiaryContainer),
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .tertiaryContainer,
+                  side: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                )
+              : const Text('—')),
+          DataCell(Tooltip(
+            message:
+                '${_kasirName(g)} • ${g['petugasId'] ?? '—'}',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                  maxWidth: 110, minWidth: 60),
+              child: Text(_kasirShort(g),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+          )),
+          DataCell(
+              MethodChip('${g['metode'] ?? 'AMPLOP'}')),
+          DataCell(canEdit
+              ? IconButton(
+                  tooltip: 'Aksi',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                      Icons.more_vert_outlined),
+                  onPressed: () => _guestSheet(g),
+                )
+              : const SizedBox.shrink()),
+        ]);
+      }),
     );
   }
 
@@ -1632,7 +1907,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         // Tablet (>=600px) + desktop lebar (>=900px) pakai tabel compact
         // full-info; HP kecil (<600px) tetap card.
         final medium = WindowUi.isMedium(cons.maxWidth);
-        return ListView(
+        // Tutup dropdown overlay saat form di-scroll (posisi overlay
+        // tidak mengikuti scroll ListView).
+        return NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            if (n is ScrollUpdateNotification && suggestOpen) {
+              setState(() {
+                suggest = [];
+                suggestHi = -1;
+                suggestOpen = false;
+              });
+              _hideSuggestOverlay();
+            }
+            return false;
+          },
+          child: ListView(
             padding: WindowUi.pagePadding(cons.maxWidth), children: [
         if (goneServer)
           Card(
@@ -1777,7 +2066,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       Expanded(
                           child: Column(children: [
                         _namaField(),
-                        _suggestCard(),
                       ])),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1788,7 +2076,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     ])
               else ...[
                 _namaField(),
-                _suggestCard(),
                 const SizedBox(height: 12),
                 _alamatField(),
                 if (alamatTop.isNotEmpty) _alamatChips(),
@@ -1806,27 +2093,23 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               Text('Nominal & metode',
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 12),
-              if (medium)
+              if (medium) ...[
+                _nominalField(),
+                if (nominalTop.isNotEmpty) _nominalChips(),
+                const SizedBox(height: 12),
+                // Cermin web: Metode(4) + Catatan(5) + Simpan(3) sebaris,
+                // tombol rata bawah dengan field catatan.
                 Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Expanded(
-                          flex: 4,
-                          child: Column(children: [
-                            _nominalField(),
-                            if (nominalTop.isNotEmpty)
-                              _nominalChips(),
-                          ])),
+                      Expanded(flex: 4, child: _metodeSection()),
                       const SizedBox(width: 12),
-                      Expanded(
-                          flex: 8,
-                          child: Column(children: [
-                            _metodeSection(),
-                            const SizedBox(height: 12),
-                            _catatanField(),
-                          ])),
-                    ])
-              else ...[
+                      Expanded(flex: 5, child: _catatanField()),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 3, child: _saveButton()),
+                    ]),
+                _dupWarning(),
+              ] else ...[
                 _nominalField(),
                 if (nominalTop.isNotEmpty) _nominalChips(),
                 const SizedBox(height: 12),
@@ -1837,32 +2120,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ]),
           ),
         ),
-        if (canEdit) _dupWarning(),
-        if (canEdit) const SizedBox(height: 12),
-        if (canEdit)
+        if (canEdit && !medium) _dupWarning(),
+        if (canEdit && !medium) const SizedBox(height: 12),
+        if (canEdit && !medium)
           Align(
-            alignment:
-                medium ? Alignment.centerRight : Alignment.center,
+            alignment: Alignment.center,
             child: SizedBox(
-              width: medium ? 280 : double.infinity,
-              child: FilledButton.icon(
-                onPressed: saving ? null : _saveGuest,
-                icon: saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2))
-                    : const Icon(Icons.save_outlined),
-                label: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(saving
-                        ? 'Menyimpan...'
-                        : liveDup != null
-                            ? 'Simpan dengan Catatan'
-                            : 'Simpan (offline-first)')),
-              ),
+              width: double.infinity,
+              child: _saveButton(),
             ),
           ),
         if (canEdit) const SizedBox(height: 16),
@@ -1898,7 +2163,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                           'Muat 20 lagi (${shownGuests.length - guestLimit} sisa)'),
                     ),
                 ]),
-          ]);
+          ]));
       });
 
   /// Tile buku tamu (HP <600px) — nomor + nama + alamat + aksi.

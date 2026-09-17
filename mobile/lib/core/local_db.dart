@@ -296,6 +296,95 @@ class LocalDb {
     await d.delete('guests', where: 'id=?', whereArgs: [id]);
   }
 
+  /// Id semua op antrean per event — sumber kebenaran label pending.
+  /// (Label lama berdasar prefix `gst-` basi setelah sync: baris lokal
+  /// tetap ber-id gst walau outbox-nya sudah hilang.)
+  Future<Set<String>> outboxIds(String eventId) async {
+    final d = await db();
+    final r = await d.query('outbox',
+        columns: ['id'], where: 'eventId=?', whereArgs: [eventId]);
+    return {for (final o in r) '${o['id']}'};
+  }
+
+  /// Kunci dedupe baris tamu: nama|alamat|nominal|metode|catatan
+  /// (normalisasi trim + case-insensitive; null == string kosong).
+  /// Murni (tanpa IO) agar bisa di-unit-test.
+  static String guestDedupeKey(Map<String, dynamic> g) {
+    final nama = '${g['nama'] ?? ''}'.trim().toLowerCase();
+    final alamat = '${g['alamat'] ?? ''}'.trim().toLowerCase();
+    final nominal = ((g['nominal'] as num?)?.toInt() ?? 0).toString();
+    final metode = '${g['metode'] ?? ''}'.trim().toUpperCase();
+    final catatan = '${g['catatan'] ?? ''}'.trim().toLowerCase();
+    return '$nama|$alamat|$nominal|$metode|$catatan';
+  }
+
+  /// Ganti baris lokal `oldId` (biasanya `gst-*`) dengan objek server
+  /// dari respons POST 201 (id server baru). Dipakai agar tidak dobel:
+  /// tanpa ini pull berikutnya merge baris server sebagai baris kedua.
+  Future<void> replaceGuestWithServer({
+    required String eventId,
+    required String oldId,
+    required Map<String, dynamic> server,
+  }) async {
+    final d = await db();
+    final m = server;
+    await d.transaction((txn) async {
+      await txn.delete('guests', where: 'id=?', whereArgs: [oldId]);
+      await txn.insert(
+          'guests',
+          {
+            'id': '${m['id']}',
+            'eventId': eventId,
+            'guestBookId': m['guestBookId']?.toString(),
+            'nama': '${m['nama']}',
+            'alamat': '${m['alamat']}',
+            'nominal': (m['nominal'] as num?)?.toInt() ?? 0,
+            'metode': '${m['metode'] ?? 'AMPLOP'}',
+            'catatan': m['catatan']?.toString(),
+            'petugasId': m['petugasId']?.toString(),
+            'mejaLabel': m['mejaLabel']?.toString(),
+            'kodeInput': m['kodeInput']?.toString(),
+            'deviceId': m['deviceId']?.toString(),
+            'createdAt': '${m['createdAt'] ?? ''}',
+            'updatedAt': '${m['updatedAt'] ?? ''}',
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  /// Bersih-bersih sekali jalan: hapus baris lokal `gst-*` yang sudah
+  /// punya kembaran identik (kunci dedupe sama, id beda) dan tidak lagi
+  /// antre di outbox. Memperbaiki data dobel lama akibat bug rekonsiliasi
+  /// (POST 201 langsung tanpa ganti id). Return jumlah baris dihapus.
+  Future<int> dedupeSyncedLocalGuests(String eventId) async {
+    final d = await db();
+    final rows = await d.query('guests',
+        where: 'eventId=?', whereArgs: [eventId]);
+    if (rows.length < 2) return 0;
+    final pending = await outboxIds(eventId);
+    final byKey = <String, List<Map<String, dynamic>>>{};
+    for (final r in rows) {
+      byKey.putIfAbsent(guestDedupeKey(r), () => []).add(r);
+    }
+    final doomed = <String>[];
+    for (final group in byKey.values) {
+      if (group.length < 2) continue;
+      final hasServerTwin =
+          group.any((r) => !'${r['id']}'.startsWith('gst-'));
+      if (!hasServerTwin) continue;
+      for (final r in group) {
+        final id = '${r['id']}';
+        if (id.startsWith('gst-') && !pending.contains(id)) {
+          doomed.add(id);
+        }
+      }
+    }
+    if (doomed.isEmpty) return 0;
+    final ph = List.filled(doomed.length, '?').join(',');
+    await d.delete('guests', where: 'id IN ($ph)', whereArgs: doomed);
+    return doomed.length;
+  }
+
   Future<void> updateBookLocal(
       String id, Map<String, dynamic> fields) async {
     final d = await db();
