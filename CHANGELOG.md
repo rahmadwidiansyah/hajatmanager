@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.0...v1.9.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **windows:** perbaiki 5 error kompilasi WPF fase C ([03346c2](https://github.com/rahmadwidiansyah/hajatmanager/commit/03346c2ce959fcab399653fcd7fb88402bf1eb29))
+
 # [1.9.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.2...v1.9.0) (2026-09-17)
 
 
