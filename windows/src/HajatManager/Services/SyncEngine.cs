@@ -36,10 +36,25 @@ public sealed class SyncEngine
 
     public async Task<bool> CheckNowAsync()
     {
-        var nic = NetworkInterface.GetIsNetworkAvailable();
-        var ok = nic && await ApiClient.Instance.HealthAsync();
-        if (ok != Online) { Online = ok; Changed?.Invoke(); }
-        return ok;
+        try
+        {
+            var nic = NetworkInterface.GetIsNetworkAvailable();
+            if (!nic) { SetOnline(false); return false; }
+            if (!ApiClient.Instance.IsConfigured) { SetOnline(false); return false; }
+            var ok = await ApiClient.Instance.HealthAsync();
+            SetOnline(ok);
+            return ok;
+        }
+        catch (Exception)
+        {
+            SetOnline(false);
+            return false;
+        }
+    }
+
+    private void SetOnline(bool ok)
+    {
+        if (ok != Online) { Online = ok; try { Changed?.Invoke(); } catch { } }
     }
 
     public async Task<int> PendingAsync(string eventId) =>

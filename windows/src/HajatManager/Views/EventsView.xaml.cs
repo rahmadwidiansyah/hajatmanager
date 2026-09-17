@@ -17,7 +17,15 @@ public partial class EventsView : UserControl
     public EventsView()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ReloadAsync();
+        Loaded += async (_, _) =>
+        {
+            try { await ReloadAsync(); }
+            catch (Exception ex)
+            {
+                AppLogger.LogException("EventsView.Load gagal", ex);
+                try { ApplyFilter(); } catch { }
+            }
+        };
     }
 
     public async Task ReloadAsync()
@@ -38,17 +46,25 @@ public partial class EventsView : UserControl
             {
                 var ev = ParseEvent(m, myId);
                 items.Add(ev);
-                await LocalDb.Instance.SetMyRoleAsync(ev.Id, ev.MyRole);
+                try { await LocalDb.Instance.SetMyRoleAsync(ev.Id, ev.MyRole); }
+                catch (Exception ex) { AppLogger.LogException("SetMyRole gagal", ex); }
             }
-            var cfg = AppConfig.Instance;
             _items = items;
-            await LocalDb.Instance.PutEventsAsync(items);
+            try { await LocalDb.Instance.PutEventsAsync(items); }
+            catch (Exception ex) { AppLogger.LogException("PutEvents gagal", ex); }
         }
-        catch
+        catch (Exception ex)
         {
-            _items = await LocalDb.Instance.GetEventsAsync();
+            // Offline / server belum dikonfigurasi → fallback cache lokal.
+            AppLogger.Warn($"Events pull gagal, pakai cache lokal: {ex.Message}");
+            try { _items = await LocalDb.Instance.GetEventsAsync(); }
+            catch (Exception ex2)
+            {
+                AppLogger.LogException("GetEvents lokal gagal", ex2);
+                _items = new();
+            }
         }
-        ApplyFilter();
+        try { ApplyFilter(); } catch (Exception ex) { AppLogger.LogException("ApplyFilter gagal", ex); }
     }
 
     internal static EventModel ParseEvent(JsonElement m, string myId)
@@ -110,6 +126,8 @@ public partial class EventsView : UserControl
     {
         var d = new CreateEventDialog();
         if (d.ShowDialog() != true || d.Tanggal == null) return;
+        try
+        {
         var id = $"evt-{Guid.NewGuid()}";
         var tgl = d.Tanggal.Value;
         var cat = string.IsNullOrWhiteSpace(d.Catatan) ? null : d.Catatan;
@@ -147,8 +165,16 @@ public partial class EventsView : UserControl
             if (r.IsSuccessStatusCode)
                 await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
         }
-        catch { }
-        await SyncEngine.Instance.FlushAsync(id);
+        catch (Exception ex) { AppLogger.Warn($"Create event push gagal (masuk outbox): {ex.Message}"); }
+        try { await SyncEngine.Instance.FlushAsync(id); }
+        catch (Exception ex) { AppLogger.LogException("Flush create-event gagal", ex); }
         await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException("OnCreate gagal", ex);
+            MessageBox.Show($"Gagal buat acara: {ex.Message}\n\nLog: {AppLogger.LogFile}",
+                "Hajat Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
