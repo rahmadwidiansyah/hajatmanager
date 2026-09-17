@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.0...v1.8.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **windows:** using System.Security.Authentication yang benar ([e83f50b](https://github.com/rahmadwidiansyah/hajatmanager/commit/e83f50b1281d32a3ee23750df212503f316086d2))
+
 # [1.8.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.7.0...v1.8.0) (2026-09-17)
 
 
