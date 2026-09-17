@@ -7,11 +7,15 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path_provider/path_provider.dart';
 import 'app_config.dart';
+import 'auth_store.dart';
 
 /// Dio + persistent cookie (Auth.js session) — mirror web login.
 /// Credentials flow Auth.js v5:
 ///   GET /api/auth/csrf -> {csrfToken}
 ///   POST /api/auth/callback/credentials (form) -> cookie session
+///
+/// Fase 3: Bearer device-token diutamakan (header Authorization).
+/// Cookie tetap sebagai fallback untuk server lama.
 class ApiClient {
   static final ApiClient instance = ApiClient._();
   ApiClient._();
@@ -29,6 +33,11 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 12),
       headers: {'Accept': 'application/json'},
     ));
+    // Fase 3: pulihkan Bearer dari secure storage bila ada.
+    try {
+      final t = await AuthStore.deviceToken();
+      if (t != null && t.isNotEmpty) d.options.headers['Authorization'] = 'Bearer $t';
+    } catch (_) {}
     d.interceptors.add(CookieManager(_jar!));
     d.interceptors.add(LogInterceptor(requestBody: false, responseBody: false));
     _dio = d;
@@ -51,6 +60,14 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>?> session() async {
+    // Fase 3: bila token ada, validasi via /device/me dulu.
+    try {
+      final t = await AuthStore.deviceToken();
+      if (t != null && t.isNotEmpty) {
+        final me = await deviceMe();
+        if (me != null) return me;
+      }
+    } catch (_) {}
     try {
       final d = await dio();
       final r = await d.get('/api/auth/session');
@@ -64,7 +81,158 @@ class ApiClient {
     }
   }
 
+  /// Label platform untuk deviceName server (max 20 char di backend).
+  static String get devicePlatform {
+    if (kIsWeb) return 'web';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isIOS) return 'ios';
+    return 'android';
+  }
+
+  Future<Map<String, String>> _deviceMeta() async => {
+        'deviceName': await AppConfig.getDeviceId(),
+        'platform': devicePlatform,
+      };
+
+  void _applyToken(String? t) {
+    if (_dio == null) return;
+    if (t == null || t.isEmpty) {
+      _dio!.options.headers.remove('Authorization');
+    } else {
+      _dio!.options.headers['Authorization'] = 'Bearer $t';
+    }
+  }
+
+  /// Login via /api/auth/device/authorize (tanpa cookie).
+  /// Returns (sukses, pesanError, notSupported=server lama 404).
+  Future<(bool, String?, bool)> authorizeDevice(
+      String email, String password) async {
+    try {
+      final d = await dio();
+      final meta = await _deviceMeta();
+      final r = await d.post('/api/auth/device/authorize', data: {
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        ...meta,
+      });
+      if ((r.statusCode == 200 || r.statusCode == 201) && r.data is Map) {
+        final token = '${(r.data as Map)['token'] ?? ''}';
+        if (token.isEmpty) return (false, 'Server tidak mengembalikan token', false);
+        await AuthStore.saveDeviceToken(token);
+        _applyToken(token);
+        return (true, null, false);
+      }
+      return (false, 'Login gagal (${r.statusCode})', false);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return (false, null, true);
+      if (e.response?.statusCode == 401) return (false, 'Email / password salah', false);
+      if (e.response?.statusCode == 429) {
+        return (false, 'Terlalu banyak percobaan — tunggu 1 menit', false);
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return (false, 'Tidak ada koneksi ke server', false);
+      }
+      final err = (e.response?.data as Map?)?['error'];
+      if (err is String && err.isNotEmpty) return (false, err, false);
+      return (false, 'Login gagal: ${e.message}', false);
+    } catch (e) {
+      return (false, '$e', false);
+    }
+  }
+
+  /// Tukar cookie session valid menjadi token (migrasi sekali jalan).
+  Future<bool> upgradeToDeviceToken() async {
+    try {
+      if (await AuthStore.deviceToken() != null) return true;
+      final d = await dio();
+      final r = await d.post('/api/auth/device/upgrade',
+          data: await _deviceMeta());
+      if ((r.statusCode == 200 || r.statusCode == 201) && r.data is Map) {
+        final token = '${(r.data as Map)['token'] ?? ''}';
+        if (token.isEmpty) return false;
+        await AuthStore.saveDeviceToken(token);
+        _applyToken(token);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fase 4: tukar grant (loopback browser / tempel manual) menjadi Bearer.
+  /// Returns (sukses, pesanError).
+  Future<(bool, String?)> exchangeDeviceCode(String code) async {
+    code = code.trim();
+    if (code.length < 20) {
+      return (false, 'Kode tidak valid — salin ulang dari browser');
+    }
+    try {
+      final d = await dio();
+      final meta = await _deviceMeta();
+      final r = await d.post('/api/auth/device/code', data: {
+        'code': code,
+        ...meta,
+      });
+      if ((r.statusCode == 200 || r.statusCode == 201) && r.data is Map) {
+        final token = '${(r.data as Map)['token'] ?? ''}';
+        if (token.isEmpty) {
+          return (false, 'Server tidak mengembalikan token');
+        }
+        await AuthStore.saveDeviceToken(token);
+        _applyToken(token);
+        return (true, null);
+      }
+      return (false, 'Gagal tukar kode (${r.statusCode})');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        return (false, 'Terlalu banyak percobaan — tunggu 1 menit');
+      }
+      final err = (e.response?.data as Map?)?['error'];
+      if (err is String && err.isNotEmpty) return (false, err);
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return (false, 'Tidak ada koneksi ke server');
+      }
+      return (false, 'Gagal tukar kode: ${e.message}');
+    } catch (e) {
+      return (false, '$e');
+    }
+  }
+
+  /// Validasi Bearer via /device/me → {user}. 401 → token dibersihkan.
+  Future<Map<String, dynamic>?> deviceMe() async {
+    try {
+      final d = await dio();
+      final r = await d.get('/api/auth/device/me');
+      if (r.statusCode == 401) {
+        await AuthStore.clearDeviceToken();
+        _applyToken(null);
+        return null;
+      }
+      if (r.statusCode == 200 && r.data is Map) {
+        final m = Map<String, dynamic>.from(r.data as Map);
+        if (m['user'] != null) return m;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<(bool, String?)> loginEmail(String email, String password) async {
+    // Fase 3: Bearer dulu; fallback cookie bila server lama (404).
+    final (dok, derr, notSupported) =
+        await authorizeDevice(email, password);
+    if (dok) {
+      final s = await deviceMe();
+      if (s != null) return (true, null);
+      return (false, 'Session tidak terbentuk, coba lagi');
+    }
+    if (!notSupported) return (false, derr);
     try {
       final d = await dio();
       final csrf = await d.get('/api/auth/csrf');
@@ -92,14 +260,20 @@ class ApiClient {
           return (false, 'Email / password salah');
         }
         final s = await session();
-        if (s != null) return (true, null);
+        if (s != null) {
+          await upgradeToDeviceToken(); // migrasi cookie → token, best-effort
+          return (true, null);
+        }
         return (false, 'Session tidak terbentuk, coba lagi');
       }
       if (res.statusCode == 302) {
         final loc = res.headers['location']?.first ?? '';
         if (loc.contains('error=')) return (false, 'Email / password salah');
         final s = await session();
-        if (s != null) return (true, null);
+        if (s != null) {
+          await upgradeToDeviceToken(); // migrasi cookie → token, best-effort
+          return (true, null);
+        }
       }
       return (false, 'Login gagal (${res.statusCode})');
     } on DioException catch (e) {
@@ -135,6 +309,15 @@ class ApiClient {
         await GoogleSignIn.instance.signOut();
       } catch (_) {}
     }
+    // Fase 3: revoke token perangkat best-effort (header masih terpasang).
+    try {
+      final d = await dio();
+      await d.post('/api/auth/device/revoke', data: {'self': true});
+    } catch (_) {}
+    try {
+      await AuthStore.clearDeviceToken();
+    } catch (_) {}
+    _applyToken(null);
     try {
       final d = await dio();
       await d.post('/api/auth/signout');
@@ -194,11 +377,38 @@ class ApiClient {
         return (false, 'Token Google kosong — coba lagi');
       }
       final d = await dio();
+      // Fase 3: coba tukar ID token langsung menjadi Bearer (server baru).
+      try {
+        final meta = await _deviceMeta();
+        final dr = await d.post('/api/auth/device/google',
+            data: {'idToken': idToken, ...meta});
+        if ((dr.statusCode == 200 || dr.statusCode == 201) &&
+            dr.data is Map) {
+          final token = '${(dr.data as Map)['token'] ?? ''}';
+          if (token.isNotEmpty) {
+            await AuthStore.saveDeviceToken(token);
+            _applyToken(token);
+            final s = await deviceMe();
+            if (s != null) return (true, null);
+          }
+        }
+      } on DioException catch (e) {
+        // 404 = server lama → lanjut ke flow cookie legacy di bawah.
+        if (e.response?.statusCode != 404) {
+          final err = (e.response?.data as Map?)?['error'];
+          if (err == 'INVALID_GOOGLE_TOKEN' || err == 'AUD_MISMATCH') {
+            return (false, 'Token Google ditolak server — coba lagi');
+          }
+        }
+      } catch (_) {}
       final r = await d.post('/api/auth/mobile/google',
           data: {'idToken': idToken});
       if (r.statusCode == 200) {
         final s = await session();
-        if (s != null) return (true, null);
+        if (s != null) {
+          await upgradeToDeviceToken(); // migrasi cookie → token, best-effort
+          return (true, null);
+        }
         return (false, 'Session tidak terbentuk, coba lagi');
       }
       return (false, 'Login Google gagal (${r.statusCode})');

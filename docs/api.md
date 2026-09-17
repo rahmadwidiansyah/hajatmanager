@@ -35,6 +35,30 @@ Dikelola **Auth.js v5**. Endpoint otomatis:
 
 Validasi Zod: `name min 2, email valid, password min 6`.
 
+**Device-token untuk client native — Fase 3 (WPF/Flutter):**
+Semua `/api/*` menerima `Authorization: Bearer <token>` selain cookie.
+Token 256-bit (disimpan sha256), TTL 30 hari, revoke = soft-delete.
+
+| Method | Endpoint | Auth | Body | Response |
+|---|---|---|---|---|
+| POST | `/api/auth/device/authorize` | Tidak | `{ email, password, deviceName?, platform? }` | `{ token, expiresAt, user }` |
+| POST | `/api/auth/device/google` | Tidak | `{ idToken, deviceName?, platform? }` | `{ token, expiresAt, user }` |
+| POST | `/api/auth/device/upgrade` | Cookie | `{ deviceName?, platform? }` | `{ token, expiresAt, user }` (migrasi sekali jalan) |
+| POST | `/api/auth/device/refresh` | Bearer | - | `{ token, expiresAt, user }` (rotasi) |
+| GET | `/api/auth/device/me` | Bearer | - | `{ user }` |
+| GET | `/api/auth/device/list` | Ya | - | `{ devices: [{ id, deviceName, platform, createdAt, lastUsedAt, expiresAt, current }] }` |
+| POST | `/api/auth/device/revoke` | Ya | `{ id }` atau `{ self: true }` | `{ ok: true }` |
+
+**Login Google desktop via browser — Fase 4 (Windows/Linux):**
+
+1. App buka browser ke `GET /device/google?state=<acak32>&port=<loopback>&device=<label>`.
+2. User login Google (web biasa) → server buat grant sekali-pakai (10 mnt) → halaman finish redirect otomatis ke `http://127.0.0.1:<port>/callback?code=<grant>&state=<state>` (plus tombol "Salin kode" untuk tempel manual).
+3. App tukar grant:
+
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| POST | `/api/auth/device/code` | `{ code, deviceName?, platform? }` | `{ token, expiresAt, user }` |
+
 ## 2. Event (Acara)
 
 | Method | Endpoint | Auth | Body | Keterangan |

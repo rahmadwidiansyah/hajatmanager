@@ -3,13 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Hajat Manager" Height="640" Width="480"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource SurfaceBrush}">
+        Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="32" MaxWidth="400" VerticalAlignment="Center">
       <TextBlock Text="Hajat Manager" FontSize="24" FontWeight="Bold"
-                 Foreground="{StaticResource OnSurfaceBrush}" TextAlignment="Center"/>
+                 Foreground="{DynamicResource OnSurfaceBrush}" TextAlignment="Center"/>
       <TextBlock Text="Catat pemberian satset, online maupun offline."
-                 Foreground="{StaticResource OnVariantBrush}" TextAlignment="Center"
+                 Foreground="{DynamicResource OnVariantBrush}" TextAlignment="Center"
                  Margin="0,4,0,24" TextWrapping="Wrap"/>
 
       <TextBlock Text="Nama" Margin="0,0,0,4" x:Name="NameLabel" Visibility="Collapsed"/>
@@ -21,13 +21,34 @@
       <TextBlock Text="Password (min 6)" Margin="0,0,0,4"/>
       <PasswordBox x:Name="PassBox" Margin="0,0,0,16"/>
 
-      <Button x:Name="SubmitBtn" Content="Masuk" Style="{StaticResource PrimaryButton}"
+      <Button x:Name="SubmitBtn" Content="Masuk" Style="{DynamicResource PrimaryButton}"
               Click="OnSubmit" Margin="0,0,0,8"/>
       <Button Content="Belum punya akun? Daftar" Click="OnToggleReg"
               Background="Transparent" BorderThickness="0"
-              Foreground="{StaticResource PrimaryBrush}" Cursor="Hand"/>
+              Foreground="{DynamicResource PrimaryBrush}" Cursor="Hand"/>
 
-      <TextBlock x:Name="ErrText" Foreground="{StaticResource ErrorBrush}"
+      <!-- Fase 4: Google desktop via browser (visible bila server mendukung) -->
+      <StackPanel x:Name="GooglePanel" Visibility="Collapsed" Margin="0,12,0,0">
+        <Grid Margin="0,0,0,8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Separator Grid.Column="0" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="1" Text="atau" Margin="12,0"
+                     Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center"/>
+          <Separator Grid.Column="2" VerticalAlignment="Center"/>
+        </Grid>
+        <Button x:Name="GoogleBtn" Content="Lanjutkan dengan Google" Click="OnGoogle"
+                Padding="16,10" Cursor="Hand"/>
+        <Button Content="Punya kode Google manual? Tempel di sini" Click="OnPasteCode"
+                Background="Transparent" BorderThickness="0"
+                Foreground="{DynamicResource PrimaryBrush}" Cursor="Hand"
+                FontSize="11" Margin="0,4,0,0"/>
+      </StackPanel>
+
+      <TextBlock x:Name="ErrText" Foreground="{DynamicResource ErrorBrush}"
                  TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
 
       <Separator Margin="0,16"/>
@@ -38,7 +59,7 @@
         <TextBox x:Name="ServerBox" Text="https://hajat.widihhh.my.id"/>
       </DockPanel>
       <TextBlock Text="Default: https://hajat.widihhh.my.id — tap Tes dulu sebelum masuk."
-                 FontSize="11" Foreground="{StaticResource OnVariantBrush}"
+                 FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
                  TextWrapping="Wrap" Margin="0,4,0,0"/>
     </StackPanel>
   </ScrollViewer>
