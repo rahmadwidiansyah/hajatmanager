@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Hajat Manager
+Comment=Buku tamu & catat pemberian hajatan
+Exec=hajat-manager
+Icon=hajat-manager
+Terminal=false
+Type=Application
+Categories=Office;Finance;
+StartupWMClass=hajat_manager

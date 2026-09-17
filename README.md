@@ -49,6 +49,7 @@ Lihat panduan lengkap di [`docs/setup.md`](docs/setup.md).
 | [`docs/setup.md`](docs/setup.md) | Setup lokal & deploy homelab + Google OAuth |
 | [`docs/user-guide.md`](docs/user-guide.md) | Panduan panitia & owner (bahasa awam) |
 | [`docs/decision-log.md`](docs/decision-log.md) | Catatan keputusan arsitektur (ADR) |
+| [`docs/release-desktop.md`](docs/release-desktop.md) | Setup.exe Windows, paket Linux/AUR, build lokal |
 | [`CHANGELOG.md`](CHANGELOG.md) | Riwayat perubahan |
 
 ## 🖥️ Alur Singkat

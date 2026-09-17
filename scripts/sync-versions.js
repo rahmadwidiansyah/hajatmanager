@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Sync semantic-release version to web + Flutter (native Capacitor/Tauri dihapus)
+// Sync semantic-release version ke: package.json, csproj (WPF),
+// hajat-manager.iss (Setup.exe), PKGBUILD (AUR), mobile/pubspec.yaml.
 const fs = require("fs");
 const path = require("path");
 
@@ -22,6 +23,40 @@ function updateJson(file, updater) {
 // root package.json
 updateJson("package.json", (j) => { j.version = clean; });
 updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
+
+// windows .NET WPF — <Version>x.y.z</Version> di csproj
+(function updateCsproj() {
+  const p = path.join(__dirname, "..", "windows", "src", "HajatManager", "HajatManager.csproj");
+  if (!fs.existsSync(p)) return console.warn("skip HajatManager.csproj not found");
+  let s = fs.readFileSync(p, "utf8");
+  if (/<Version>.*<\/Version>/.test(s)) {
+    s = s.replace(/<Version>.*<\/Version>/, `<Version>${clean}</Version>`);
+  } else {
+    s = s.replace(/<PropertyGroup>/, `<PropertyGroup>\n    <Version>${clean}</Version>`);
+  }
+  fs.writeFileSync(p, s);
+  console.log(`updated HajatManager.csproj -> ${clean}`);
+})();
+
+// windows installer — #define MyAppVersion "x.y.z" di .iss
+(function updateIss() {
+  const p = path.join(__dirname, "..", "windows", "installer", "hajat-manager.iss");
+  if (!fs.existsSync(p)) return console.warn("skip hajat-manager.iss not found");
+  let s = fs.readFileSync(p, "utf8");
+  s = s.replace(/^#define MyAppVersion ".*"$/m, `#define MyAppVersion "${clean}"`);
+  fs.writeFileSync(p, s);
+  console.log(`updated hajat-manager.iss -> ${clean}`);
+})();
+
+// linux AUR — pkgver=x.y.z di PKGBUILD
+(function updatePkgbuild() {
+  const p = path.join(__dirname, "..", "packaging", "linux", "PKGBUILD");
+  if (!fs.existsSync(p)) return console.warn("skip packaging/linux/PKGBUILD not found");
+  let s = fs.readFileSync(p, "utf8");
+  s = s.replace(/^pkgver=.*$/m, `pkgver=${clean}`);
+  fs.writeFileSync(p, s);
+  console.log(`updated packaging/linux/PKGBUILD -> ${clean}`);
+})();
 
 // mobile/pubspec.yaml — version: x.y.z+N (N = GITHUB_RUN_NUMBER agar naik tiap rilis)
 (function updatePubspec() {

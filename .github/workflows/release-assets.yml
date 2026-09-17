@@ -76,11 +76,40 @@ jobs:
           Compress-Archive -Path src/HajatManager/publish/* -DestinationPath "release/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-x64.zip" -Force
           Get-ChildItem release/
 
+      - name: Publish self-contained (untuk Setup.exe)
+        working-directory: windows/src/HajatManager
+        run: >
+          dotnet publish -c Release --no-build
+          -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:Version=${{ needs.resolve.outputs.version }}
+          -o publish-setup
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile Setup.exe
+        shell: pwsh
+        working-directory: windows/installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=${{ needs.resolve.outputs.version }}" `
+            hajat-manager.iss
+          Get-ChildItem ..\release\*.exe
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: hajat-manager-windows-csharp
           path: windows/release/*.zip
+          if-no-files-found: error
+
+      - name: Upload Setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-windows-setup
+          path: windows/release/*.exe
           if-no-files-found: error
 
   build-flutter-apk:
@@ -164,8 +193,61 @@ jobs:
           path: release/*.apk
           if-no-files-found: error
 
+  build-flutter-linux:
+    # Flutter desktop Linux (Arch/CachyOS): tarball + AppImage.
+    needs: resolve
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+
+      - name: Build Linux (release)
+        working-directory: mobile
+        run: flutter build linux --release --build-name=${{ needs.resolve.outputs.version }} --build-number=${{ github.run_number }}
+
+      - name: Collect tarball + AppImage
+        run: |
+          mkdir -p release-linux stage
+          V="${{ needs.resolve.outputs.version }}"
+          cp -r mobile/build/linux/x64/release/bundle stage/bundle
+          cp packaging/linux/hajat-manager.desktop stage/
+          cp mobile/assets/app_icon.png stage/hajat-manager.png
+          tar -czf "release-linux/Hajat-Manager-$V-linux-x64.tar.gz" -C stage bundle hajat-manager.desktop hajat-manager.png
+          bash packaging/linux/build-appimage.sh \
+            mobile/build/linux/x64/release/bundle \
+            packaging/linux/hajat-manager.desktop \
+            mobile/assets/app_icon.png \
+            "release-linux/Hajat-Manager-$V-linux-x64.AppImage"
+          sha256sum release-linux/* > release-linux/SHA256SUMS.txt
+          ls -lh release-linux/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-linux
+          path: release-linux/*
+          if-no-files-found: error
+
   publish:
-    needs: [resolve, build-windows-csharp, build-flutter-apk]
+    needs: [resolve, build-windows-csharp, build-flutter-apk, build-flutter-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write

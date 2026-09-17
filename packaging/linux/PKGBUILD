@@ -1,0 +1,26 @@
+# Maintainer: Rahmad Widiansyah
+# Paket -bin untuk Arch/CachyOS: unduh tarball rilis GitHub resmi.
+# pkgver disync otomatis via `node scripts/sync-versions.js <ver>`.
+pkgname=hajat-manager-bin
+pkgver=1.6.3
+pkgrel=1
+pkgdesc="Buku tamu & catat pemberian hajatan (Flutter desktop)"
+arch=('x86_64')
+url="https://github.com/rahmadwidiansyah/hajatmanager"
+license=('MIT')
+depends=('gtk3' 'libsecret' 'lz4' 'xz')
+optdepends=('libappindicator-gtk3: tray icon')
+provides=('hajat-manager')
+conflicts=('hajat-manager')
+source=("Hajat-Manager-${pkgver}-linux-x64.tar.gz::https://github.com/rahmadwidiansyah/hajatmanager/releases/download/v${pkgver}/Hajat-Manager-${pkgver}-linux-x64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  cd "$srcdir"
+  install -dm755 "$pkgdir/usr/lib/hajat-manager" "$pkgdir/usr/bin" \
+    "$pkgdir/usr/share/applications" "$pkgdir/usr/share/icons/hicolor/512x512/apps"
+  cp -r bundle/* "$pkgdir/usr/lib/hajat-manager/"
+  ln -s /usr/lib/hajat-manager/hajat_manager "$pkgdir/usr/bin/hajat-manager"
+  install -m644 hajat-manager.desktop "$pkgdir/usr/share/applications/"
+  install -m644 hajat-manager.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/"
+}

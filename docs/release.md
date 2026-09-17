@@ -10,10 +10,14 @@ Alur resmi (otomatis penuh):
    → buat tag `v*` + GitHub Release berisi catatan rilis.
 3. Tag `v*` memicu **`Release Assets`**: build paralel
    - `build-windows-csharp` (windows): `Hajat-Manager-<ver>-windows-x64.zip`
-     (WPF .NET 9, dari `windows/`)
+     (framework-dependent) + `Hajat-Manager-<ver>-windows-x64-Setup.exe`
+     (self-contained + Inno Setup, tanpa admin) — WPF .NET 10, dari `windows/`
    - `build-flutter-apk` (ubuntu): `Hajat-Manager-<ver>-unsigned.apk`
      (+ `Hajat-Manager-<ver>.apk` bila secrets keystore ada) — dari `mobile/`
      (Flutter, appId `com.hajatmanager.hajat_manager`)
+   - `build-flutter-linux` (ubuntu): `Hajat-Manager-<ver>-linux-x64.tar.gz`
+     + `Hajat-Manager-<ver>-linux-x64.AppImage` + `SHA256SUMS.txt`
+     — Flutter desktop, dari `mobile/`. Detail: [`release-desktop.md`](release-desktop.md).
 4. Job `publish` melampirkan **semua file ke 1 release yang sama** (sekali,
    anti-balapan). Cek di halaman Releases.
 
@@ -44,6 +48,6 @@ job `publish` + `release`).
 | Tag dibuat tapi `Release Assets` tidak jalan | Cek tab Actions aktif; `[skip ci]` tidak boleh ada di pesan commit rilis (sudah dihapus dari `.releaserc.json`). |
 | `flutter build windows` gagal CMake | `windows-latest` wajib (butuh VS 2022 C++ workload, preinstalled). Jangan pindah ke ubuntu. |
 | `sqflite` crash di Windows | Sudah ditangani (`sqflite_common_ffi` + `initLocalDb()` di `main`). |
-| Login Google di Windows | Disembunyikan sengaja (plugin hanya Android/iOS) → pakai email. |
+| Login Google di desktop | Via browser + loopback (Fase 4) — tombol muncul bila server punya `GOOGLE_CLIENT_ID`. Tidak perlu plugin native. |
 | Rilis ganda/notes tertimpa | Pastikan tidak ada workflow lain yang attach ke tag `v*` selain `publish`. |
 | APK "tidak valid" saat install | Pakai file `-unsigned.apk` (fallback debug) atau isi secrets keystore untuk signed. |
