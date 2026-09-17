@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.3...v1.7.0) (2026-09-17)
+
+
+### Features
+
+* **mobile,windows,android:** form acara lengkap + kunci signature rilis ([af690d0](https://github.com/rahmadwidiansyah/hajatmanager/commit/af690d064a53fae2a5d196532178af749f3e527f))
+
 ## [1.6.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.2...v1.6.3) (2026-09-16)
 
 
