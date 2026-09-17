@@ -1,3 +1,23 @@
+# [1.8.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.7.0...v1.8.0) (2026-09-17)
+
+
+### Bug Fixes
+
+* **desktop:** fase B diagnosa login google (log + salin tautan) ([3c232e9](https://github.com/rahmadwidiansyah/hajatmanager/commit/3c232e91a995c4e7b61448c7a76870096b544df9))
+* **windows:** fase 0-1 anti-crash startup, api, dan sync ([eafab0d](https://github.com/rahmadwidiansyah/hajatmanager/commit/eafab0d7ba25184b613120857961f431299aa84c))
+* **windows:** fase 2 login cookie tanpa redirect ala flutter ([07b65fa](https://github.com/rahmadwidiansyah/hajatmanager/commit/07b65fa7c03a5974a474ca9f8bbf71462a770616))
+
+
+### Features
+
+* **auth:** fase 3 bearer device-token backend, web, dan store native ([3a105ff](https://github.com/rahmadwidiansyah/hajatmanager/commit/3a105ff655c30f8c450eaa41ab97b8ff89c14109))
+* **auth:** fase 4 login google desktop via browser loopback ([5459353](https://github.com/rahmadwidiansyah/hajatmanager/commit/54593538e9b4991ee0a9b358ac17a7cac134d98b))
+* **mobile:** fase 5 layar acara + fase C adaptif tablet ([38de7bb](https://github.com/rahmadwidiansyah/hajatmanager/commit/38de7bb53973ed67de87541e13baecc54041f6a6))
+* **mobile:** fase A pilihan tema terang/gelap/sistem ([f88a70b](https://github.com/rahmadwidiansyah/hajatmanager/commit/f88a70bbce14f132c528f8000a209ccc7f76896b))
+* **release:** fase 6 setup.exe, paket linux, dan CI desktop ([365a6b0](https://github.com/rahmadwidiansyah/hajatmanager/commit/365a6b044e333814faa14185145558b557957999))
+* **ui:** fase 5 parity desktop setara web ([c2177ae](https://github.com/rahmadwidiansyah/hajatmanager/commit/c2177aec92e9d6849f9c8e88db98f3f09ec1d40b))
+* **windows:** fase A dark mode penuh terang/gelap/sistem ([027f234](https://github.com/rahmadwidiansyah/hajatmanager/commit/027f2344e02f347f59b4e051de3dde3580919760))
+
 # [1.7.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.6.3...v1.7.0) (2026-09-17)
 
 
