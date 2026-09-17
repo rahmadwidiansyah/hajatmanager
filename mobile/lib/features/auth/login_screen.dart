@@ -1,8 +1,14 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/app_config.dart';
 import '../../core/auth_store.dart';
+import '../../core/google_loopback.dart';
 import '../../core/sync_engine.dart';
 import 'pin_screen.dart';
 import '../../widgets/app_widgets.dart';
@@ -28,6 +34,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool testing = false;
   String? googleId;
   bool googleChecked = false;
+  GoogleLoopback? _loop;
+
+  /// Fase 4: Google desktop (Windows/Linux/macOS) via browser + loopback.
+  /// Mobile tetap pakai SDK native (supportsGoogleSignIn).
+  static bool get _isDesktop =>
+      !kIsWeb &&
+      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
   @override
   void initState() {
@@ -78,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
     passC.dispose();
     nameC.dispose();
     serverC.dispose();
+    _loop?.close();
     super.dispose();
   }
 
@@ -156,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             if (googleChecked &&
                 googleId != null &&
-                ApiClient.supportsGoogleSignIn) ...[
+                (ApiClient.supportsGoogleSignIn || _isDesktop)) ...[
               const SizedBox(height: 8),
               Row(children: [
                 const Expanded(child: Divider()),
@@ -172,7 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ]),
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                onPressed: (gBusy || busy) ? null : _google,
+                onPressed: (gBusy || busy)
+                    ? null
+                    : (ApiClient.supportsGoogleSignIn
+                        ? _google
+                        : _googleDesktop),
                 icon: gBusy
                     ? const SizedBox(
                         width: 20,
@@ -197,10 +215,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       : 'Lanjutkan dengan Google'),
                 ),
               ),
+              if (_isDesktop && !ApiClient.supportsGoogleSignIn)
+                TextButton(
+                  onPressed: (gBusy || busy) ? null : _pasteGoogleCode,
+                  child: const Text('Punya kode Google manual? Tempel di sini',
+                      style: TextStyle(fontSize: 11)),
+                ),
             ],
             if (googleChecked &&
                 (googleId == null ||
-                    !ApiClient.supportsGoogleSignIn)) ...[
+                    (!ApiClient.supportsGoogleSignIn &&
+                        !_isDesktop))) ...[
               const SizedBox(height: 8),
               Row(children: [
                 const Expanded(child: Divider()),
@@ -217,7 +242,9 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed:
-                    ApiClient.supportsGoogleSignIn ? _loadServer : null,
+                    (ApiClient.supportsGoogleSignIn || _isDesktop)
+                        ? _loadServer
+                        : null,
                 icon: const Icon(Icons.account_circle_outlined,
                     size: 20),
                 label: const Padding(
@@ -227,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                  ApiClient.supportsGoogleSignIn
+                  (ApiClient.supportsGoogleSignIn || _isDesktop)
                       ? 'Server offline atau GOOGLE_CLIENT_ID belum diisi di server. Cek kolom Server + Tes, lalu tap tombol di atas untuk coba lagi.'
                       : 'Login Google hanya tersedia di Android/iOS — di perangkat ini silakan masuk dengan email.',
                   textAlign: TextAlign.center,
@@ -322,6 +349,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Ekor login remote bersama (Google native/desktop, kode manual):
+  /// session → cache user → alur PIN. Return true bila navigasi jalan.
+  Future<bool> _finishRemoteLogin(String emailFallback) async {
+    final s = await ApiClient.instance.session();
+    final userMap = s?['user'];
+    await AuthStore.saveUser(Map<String, dynamic>.from(
+        (userMap ?? {'email': emailFallback}) as Map));
+    if (!mounted) return false;
+    final next = await resolveNextAfterLogin();
+    if (!mounted) return false;
+    // ignore: use_build_context_synchronously
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => next));
+    return true;
+  }
+
   /// Login Google native: popup akun HP → session server → alur PIN sama.
   Future<void> _google() async {
     // Refresh ID server dulu (jangan percaya cache lama — env bisa ganti).
@@ -337,19 +380,173 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         return;
       }
-      final s = await ApiClient.instance.session();
-      final email = '${(s?['user'] as Map?)?['email'] ?? ''}';
-      await AuthStore.saveUser(Map<String, dynamic>.from(
-          (s?['user'] ?? {'email': email}) as Map));
-      if (mounted) {
-        final next = await resolveNextAfterLogin();
-        if (!mounted) return;
-        // ignore: use_build_context_synchronously
-        Navigator.of(context)
-            .pushReplacement(MaterialPageRoute(builder: (_) => next));
-      }
+      await _finishRemoteLogin('');
     } finally {
       if (mounted) setState(() => gBusy = false);
+    }
+  }
+
+  /// Fase 4: Google desktop — buka browser sistem → tunggu loopback
+  /// → tukar grant menjadi Bearer → alur PIN sama.
+  /// Fase B: tiap langkah di-log ([GoogleDesktop]) + bila browser gagal
+  /// dibuka, tampilkan tautan + tombol salin agar tidak mentok.
+  Future<void> _googleDesktop() async {
+    if (googleId == null) await _loadServer();
+    if (!mounted) return;
+    setState(() => gBusy = true);
+    GoogleLoopback? loop;
+    try {
+      try {
+        await _loop?.close();
+        loop = await GoogleLoopback.start();
+        _loop = loop;
+        debugPrint('[GoogleDesktop] loopback siap di port ${loop.port}');
+      } catch (e) {
+        debugPrint('[GoogleDesktop] GAGAL buka port lokal: $e');
+        if (mounted) {
+          showTopSnack(context,
+              SnackBar(content: Text('Tidak bisa buka port lokal: $e')));
+        }
+        return;
+      }
+      final base = await AppConfig.getBaseUrl();
+      final device = await AppConfig.getDeviceId();
+      final url = GoogleLoopback.buildStartUrl(
+          base, loop.port, loop.state, device);
+      debugPrint('[GoogleDesktop] start URL: $url');
+      bool opened = false;
+      try {
+        opened = await launchUrl(Uri.parse(url),
+            mode: LaunchMode.externalApplication);
+      } catch (e) {
+        debugPrint('[GoogleDesktop] launchUrl error: $e');
+        opened = false;
+      }
+      debugPrint('[GoogleDesktop] browser opened=$opened');
+      if (!opened) {
+        if (mounted) await _showOpenLinkFallback(url);
+        return;
+      }
+      debugPrint('[GoogleDesktop] menunggu callback loopback…');
+      final hit = await loop.wait();
+      debugPrint(
+          '[GoogleDesktop] callback: ${hit == null ? 'TIMEOUT/BATAL' : 'diterima, state cocok'}');
+      if (hit == null) {
+        if (mounted) {
+          showTopSnack(context,
+              const SnackBar(content: Text('Login Google dibatalkan / timeout — coba lagi')));
+        }
+        return;
+      }
+      final (ok, err) =
+          await ApiClient.instance.exchangeDeviceCode(hit.code);
+      debugPrint('[GoogleDesktop] tukar kode: ok=$ok err=$err');
+      if (!ok) {
+        if (mounted) {
+          showTopSnack(
+              context, SnackBar(content: Text(err ?? 'Gagal tukar kode')));
+        }
+        return;
+      }
+      await _finishRemoteLogin('');
+    } finally {
+      try {
+        await loop?.close();
+      } catch (_) {}
+      if (_loop == loop) _loop = null;
+      if (mounted) setState(() => gBusy = false);
+    }
+  }
+
+  /// Fallback kasat mata: browser gagal dibuka → tampilkan tautan start
+  /// + tombol salin agar user bisa buka manual di browser mana pun.
+  Future<void> _showOpenLinkFallback(String url) async {
+    if (!mounted) return;
+    await showWideDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Buka tautan manual'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Browser tidak terbuka otomatis. Salin tautan ini, tempel di browser, selesaikan login Google, lalu kembali ke aplikasi.'),
+            const SizedBox(height: 12),
+            SelectableText(url,
+                style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 11)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: url));
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (mounted) {
+                showTopSnack(context, const SnackBar(
+                    content: Text('Tautan tersalin — tempel di browser')));
+              }
+            },
+            icon: const Icon(Icons.copy_outlined, size: 18),
+            label: const Text('Salin tautan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback: tempel kode dari halaman browser bila loopback tak terjangkau.
+  Future<void> _pasteGoogleCode() async {
+    final codeC = TextEditingController();
+    try {
+      final code = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Tempel kode Google'),
+          content: TextField(
+            controller: codeC,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Salin dari tombol "Salin kode" di browser',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(ctx).pop(codeC.text.trim()),
+              child: const Text('Lanjutkan'),
+            ),
+          ],
+        ),
+      );
+      if (code == null || code.length < 20 || !mounted) return;
+      setState(() => gBusy = true);
+      try {
+        final (ok, err) =
+            await ApiClient.instance.exchangeDeviceCode(code);
+        if (!ok) {
+          if (mounted) {
+            showTopSnack(
+                context, SnackBar(content: Text(err ?? 'Gagal tukar kode')));
+          }
+          return;
+        }
+        await _finishRemoteLogin('');
+      } finally {
+        if (mounted) setState(() => gBusy = false);
+      }
+    } finally {
+      codeC.dispose();
     }
   }
 }
