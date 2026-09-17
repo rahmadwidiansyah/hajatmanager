@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.1...v1.8.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **release:** hapus bahasa Indonesian dari ISS ([88d488c](https://github.com/rahmadwidiansyah/hajatmanager/commit/88d488c512e864cd6204ca71899c1f26f291af3e))
+
 ## [1.8.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.8.0...v1.8.1) (2026-09-17)
 
 
