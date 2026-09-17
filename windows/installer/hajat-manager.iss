@@ -27,8 +27,9 @@ DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ; Data lokal (%AppData%\HajatManager) TIDAK dihapus saat uninstall.
 
+; Catatan: Indonesian.isl tidak ikut instalasi default Inno Setup 6,
+; jadi wizard memakai bahasa Inggris (app tetap Indonesia).
 [Languages]
-Name: "indonesian"; MessagesFile: "compiler:Languages\Indonesian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
