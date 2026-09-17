@@ -2,6 +2,45 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../core/sync_engine.dart';
+import '../core/window_ui.dart';
+
+/// Dialog ramah-desktop: min 400px di layar lebar (cermin maxWidth 480
+/// login), full di HP. Esc/native-back tetap dismiss (bawaan showDialog).
+Future<T?> showWideDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  double minWidth = 400,
+  double maxWidth = 560,
+}) {
+  return showDialog<T>(
+    context: context,
+    builder: (ctx) {
+      final w = MediaQuery.sizeOf(ctx).width;
+      final min = w > maxWidth + 64 ? minWidth : 0.0;
+      return Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: min, maxWidth: maxWidth),
+          child: builder(ctx),
+        ),
+      );
+    },
+  );
+}
+
+/// Bottom-sheet di HP, dialog di desktop lebar (>=900px).
+/// Builder yang sama bisa dipakai untuk keduanya.
+Future<T?> showAdaptiveSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  final wide = WindowUi.isWide(MediaQuery.sizeOf(context).width);
+  if (wide) return showWideDialog<T>(context: context, builder: builder);
+  return showModalBottomSheet<T>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(child: builder(ctx)),
+  );
+}
 
 /// Tampilkan SnackBar di ATAS (floating, di bawah AppBar) — bukan bottom default.
 /// Menerima SnackBar apa adanya, paksa posisi top + auto-hilang sesuai

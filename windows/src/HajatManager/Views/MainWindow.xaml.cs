@@ -13,20 +13,28 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += async (_, _) =>
         {
-            // Kunci PIN bila ada dan di luar grace period.
-            var email = UserEmail();
-            if (AuthStore.HasPin() && !AppConfig.Instance.WithinGrace())
+            try
             {
-                var d = new PinDialog("Kunci Layar", "Masukkan PIN 6 digit.");
-                if (d.ShowDialog() != true || !AuthStore.VerifyPin(email, d.Pin))
+                // Kunci PIN bila ada dan di luar grace period.
+                var email = UserEmail();
+                if (AuthStore.HasPin() && !AppConfig.Instance.WithinGrace())
                 {
-                    new LoginWindow().Show();
-                    Close();
-                    return;
+                    var d = new PinDialog("Kunci Layar", "Masukkan PIN 6 digit.");
+                    if (d.ShowDialog() != true || !AuthStore.VerifyPin(email, d.Pin))
+                    {
+                        new LoginWindow().Show();
+                        Close();
+                        return;
+                    }
+                    AppConfig.Instance.MarkUnlocked();
                 }
-                AppConfig.Instance.MarkUnlocked();
+                GoEvents(null, new RoutedEventArgs());
             }
-            GoEvents(null, new RoutedEventArgs());
+            catch (Exception ex)
+            {
+                AppLogger.LogException("MainWindow.Load gagal", ex);
+                try { GoEvents(null, new RoutedEventArgs()); } catch { }
+            }
             _ = RefreshStatusAsync();
         };
     }
@@ -43,37 +51,73 @@ public partial class MainWindow : Window
 
     private async Task RefreshStatusAsync()
     {
-        var ok = await SyncEngine.Instance.CheckNowAsync();
-        StatusText.Text = ok ? "Online ✓" : "Offline ✗";
+        try
+        {
+            var ok = await SyncEngine.Instance.CheckNowAsync();
+            StatusText.Text = ok ? "Online ✓" : "Offline ✗";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException("RefreshStatus gagal", ex);
+            try { StatusText.Text = "Offline ✗"; } catch { }
+        }
     }
 
-    private void GoEvents(object? s, RoutedEventArgs e) => Host.Content = new EventsView();
-    private void GoAccount(object? s, RoutedEventArgs e) => Host.Content = new AccountView();
+    // Fase 5: tandai menu aktif (bold) seperti nav web.
+    private void GoEvents(object? s, RoutedEventArgs e)
+    {
+        Host.Content = new EventsView();
+        AcaraMenu.FontWeight = FontWeights.Bold;
+        AkunMenu.FontWeight = FontWeights.Normal;
+    }
+
+    private void GoAccount(object? s, RoutedEventArgs e)
+    {
+        Host.Content = new AccountView();
+        AcaraMenu.FontWeight = FontWeights.Normal;
+        AkunMenu.FontWeight = FontWeights.Bold;
+    }
 
     private async void OnSyncAll(object? s, RoutedEventArgs e)
     {
-        StatusText.Text = "Sync…";
-        // Flush semua event yang punya antrean (daftar dari DB lokal).
-        var events = await Data.LocalDb.Instance.GetEventsAsync();
-        int f = 0, c = 0;
-        foreach (var ev in events)
+        try
         {
-            var (fl, cf, _) = await SyncEngine.Instance.FlushAsync(ev.Id);
-            f += fl; c += cf;
+            StatusText.Text = "Sync…";
+            // Flush semua event yang punya antrean (daftar dari DB lokal).
+            var events = await Data.LocalDb.Instance.GetEventsAsync();
+            int f = 0, c = 0;
+            foreach (var ev in events)
+            {
+                var (fl, cf, _) = await SyncEngine.Instance.FlushAsync(ev.Id);
+                f += fl; c += cf;
+            }
+            StatusText.Text = $"Sync: {f} terkirim, {c} konflik";
+            if (Host.Content is EventsView ev2) await ev2.ReloadAsync();
         }
-        StatusText.Text = $"Sync: {f} terkirim, {c} konflik";
-        if (Host.Content is EventsView ev2) await ev2.ReloadAsync();
+        catch (Exception ex)
+        {
+            AppLogger.LogException("SyncAll gagal", ex);
+            try { StatusText.Text = "Sync gagal ✗"; } catch { }
+        }
     }
 
     private async void OnLogout(object? sender, RoutedEventArgs e)
     {
-        var r = MessageBox.Show(this,
-            "Session + PIN di perangkat ini dihapus. Data antrean yang belum sync ikut terhapus.\n\nKeluar akun?",
-            "Keluar akun?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (r != MessageBoxResult.Yes) return;
-        await ApiClient.Instance.LogoutAsync();
-        AuthStore.Logout();
-        new LoginWindow().Show();
-        Close();
+        try
+        {
+            var r = MessageBox.Show(this,
+                "Session + PIN di perangkat ini dihapus. Data antrean yang belum sync ikut terhapus.\n\nKeluar akun?",
+                "Keluar akun?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (r != MessageBoxResult.Yes) return;
+            try { await ApiClient.Instance.LogoutAsync(); }
+            catch (Exception ex) { AppLogger.Warn($"Logout server gagal (best-effort): {ex.Message}"); }
+            AuthStore.Logout();
+            new LoginWindow().Show();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException("Logout gagal", ex);
+        }
     }
 }

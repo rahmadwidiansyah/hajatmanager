@@ -59,11 +59,13 @@ public partial class LogWindow : Window
                     ? d.ToLocalTime().ToString("dd/MM HH:mm") : "",
             }).ToList();
             Grid.ItemsSource = rows;
+            StatusText.Text = "Online ✓";
         }
         catch
         {
             ErrText.Text = "Log butuh koneksi — data aman, coba lagi saat online.";
             ErrText.Visibility = Visibility.Visible;
+            try { StatusText.Text = "Offline ✗"; } catch { }
         }
     }
 

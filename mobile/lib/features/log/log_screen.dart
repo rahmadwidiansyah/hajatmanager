@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/api_client.dart';
+import '../../core/window_ui.dart';
 import '../../widgets/error_screen.dart';
 
 const _aksiList = [
@@ -35,11 +37,18 @@ class _LogScreenState extends State<LogScreen> {
   String q = '';
   String? error;
   int? errorStatus;
+  final searchFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    searchFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _load({bool reset = false, bool next = false}) async {
@@ -104,151 +113,207 @@ class _LogScreenState extends State<LogScreen> {
     return Icons.history_outlined;
   }
 
+  String _when(Map<String, dynamic> l) {
+    final dt =
+        DateTime.tryParse('${l['createdAt'] ?? ''}')?.toLocal();
+    if (dt == null) return '';
+    return '${dt.day}/${dt.month} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _pagerFooter(BuildContext context) {
+    if (logs.length >= total || total == 0) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+            child: Text('$total aktivitas',
+                style: Theme.of(context).textTheme.bodySmall)),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: FilledButton.tonalIcon(
+        onPressed: more ? null : () => _load(next: true),
+        icon: more
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.expand_more_outlined),
+        label: const Text('Muat lagi'),
+      ),
+    );
+  }
+
+  /// Baris kartu (HP) — dipertahankan untuk layar sempit.
+  Widget _logCard(Map<String, dynamic> l, ColorScheme scheme) {
+    final u = (l['user'] as Map?) ?? {};
+    final a = '${l['aksi'] ?? '-'}';
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        dense: true,
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(_icon(a),
+              size: 18, color: scheme.onSecondaryContainer),
+        ),
+        title: Text(a,
+            style:
+                const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        subtitle:
+            Text('${u['name'] ?? u['email'] ?? '?'} • ${_when(l)}'),
+      ),
+    );
+  }
+
+  /// Tabel desktop (>=900px): kolom Aksi/Pelaku/Waktu ala rekap web.
+  Widget _logTable() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: const [
+          DataColumn(label: Text('Aksi')),
+          DataColumn(label: Text('Pelaku')),
+          DataColumn(label: Text('Waktu')),
+        ],
+        rows: logs.map((l) {
+          final u = (l['user'] as Map?) ?? {};
+          final a = '${l['aksi'] ?? '-'}';
+          return DataRow(cells: [
+            DataCell(Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_icon(a), size: 18),
+                const SizedBox(width: 8),
+                Text(a,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            )),
+            DataCell(Text('${u['name'] ?? u['email'] ?? '?'}')),
+            DataCell(Text(_when(l))),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(title: Text('Log • ${widget.eventName}')),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-          child: TextField(
-            onChanged: (v) => setState(() => q = v),
-            onSubmitted: (_) => _load(reset: true),
-            decoration: const InputDecoration(
-                hintText: 'Cari aksi / nama / tamu…',
-                border: OutlineInputBorder(),
-                filled: true,
-                isDense: true,
-                prefixIcon: Icon(Icons.search_outlined)),
-          ),
-        ),
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: _aksiList
-                .map((a) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(a == 'Semua' ? a : a.split('_').last),
-                        selected: aksi == a,
-                        onSelected: (_) {
-                          setState(() => aksi = a);
-                          _load(reset: true);
-                        },
-                      ),
-                    ))
-                .toList(),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: loading
-              ? const Center(child: CircularProgressIndicator())
-              : error != null && logs.isEmpty
-                  ? ErrorBody(
-                      icon: errorStatus == null
-                          ? Icons.cloud_off_outlined
-                          : errorStatus == 404
-                              ? Icons.search_off_outlined
-                              : errorStatus == 403
-                                  ? Icons.lock_outlined
-                                  : errorStatus != null && errorStatus! >= 500
-                                      ? Icons.error_outline_outlined
-                                      : Icons.cloud_off_outlined,
-                      title: errorStatus == null
-                          ? 'Belum bisa memuat'
-                          : errorStatus == 404
-                              ? 'Tidak ketemu di server'
-                              : errorStatus == 403
-                                  ? 'Tidak punya izin'
-                                  : errorStatus != null && errorStatus! >= 500
-                                      ? 'Server bermasalah'
-                                      : 'Belum bisa memuat',
-                      subtitle: error,
-                      primaryLabel: 'Coba lagi',
-                      onPrimary: () => _load(reset: true),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () => _load(reset: true),
-                      child: ListView.builder(
-                        padding:
-                            const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                        itemCount: logs.length + 1,
-                        itemBuilder: (_, i) {
-                          if (i >= logs.length) {
-                            if (logs.length >= total || total == 0) {
-                              return Padding(
-                                padding:
-                                    const EdgeInsets.all(16),
-                                child: Center(
-                                    child: Text('$total aktivitas',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall)),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: FilledButton.tonalIcon(
-                                onPressed: more
-                                    ? null
-                                    : () => _load(next: true),
-                                icon: more
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child:
-                                            CircularProgressIndicator(
-                                                strokeWidth: 2))
-                                    : const Icon(
-                                        Icons.expand_more_outlined),
-                                label: const Text('Muat lagi'),
-                              ),
-                            );
-                          }
-                          final l = logs[i];
-                          final u = (l['user'] as Map?) ?? {};
-                          final a = '${l['aksi'] ?? '-'}';
-                          final dt = DateTime.tryParse(
-                                  '${l['createdAt'] ?? ''}')
-                              ?.toLocal();
-                          final when = dt == null
-                              ? ''
-                              : '${dt.day}/${dt.month} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 4),
-                            child: ListTile(
-                              dense: true,
-                              leading: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color:
-                                      scheme.secondaryContainer,
-                                  shape: BoxShape.circle,
+    // Ctrl+F fokus ke pencarian — standar app desktop.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            () => searchFocus.requestFocus(),
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text('Log • ${widget.eventName}')),
+        // LayoutBuilder agar resize window desktop update live.
+        body: LayoutBuilder(builder: (context, cons) {
+          final wide = WindowUi.isWide(cons.maxWidth);
+          final pad = WindowUi.pagePadding(cons.maxWidth);
+          return Column(children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad.left, 12, pad.right, 4),
+              child: TextField(
+                focusNode: searchFocus,
+                onChanged: (v) => setState(() => q = v),
+                onSubmitted: (_) => _load(reset: true),
+                decoration: const InputDecoration(
+                    hintText: 'Cari aksi / nama / tamu… (Ctrl+F)',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search_outlined)),
+              ),
+            ),
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: pad.left),
+                children: _aksiList
+                    .map((a) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(a == 'Semua' ? a : a.split('_').last),
+                            selected: aksi == a,
+                            onSelected: (_) {
+                              setState(() => aksi = a);
+                              _load(reset: true);
+                            },
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : error != null && logs.isEmpty
+                      ? ErrorBody(
+                          icon: errorStatus == null
+                              ? Icons.cloud_off_outlined
+                              : errorStatus == 404
+                                  ? Icons.search_off_outlined
+                                  : errorStatus == 403
+                                      ? Icons.lock_outlined
+                                      : errorStatus != null &&
+                                              errorStatus! >= 500
+                                          ? Icons.error_outline_outlined
+                                          : Icons.cloud_off_outlined,
+                          title: errorStatus == null
+                              ? 'Belum bisa memuat'
+                              : errorStatus == 404
+                                  ? 'Tidak ketemu di server'
+                                  : errorStatus == 403
+                                      ? 'Tidak punya izin'
+                                      : errorStatus != null &&
+                                              errorStatus! >= 500
+                                          ? 'Server bermasalah'
+                                          : 'Belum bisa memuat',
+                          subtitle: error,
+                          primaryLabel: 'Coba lagi',
+                          onPrimary: () => _load(reset: true),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _load(reset: true),
+                          child: wide
+                              // Desktop: tabel + footer paginasi.
+                              ? ListView(
+                                  padding: EdgeInsets.fromLTRB(
+                                      pad.left, 4, pad.right, 24),
+                                  children: [
+                                    Card(
+                                      margin: EdgeInsets.zero,
+                                      clipBehavior: Clip.antiAlias,
+                                      child: _logTable(),
+                                    ),
+                                    _pagerFooter(context),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  padding: EdgeInsets.fromLTRB(
+                                      pad.left, 4, pad.right, 24),
+                                  itemCount: logs.length + 1,
+                                  itemBuilder: (_, i) {
+                                    if (i >= logs.length) {
+                                      return _pagerFooter(context);
+                                    }
+                                    return _logCard(logs[i], scheme);
+                                  },
                                 ),
-                                child: Icon(_icon(a),
-                                    size: 18,
-                                    color: scheme
-                                        .onSecondaryContainer),
-                              ),
-                              title: Text(a,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13)),
-                              subtitle: Text(
-                                  '${u['name'] ?? u['email'] ?? '?'} • $when'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-        ),
-      ]),
+                        ),
+            ),
+          ]);
+        }),
+      ),
     );
   }
 }

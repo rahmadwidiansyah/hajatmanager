@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Pengaturan Acara" Height="700" Width="800"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource SurfaceBrush}">
+        Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="16" MaxWidth="760">
       <TextBlock x:Name="SummaryText" FontWeight="Bold" Margin="0,0,0,12"/>
@@ -18,7 +18,7 @@
           <TextBlock Text="Catatan"/>
           <TextBox x:Name="CatBox" Margin="0,0,0,8"/>
           <Button x:Name="SaveInfoBtn" Content="Simpan Perubahan"
-                  Style="{StaticResource PrimaryButton}" Click="OnSaveInfo"/>
+                  Style="{DynamicResource PrimaryButton}" Click="OnSaveInfo"/>
         </StackPanel>
       </GroupBox>
       <GroupBox Header="Meja" Padding="12" Margin="0,0,0,12">
@@ -33,7 +33,7 @@
       <GroupBox x:Name="MemberBox" Header="Anggota (OWNER)" Padding="12" Margin="0,0,0,12">
         <StackPanel>
           <TextBox x:Name="SearchBox" TextChanged="OnSearch"/>
-          <TextBlock FontSize="11" Foreground="{StaticResource OnVariantBrush}"
+          <TextBlock FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
                      Margin="0,2,0,0">Ketik min 2 huruf, double-click hasil untuk tambah (role ADMIN).</TextBlock>
           <ListBox x:Name="ResultList" Height="100" Margin="0,4,0,0"
                    MouseDoubleClick="OnAddMember"/>
@@ -48,7 +48,7 @@
         </StackPanel>
       </GroupBox>
       <Button x:Name="DeleteBtn" Content="Hapus Acara Permanen" Click="OnDelete"
-              Background="{StaticResource ErrorBrush}" Foreground="White"
+              Background="{DynamicResource ErrorBrush}" Foreground="White"
               Padding="16,10" FontWeight="SemiBold"/>
     </StackPanel>
   </ScrollViewer>

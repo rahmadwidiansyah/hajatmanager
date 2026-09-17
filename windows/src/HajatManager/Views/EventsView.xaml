@@ -5,7 +5,7 @@
     <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,0,0,8"
              TextChanged="OnSearch" Tag="Cari acara / lokasi…"/>
     <Button Content="+ Acara" DockPanel.Dock="Bottom" Margin="0,8,0,0"
-            Style="{StaticResource PrimaryButton}" Click="OnCreate"/>
+            Style="{DynamicResource PrimaryButton}" Click="OnCreate"/>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <!-- WrapPanel = kolom fluida otomatis (cermin columnsForWidth Flutter) -->
       <ItemsControl x:Name="List">
@@ -17,17 +17,17 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Border Width="340" Margin="0,0,12,12" Padding="14"
-                    Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                     CornerRadius="12" Cursor="Hand"
                     MouseLeftButtonUp="OnOpen">
               <StackPanel>
                 <TextBlock Text="{Binding NamaAcara}" FontWeight="Bold" FontSize="15"/>
-                <TextBlock Foreground="{StaticResource OnVariantBrush}">
+                <TextBlock Foreground="{DynamicResource OnVariantBrush}">
                   <Run Text="{Binding Lokasi, TargetNullValue='-'}"/>
                   <Run Text=" • "/><Run Text="{Binding Tanggal, StringFormat=d}"/>
                 </TextBlock>
-                <TextBlock Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold"
+                <TextBlock Foreground="{DynamicResource PrimaryBrush}" FontWeight="SemiBold"
                            Text="{Binding MyRole}" Margin="0,4,0,0"/>
               </StackPanel>
             </Border>

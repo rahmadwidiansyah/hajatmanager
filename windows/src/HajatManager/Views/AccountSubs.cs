@@ -21,7 +21,7 @@ public sealed class ProfileView : UserControl
         var name = new TextBox { Margin = new Thickness(0, 0, 0, 8) };
         var uname = new TextBox { Margin = new Thickness(0, 0, 0, 8) };
         var mail = new TextBox { Text = email, Margin = new Thickness(0, 0, 0, 8) };
-        var err = new TextBlock { Foreground = System.Windows.Media.Brushes.Red };
+        var err = new TextBlock { Foreground = Ui.ErrorBrush };
         var btn = new Button { Content = "Simpan Profil", Margin = new Thickness(0, 8, 0, 0) };
         btn.Click += async (_, _) =>
         {
@@ -56,7 +56,7 @@ public sealed class SecurityView : UserControl
     {
         var cur = new PasswordBox { Margin = new Thickness(0, 0, 0, 8) };
         var nw = new PasswordBox { Margin = new Thickness(0, 0, 0, 8) };
-        var err = new TextBlock { Foreground = System.Windows.Media.Brushes.Red };
+        var err = new TextBlock { Foreground = Ui.ErrorBrush };
         var btn = new Button { Content = "Ganti Password", Margin = new Thickness(0, 8, 0, 0) };
         btn.Click += async (_, _) =>
         {

@@ -19,7 +19,7 @@ public sealed class CreateEventDialog : Window
     public CreateEventDialog()
     {
         Title = "Acara baru";
-        Width = 400; Height = 460;
+        Width = 520; Height = 480;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         var p = new StackPanel { Margin = new Thickness(20) };
         p.Children.Add(new TextBlock { Text = "Nama acara *" });
@@ -37,7 +37,7 @@ public sealed class CreateEventDialog : Window
             Text = "Jika offline, acara disimpan lokal lalu auto-push saat online.",
             FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap
         });
-        var err = new TextBlock { Foreground = System.Windows.Media.Brushes.Red };
+        var err = new TextBlock { Foreground = Ui.ErrorBrush };
         p.Children.Add(err);
         var row = new StackPanel
         {

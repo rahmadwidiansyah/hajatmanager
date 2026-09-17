@@ -3,16 +3,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Detail Acara" Height="720" Width="1100"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource SurfaceBrush}">
-  <DockPanel Margin="12">
+        Background="{DynamicResource SurfaceBrush}">
+  <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
+  <DockPanel Margin="12" MaxWidth="1120">
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
       <TextBlock x:Name="TitleText" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
       <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8" VerticalAlignment="Center"
-              Background="{StaticResource SurfaceContainer}">
+              Background="{DynamicResource SurfaceContainer}">
         <TextBlock x:Name="RoleText" FontWeight="SemiBold"/>
       </Border>
       <TextBlock x:Name="PendingText" Margin="12,0,0,0" VerticalAlignment="Center"
-                 Foreground="{StaticResource OnVariantBrush}"/>
+                 Foreground="{DynamicResource OnVariantBrush}"/>
       <Button Content="Log" Margin="12,0,0,0" Click="OnOpenLog" Padding="12,4"/>
       <Button Content="Pengaturan" Margin="8,0,0,0" Click="OnOpenSettings" Padding="12,4"/>
     </StackPanel>
@@ -52,14 +53,14 @@
       <TabItem Header="Rekap">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="4">
-            <Border Padding="20" Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+            <Border Padding="20" Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
               <StackPanel HorizontalAlignment="Center">
                 <TextBlock x:Name="TotalTamuText" FontSize="20" TextAlignment="Center"/>
                 <TextBlock x:Name="TotalNominalText" FontSize="26" FontWeight="Bold"
                            TextAlignment="Center"/>
                 <Button Content="Export PDF / Excel" Margin="0,12,0,0" Click="OnExport"
-                        Style="{StaticResource PrimaryButton}"/>
+                        Style="{DynamicResource PrimaryButton}"/>
               </StackPanel>
             </Border>
             <UniformGrid Columns="2" Margin="0,12,0,0">

@@ -73,7 +73,7 @@ public sealed class PinSetupWindow : Window
         });
         var b1 = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 12, 0, 0) };
         var b2 = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 8, 0, 0) };
-        var err = new TextBlock { Foreground = System.Windows.Media.Brushes.Red, Margin = new Thickness(0, 8, 0, 0) };
+        var err = new TextBlock { Foreground = Ui.ErrorBrush, Margin = new Thickness(0, 8, 0, 0) };
         var ok = new Button { Content = "Simpan PIN", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += async (_, _) =>
         {
@@ -118,7 +118,7 @@ public sealed class PinRestoreWindow : Window
             TextWrapping = TextWrapping.Wrap
         });
         var b = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 12, 0, 0) };
-        var err = new TextBlock { Foreground = System.Windows.Media.Brushes.Red, Margin = new Thickness(0, 8, 0, 0) };
+        var err = new TextBlock { Foreground = Ui.ErrorBrush, Margin = new Thickness(0, 8, 0, 0) };
         var ok = new Button { Content = "Verifikasi", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += async (_, _) =>
         {

@@ -177,6 +177,34 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(borderRadius: rXl),
+        // Desktop: dialog tidak mepet tepi saat window lebar.
+        insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24, vertical: 24),
+      ),
+      // Desktop: rail samping untuk tab kerja (event detail).
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: scheme.surface,
+        indicatorColor: scheme.secondaryContainer,
+        selectedIconTheme: IconThemeData(color: scheme.onSecondaryContainer),
+        selectedLabelTextStyle:
+            TextStyle(color: scheme.onSurface, fontWeight: FontWeight.w700),
+        unselectedIconTheme:
+            IconThemeData(color: scheme.onSurfaceVariant),
+        unselectedLabelTextStyle:
+            TextStyle(color: scheme.onSurfaceVariant),
+      ),
+      // Desktop: header tabel rekap/log tegas ala web.
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: TextStyle(
+            color: scheme.onSurfaceVariant, fontWeight: FontWeight.w700),
+        dataTextStyle: TextStyle(color: scheme.onSurface),
+        dividerThickness: 1,
+      ),
+      // Desktop: scrollbar selalu terlihat saat pakai mouse.
+      scrollbarTheme: ScrollbarThemeData(
+        thumbVisibility: const WidgetStatePropertyAll(true),
+        thickness: const WidgetStatePropertyAll(8),
+        radius: const Radius.circular(8),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surfaceContainerLow,
