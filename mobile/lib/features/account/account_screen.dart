@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
+import '../../core/theme_controller.dart';
 import '../../core/window_ui.dart';
 import 'about_screen.dart';
 import 'pin_lock_screen.dart';
@@ -108,12 +109,16 @@ class _AccountScreenState extends State<AccountScreen> {
             page: const AboutScreen(),
           ),
         ];
+        // Fase A: pilihan Terang/Gelap/Sistem — berlaku instan.
+        final appearance = _appearanceCard(context, scheme);
         if (!wide) {
           return ListView(
               padding: WindowUi.pagePadding(cons.maxWidth),
               children: [
                 profile,
                 const SizedBox(height: 12),
+                appearance,
+                const SizedBox(height: 4),
                 ...tiles,
               ]);
         }
@@ -122,6 +127,8 @@ class _AccountScreenState extends State<AccountScreen> {
           padding: WindowUi.pagePadding(cons.maxWidth),
           child: Column(children: [
             profile,
+            const SizedBox(height: 12),
+            appearance,
             const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
@@ -135,6 +142,59 @@ class _AccountScreenState extends State<AccountScreen> {
           ]),
         );
       }),
+    );
+  }
+
+  /// Kartu Tampilan: Terang / Gelap / Sistem (Fase A).
+  Widget _appearanceCard(BuildContext context, ColorScheme scheme) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.brightness_medium_outlined,
+                color: scheme.onSecondaryContainer),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Tampilan',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Terang, gelap, atau ikut sistem'),
+                ]),
+          ),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: ThemeController.mode,
+            builder: (_, mode, _) => SegmentedButton<ThemeMode>(
+              style: SegmentedButton.styleFrom(
+                  visualDensity: VisualDensity.compact),
+              segments: const [
+                ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: Icon(Icons.light_mode_outlined, size: 18)),
+                ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: Icon(Icons.dark_mode_outlined, size: 18)),
+                ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: Icon(Icons.settings_suggest_outlined, size: 18)),
+              ],
+              selected: {mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => ThemeController.set(s.first),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 

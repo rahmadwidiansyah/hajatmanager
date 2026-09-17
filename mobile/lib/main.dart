@@ -5,6 +5,7 @@ import 'core/app_theme.dart';
 import 'core/auth_store.dart';
 import 'core/local_db.dart';
 import 'core/sync_engine.dart';
+import 'core/theme_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/pin_screen.dart';
 import 'features/events/events_screen.dart';
@@ -12,6 +13,7 @@ import 'features/events/events_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initLocalDb(); // wajib sebelum SQLite dipakai (desktop/FFI)
+  await ThemeController.load(); // Fase A: pilihan tema tersimpan
   runApp(const ProviderScope(child: HajatApp()));
 }
 
@@ -19,12 +21,16 @@ class HajatApp extends StatelessWidget {
   const HajatApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Hajat Manager',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
-      home: const _Gate(),
+    // Fase A: ganti tema instan tanpa restart.
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.mode,
+      builder: (_, mode, _) => MaterialApp(
+        title: 'Hajat Manager',
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: mode,
+        home: const _Gate(),
+      ),
     );
   }
 }
