@@ -6,26 +6,24 @@
         Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="32" MaxWidth="400" VerticalAlignment="Center">
-      <TextBlock Text="Hajat Manager" FontSize="24" FontWeight="Bold"
-                 Foreground="{DynamicResource OnSurfaceBrush}" TextAlignment="Center"/>
+      <TextBlock Text="Hajat Manager" Style="{DynamicResource M3Headline}" TextAlignment="Center"/>
       <TextBlock Text="Catat pemberian satset, online maupun offline."
                  Foreground="{DynamicResource OnVariantBrush}" TextAlignment="Center"
                  Margin="0,4,0,24" TextWrapping="Wrap"/>
 
-      <TextBlock Text="Nama" Margin="0,0,0,4" x:Name="NameLabel" Visibility="Collapsed"/>
+      <TextBlock Text="NAMA" Style="{DynamicResource M3SectionTitle}" x:Name="NameLabel" Visibility="Collapsed"/>
       <TextBox x:Name="NameBox" Visibility="Collapsed" Margin="0,0,0,12"/>
 
-      <TextBlock Text="Email" Margin="0,0,0,4"/>
+      <TextBlock Text="EMAIL" Style="{DynamicResource M3SectionTitle}"/>
       <TextBox x:Name="EmailBox" Margin="0,0,0,12"/>
 
-      <TextBlock Text="Password (min 6)" Margin="0,0,0,4"/>
+      <TextBlock Text="PASSWORD (MIN 6)" Style="{DynamicResource M3SectionTitle}"/>
       <PasswordBox x:Name="PassBox" Margin="0,0,0,16"/>
 
       <Button x:Name="SubmitBtn" Content="Masuk" Style="{DynamicResource PrimaryButton}"
               Click="OnSubmit" Margin="0,0,0,8"/>
       <Button Content="Belum punya akun? Daftar" Click="OnToggleReg"
-              Background="Transparent" BorderThickness="0"
-              Foreground="{DynamicResource PrimaryBrush}" Cursor="Hand"/>
+              Style="{DynamicResource TextButton}"/>
 
       <!-- Fase 4: Google desktop via browser (visible bila server mendukung) -->
       <StackPanel x:Name="GooglePanel" Visibility="Collapsed" Margin="0,12,0,0">
@@ -41,10 +39,9 @@
           <Separator Grid.Column="2" VerticalAlignment="Center"/>
         </Grid>
         <Button x:Name="GoogleBtn" Content="Lanjutkan dengan Google" Click="OnGoogle"
-                Padding="16,10" Cursor="Hand"/>
+                Style="{DynamicResource OutlineButton}"/>
         <Button Content="Punya kode Google manual? Tempel di sini" Click="OnPasteCode"
-                Background="Transparent" BorderThickness="0"
-                Foreground="{DynamicResource PrimaryBrush}" Cursor="Hand"
+                Style="{DynamicResource TextButton}"
                 FontSize="11" Margin="0,4,0,0"/>
       </StackPanel>
 
@@ -52,10 +49,10 @@
                  TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
 
       <Separator Margin="0,16"/>
-      <TextBlock x:Name="ServerLabel" Text="Server (…)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock x:Name="ServerLabel" Text="Server (…)" Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,6"/>
       <DockPanel>
         <Button Content="Tes" Click="OnTestServer" DockPanel.Dock="Right"
-                Margin="8,0,0,0" Padding="16,8"/>
+                Margin="8,0,0,0" Style="{DynamicResource TonalButton}"/>
         <TextBox x:Name="ServerBox" Text="https://hajat.widihhh.my.id"/>
       </DockPanel>
       <TextBlock Text="Default: https://hajat.widihhh.my.id — tap Tes dulu sebelum masuk."

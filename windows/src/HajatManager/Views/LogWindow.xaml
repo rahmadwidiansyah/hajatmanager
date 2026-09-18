@@ -5,11 +5,12 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
   <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
-  <DockPanel Margin="12" MaxWidth="1120">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+  <DockPanel Margin="16" MaxWidth="1120">
+    <TextBlock DockPanel.Dock="Top" Text="Log Aktivitas" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
       <TextBox x:Name="SearchBox" Width="300" TextChanged="OnSearchGo"/>
       <ComboBox x:Name="AksiBox" Width="180" Margin="8,0,0,0" SelectionChanged="OnFilter"/>
-      <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload"/>
+      <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload" Style="{DynamicResource TonalButton}"/>
       <TextBlock x:Name="StatusText" Margin="12,0,0,0" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}" Text="…"/>
     </StackPanel>

@@ -16,7 +16,8 @@
         <TextBlock x:Name="StatusText" Text="Siap"/>
       </StatusBarItem>
     </StatusBar>
-    <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
-    <ContentControl x:Name="Host" Margin="8" MaxWidth="1120"/>
+    <!-- page-shell cermin web (max 1120px, auto-center) -->
+    <ContentControl x:Name="Host" Margin="16" MaxWidth="1120"
+                    HorizontalAlignment="Stretch" FontFamily="{DynamicResource AppFont}"/>
   </DockPanel>
 </Window>

@@ -1,0 +1,31 @@
+name: Windows XAML lint
+
+# Guard cepat agar bug Color-dipakai-sebagai-Brush tidak lolos lagi.
+# Contoh yang pernah crash di produksi:
+#   EventDetailWindow.xaml memakai Background="{DynamicResource SurfaceContainer}"
+#   padahal SurfaceContainer adalah <Color> -> XamlParseException
+#   "'#FF1E2A3A' is not a valid value for property 'Background'".
+# Workflow rilis (release-assets.yml) hanya jalan saat tag v*, jadi
+# lint ini jalan di tiap push/PR agar ketahuan sebelum rilis.
+on:
+  push:
+    paths:
+      - "windows/**/*.xaml"
+      - "scripts/check-wpf-brushes.py"
+      - ".github/workflows/windows-xaml-lint.yml"
+  pull_request:
+    paths:
+      - "windows/**/*.xaml"
+      - "scripts/check-wpf-brushes.py"
+      - ".github/workflows/windows-xaml-lint.yml"
+  workflow_dispatch:
+
+jobs:
+  xaml-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check WPF Color-as-Brush misuse
+        run: python3 scripts/check-wpf-brushes.py

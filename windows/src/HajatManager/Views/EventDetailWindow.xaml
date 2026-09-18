@@ -5,17 +5,17 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
   <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
-  <DockPanel Margin="12" MaxWidth="1120">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-      <TextBlock x:Name="TitleText" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+  <DockPanel Margin="16" MaxWidth="1120">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+      <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
       <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8" VerticalAlignment="Center"
-              Background="{DynamicResource SurfaceContainer}">
+              Background="{DynamicResource SurfaceContainerBrush}">
         <TextBlock x:Name="RoleText" FontWeight="SemiBold"/>
       </Border>
       <TextBlock x:Name="PendingText" Margin="12,0,0,0" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}"/>
-      <Button Content="Log" Margin="12,0,0,0" Click="OnOpenLog" Padding="12,4"/>
-      <Button Content="Pengaturan" Margin="8,0,0,0" Click="OnOpenSettings" Padding="12,4"/>
+      <Button Content="Log" Margin="12,0,0,0" Click="OnOpenLog" Style="{DynamicResource TonalButton}"/>
+      <Button Content="Pengaturan" Margin="8,0,0,0" Click="OnOpenSettings" Style="{DynamicResource OutlineButton}"/>
     </StackPanel>
     <TabControl x:Name="Tabs">
       <TabItem Header="Input">
@@ -25,17 +25,18 @@
       </TabItem>
       <TabItem Header="Buku Tamu">
         <DockPanel Margin="4">
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
             <TextBox x:Name="BookSearch" Width="300" TextChanged="OnBookSearch"/>
-            <Button x:Name="AddBookBtn" Content="+ Tamu" Margin="8,0,0,0" Click="OnAddBook"/>
-            <Button Content="Sync" Margin="8,0,0,0" Click="OnSync"/>
+            <Button x:Name="AddBookBtn" Content="+ Tamu" Margin="8,0,0,0" Click="OnAddBook"
+                    Style="{DynamicResource PrimaryButton}"/>
+            <Button Content="Sync" Margin="8,0,0,0" Click="OnSync" Style="{DynamicResource TonalButton}"/>
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"
                       VerticalAlignment="Center">
             <TextBlock x:Name="BookFooter" VerticalAlignment="Center"
                        Foreground="{DynamicResource OnVariantBrush}"/>
-            <Button x:Name="BookMoreBtn" Content="Muat 50 lagi" Margin="12,0,0,0"
-                    Padding="12,4" Click="OnBookMore" Visibility="Collapsed"/>
+            <Button x:Name="BookMoreBtn" Content="Muat 50 lagi" Margin="12,0,0,0" Click="OnBookMore"
+                    Style="{DynamicResource OutlineButton}" Visibility="Collapsed"/>
           </StackPanel>
           <DataGrid x:Name="BooksGrid" AutoGenerateColumns="False" IsReadOnly="True"
                     SelectionMode="Single" HeadersVisibility="Column">
@@ -61,12 +62,12 @@
       <TabItem Header="Rekap">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="4">
-            <Border Padding="20" Background="{DynamicResource CardBrush}"
-                    BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+            <Border Padding="20" Style="{DynamicResource M3Card}">
               <StackPanel HorizontalAlignment="Center">
-                <TextBlock x:Name="TotalTamuText" FontSize="20" TextAlignment="Center"/>
+                <TextBlock x:Name="TotalTamuText" FontSize="20" TextAlignment="Center"
+                           FontFamily="{DynamicResource NumericFont}"/>
                 <TextBlock x:Name="TotalNominalText" FontSize="26" FontWeight="Bold"
-                           TextAlignment="Center"/>
+                           TextAlignment="Center" FontFamily="{DynamicResource NumericFont}"/>
                 <Button Content="Export PDF / Excel" Margin="0,12,0,0" Click="OnExport"
                         Style="{DynamicResource PrimaryButton}"/>
               </StackPanel>

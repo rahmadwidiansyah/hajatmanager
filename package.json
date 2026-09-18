@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "lint:windows": "python3 scripts/check-wpf-brushes.py",
     "seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate || exit 0"
   },

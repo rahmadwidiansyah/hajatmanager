@@ -6,31 +6,31 @@
         Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="16" MaxWidth="760">
-      <TextBlock x:Name="SummaryText" FontWeight="Bold" Margin="0,0,0,12"/>
-      <GroupBox Header="Info Acara" Padding="12" Margin="0,0,0,12">
+      <TextBlock x:Name="SummaryText" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
+      <GroupBox Header="Info Acara" Margin="0,0,0,12">
         <StackPanel>
-          <TextBlock Text="Nama acara"/>
+          <TextBlock Text="NAMA ACARA" Style="{DynamicResource M3SectionTitle}"/>
           <TextBox x:Name="NamaBox" Margin="0,0,0,8"/>
-          <TextBlock Text="Tuan rumah"/>
+          <TextBlock Text="TUAN RUMAH" Style="{DynamicResource M3SectionTitle}"/>
           <TextBox x:Name="TuanBox" Margin="0,0,0,8"/>
-          <TextBlock Text="Lokasi"/>
+          <TextBlock Text="LOKASI" Style="{DynamicResource M3SectionTitle}"/>
           <TextBox x:Name="LokBox" Margin="0,0,0,8"/>
-          <TextBlock Text="Catatan"/>
-          <TextBox x:Name="CatBox" Margin="0,0,0,8"/>
+          <TextBlock Text="CATATAN" Style="{DynamicResource M3SectionTitle}"/>
+          <TextBox x:Name="CatBox" Margin="0,0,0,12"/>
           <Button x:Name="SaveInfoBtn" Content="Simpan Perubahan"
                   Style="{DynamicResource PrimaryButton}" Click="OnSaveInfo"/>
         </StackPanel>
       </GroupBox>
-      <GroupBox Header="Meja" Padding="12" Margin="0,0,0,12">
+      <GroupBox Header="Meja" Margin="0,0,0,12">
         <StackPanel>
           <ListBox x:Name="MejaList" Height="110"/>
           <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
             <TextBox x:Name="MejaBox" Width="220"/>
-            <Button Content="Tambah" Margin="8,0,0,0" Click="OnAddMeja"/>
+            <Button Content="Tambah" Margin="8,0,0,0" Click="OnAddMeja" Style="{DynamicResource TonalButton}"/>
           </StackPanel>
         </StackPanel>
       </GroupBox>
-      <GroupBox x:Name="MemberBox" Header="Anggota (OWNER)" Padding="12" Margin="0,0,0,12">
+      <GroupBox x:Name="MemberBox" Header="Anggota (OWNER)" Margin="0,0,0,12">
         <StackPanel>
           <TextBox x:Name="SearchBox" TextChanged="OnSearch"/>
           <TextBlock FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
@@ -48,8 +48,7 @@
         </StackPanel>
       </GroupBox>
       <Button x:Name="DeleteBtn" Content="Hapus Acara Permanen" Click="OnDelete"
-              Background="{DynamicResource ErrorBrush}" Foreground="White"
-              Padding="16,10" FontWeight="SemiBold"/>
+              Style="{DynamicResource DangerButton}"/>
     </StackPanel>
   </ScrollViewer>
 </Window>

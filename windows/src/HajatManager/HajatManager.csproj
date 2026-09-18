@@ -33,6 +33,10 @@
 
   <ItemGroup>
     <Resource Include="..\..\Assets\app.ico" />
+    <!-- Font M3 dibundle agar WPF konsisten dengan web/mobile (Plus Jakarta + Geist Mono tabular).
+         Fallback Segoe UI bila resource gagal load (lihat Themes/M3Styles.xaml AppFont/NumericFont). -->
+    <Resource Include="..\..\Assets\Fonts\PlusJakartaSans-Variable.ttf" />
+    <Resource Include="..\..\Assets\Fonts\GeistMono-Variable.ttf" />
   </ItemGroup>
 
 </Project>

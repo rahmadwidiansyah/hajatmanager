@@ -1,41 +1,87 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <!-- Fase A: tema Terang — token M3 cermin app/globals.css (light).
-       Key harus 1:1 dengan Dark.xaml. -->
+  <!-- M3 token Terang — cermin app/globals.css (:root) + mobile app_theme.dart light.
+       Key harus 1:1 dengan Dark.xaml. Jangan pakai <Color> langsung untuk
+       Background/Foreground/BorderBrush — pakai *Brush (lihat check-wpf-brushes.py). -->
   <Color x:Key="Primary">#059669</Color>
   <Color x:Key="OnPrimary">#FFFFFF</Color>
+  <Color x:Key="PrimaryContainer">#D1FAE5</Color>
+  <Color x:Key="OnPrimaryContainer">#064E3B</Color>
+  <Color x:Key="Secondary">#64748B</Color>
+  <Color x:Key="OnSecondary">#FFFFFF</Color>
+  <Color x:Key="SecondaryContainer">#E2E8F0</Color>
+  <Color x:Key="OnSecondaryContainer">#334155</Color>
+  <Color x:Key="Tertiary">#0EA5E9</Color>
+  <Color x:Key="OnTertiary">#FFFFFF</Color>
+  <Color x:Key="TertiaryContainer">#E0F2FE</Color>
+  <Color x:Key="OnTertiaryContainer">#0C4A6E</Color>
   <Color x:Key="Surface">#F8FAFC</Color>
+  <Color x:Key="SurfaceDim">#DDE4EE</Color>
+  <Color x:Key="SurfaceBright">#FFFFFF</Color>
   <Color x:Key="SurfaceLowest">#FFFFFF</Color>
+  <Color x:Key="SurfaceLow">#F1F5F9</Color>
   <Color x:Key="SurfaceContainer">#E8EDF4</Color>
+  <Color x:Key="SurfaceContainerHigh">#DDE4EE</Color>
+  <Color x:Key="SurfaceContainerHighest">#D1DAE8</Color>
   <Color x:Key="OnSurface">#0F172A</Color>
   <Color x:Key="OnSurfaceVariant">#475569</Color>
   <Color x:Key="Outline">#94A3B8</Color>
   <Color x:Key="OutlineVariant">#CBD5E1</Color>
   <Color x:Key="Error">#DC2626</Color>
+  <Color x:Key="OnError">#FFFFFF</Color>
   <Color x:Key="ErrorContainer">#FEE2E2</Color>
-  <Color x:Key="PrimaryContainer">#D1FAE5</Color>
-  <Color x:Key="OnPrimaryContainer">#065F46</Color>
-  <Color x:Key="Secondary">#64748B</Color>
+  <Color x:Key="OnErrorContainer">#7F1D1D</Color>
   <Color x:Key="Warning">#D97706</Color>
   <Color x:Key="WarningContainer">#FEF3C7</Color>
+  <Color x:Key="OnWarningContainer">#92400E</Color>
   <Color x:Key="Info">#0EA5E9</Color>
+  <Color x:Key="OnInfo">#FFFFFF</Color>
   <Color x:Key="InfoContainer">#E0F2FE</Color>
+  <Color x:Key="OnInfoContainer">#0C4A6E</Color>
+  <Color x:Key="InverseSurface">#0F172A</Color>
+  <Color x:Key="InverseOnSurface">#F1F5F9</Color>
+  <Color x:Key="InversePrimary">#34D399</Color>
+  <Color x:Key="Scrim">#000000</Color>
+  <Color x:Key="Shadow">#0F172A</Color>
 
   <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
   <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimary}"/>
+  <SolidColorBrush x:Key="PrimaryContainerBrush" Color="{StaticResource PrimaryContainer}"/>
+  <SolidColorBrush x:Key="OnPrimaryContainerBrush" Color="{StaticResource OnPrimaryContainer}"/>
+  <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
+  <SolidColorBrush x:Key="SecondaryContainerBrush" Color="{StaticResource SecondaryContainer}"/>
+  <SolidColorBrush x:Key="OnSecondaryContainerBrush" Color="{StaticResource OnSecondaryContainer}"/>
+  <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
+  <SolidColorBrush x:Key="TertiaryContainerBrush" Color="{StaticResource TertiaryContainer}"/>
+  <SolidColorBrush x:Key="OnTertiaryContainerBrush" Color="{StaticResource OnTertiaryContainer}"/>
   <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
+  <SolidColorBrush x:Key="SurfaceDimBrush" Color="{StaticResource SurfaceDim}"/>
   <SolidColorBrush x:Key="CardBrush" Color="{StaticResource SurfaceLowest}"/>
+  <SolidColorBrush x:Key="SurfaceLowBrush" Color="{StaticResource SurfaceLow}"/>
   <SolidColorBrush x:Key="SurfaceContainerBrush" Color="{StaticResource SurfaceContainer}"/>
+  <SolidColorBrush x:Key="SurfaceContainerHighBrush" Color="{StaticResource SurfaceContainerHigh}"/>
+  <SolidColorBrush x:Key="SurfaceContainerHighestBrush" Color="{StaticResource SurfaceContainerHighest}"/>
   <SolidColorBrush x:Key="OnSurfaceBrush" Color="{StaticResource OnSurface}"/>
   <SolidColorBrush x:Key="OnVariantBrush" Color="{StaticResource OnSurfaceVariant}"/>
   <SolidColorBrush x:Key="OutlineBrush" Color="{StaticResource OutlineVariant}"/>
+  <SolidColorBrush x:Key="OutlineStrongBrush" Color="{StaticResource Outline}"/>
   <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Error}"/>
-  <SolidColorBrush x:Key="PrimaryContainerBrush" Color="{StaticResource PrimaryContainer}"/>
-  <SolidColorBrush x:Key="OnPrimaryContainerBrush" Color="{StaticResource OnPrimaryContainer}"/>
+  <SolidColorBrush x:Key="OnErrorBrush" Color="{StaticResource OnError}"/>
+  <SolidColorBrush x:Key="ErrorContainerBrush" Color="{StaticResource ErrorContainer}"/>
   <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}"/>
   <SolidColorBrush x:Key="WarningContainerBrush" Color="{StaticResource WarningContainer}"/>
+  <SolidColorBrush x:Key="OnWarningContainerBrush" Color="{StaticResource OnWarningContainer}"/>
   <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource Info}"/>
   <SolidColorBrush x:Key="InfoContainerBrush" Color="{StaticResource InfoContainer}"/>
+  <SolidColorBrush x:Key="InverseSurfaceBrush" Color="{StaticResource InverseSurface}"/>
+  <SolidColorBrush x:Key="InverseOnSurfaceBrush" Color="{StaticResource InverseOnSurface}"/>
+
+  <!-- M3 shape scale (radius web: xs 4, sm 8, md 12, lg 16, xl 28) -->
+  <CornerRadius x:Key="RadiusXs">4</CornerRadius>
+  <CornerRadius x:Key="RadiusSm">8</CornerRadius>
+  <CornerRadius x:Key="RadiusMd">12</CornerRadius>
+  <CornerRadius x:Key="RadiusLg">16</CornerRadius>
+  <CornerRadius x:Key="RadiusXl">28</CornerRadius>
 
   <!-- Override warna sistem agar kontrol bawaan (Menu popup, seleksi,
        ComboBox dropdown, scrollbar) ikut tema. Template bawaan WPF

@@ -62,11 +62,34 @@ public static class ThemeManager
             if (app != null)
             {
                 var merged = app.Resources.MergedDictionaries;
-                merged.Clear();
-                merged.Add(new ResourceDictionary
+                var themeDict = new ResourceDictionary
                 {
                     Source = new Uri(dict, UriKind.Relative),
-                });
+                };
+                if (merged.Count == 0)
+                {
+                    merged.Add(themeDict);
+                    merged.Add(new ResourceDictionary
+                    {
+                        Source = new Uri("Themes/M3Styles.xaml", UriKind.Relative),
+                    });
+                }
+                else
+                {
+                    // Index 0 = token Light/Dark, sisanya (M3Styles) dipertahankan.
+                    merged[0] = themeDict;
+                    var hasM3 = false;
+                    foreach (var m in merged)
+                    {
+                        if (m.Source != null && m.Source.OriginalString.Contains("M3Styles"))
+                        { hasM3 = true; break; }
+                    }
+                    if (!hasM3)
+                        merged.Add(new ResourceDictionary
+                        {
+                            Source = new Uri("Themes/M3Styles.xaml", UriKind.Relative),
+                        });
+                }
             }
         }
         catch (Exception ex)

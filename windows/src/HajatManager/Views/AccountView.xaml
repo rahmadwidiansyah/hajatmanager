@@ -3,17 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <!-- Fase 5: page-shell cermin web (dulu 700, terlalu sempit di desktop) -->
-    <StackPanel Margin="8" MaxWidth="1120">
-      <Border Padding="16" Background="{DynamicResource CardBrush}"
-              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+    <StackPanel Margin="16" MaxWidth="1120">
+      <TextBlock Text="Akun" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
+      <Border Style="{DynamicResource M3Card}">
         <StackPanel>
           <TextBlock x:Name="NameText" FontWeight="Bold" FontSize="16"/>
           <TextBlock x:Name="EmailText" Foreground="{DynamicResource OnVariantBrush}"/>
         </StackPanel>
       </Border>
-      <!-- Fase A: pilihan Terang/Gelap/Sistem, berlaku instan -->
-      <Border Margin="0,12,0,0" Padding="16" Background="{DynamicResource CardBrush}"
-              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="12">
+      <!-- Pilihan Terang/Gelap/Sistem, berlaku instan -->
+      <Border Margin="0,12,0,0" Style="{DynamicResource M3Card}">
         <StackPanel>
           <TextBlock Text="Tampilan" FontWeight="SemiBold"/>
           <TextBlock Text="Terang, gelap, atau ikut sistem" FontSize="12"
@@ -29,10 +28,10 @@
         </StackPanel>
       </Border>
       <UniformGrid Columns="2" Margin="0,12,0,0">
-        <Button Content="Profil" Click="GoProfile" Margin="0,0,6,6" Padding="12"/>
-        <Button Content="Keamanan &amp; Password" Click="GoSecurity" Margin="6,0,0,6" Padding="12"/>
-        <Button Content="PIN &amp; Kunci Layar" Click="GoPin" Margin="0,6,6,0" Padding="12"/>
-        <Button Content="Tentang &amp; Keluar" Click="GoAbout" Margin="6,6,0,0" Padding="12"/>
+        <Button Content="Profil" Click="GoProfile" Margin="0,0,6,6" Style="{DynamicResource PrimaryButton}"/>
+        <Button Content="Keamanan &amp; Password" Click="GoSecurity" Margin="6,0,0,6" Style="{DynamicResource TonalButton}"/>
+        <Button Content="PIN &amp; Kunci Layar" Click="GoPin" Margin="0,6,6,0" Style="{DynamicResource OutlineButton}"/>
+        <Button Content="Tentang &amp; Keluar" Click="GoAbout" Margin="6,6,0,0" Style="{DynamicResource TextButton}"/>
       </UniformGrid>
       <ContentControl x:Name="SubHost" Margin="0,12,0,0"/>
     </StackPanel>

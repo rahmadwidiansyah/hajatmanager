@@ -54,6 +54,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: XAML lint (Color-as-Brush guard)
+        shell: pwsh
+        run: python scripts/check-wpf-brushes.py
+        # Catatan: windows-latest sudah menyertakan python3/python.
+        # Gagal di sini = ada Background/Foreground/BorderBrush yang
+        # memakai <Color> (contoh: SurfaceContainer) bukan <Brush>
+        # (SurfaceContainerBrush) — dulu menyebabkan crash
+        # "'#FF1E2A3A' is not valid value for Background" di EventDetailWindow.
+
       - name: Restore + Build (Release)
         working-directory: windows/src/HajatManager
         run: |

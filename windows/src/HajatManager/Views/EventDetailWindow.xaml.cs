@@ -226,13 +226,10 @@ public partial class EventDetailWindow : Window
             _suggestList.PreviewKeyDown += OnNamaPreviewKey;
             var suggestBorder = new Border
             {
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(4),
                 Child = _suggestList,
             };
-            suggestBorder.SetResourceReference(Border.BackgroundProperty, "CardBrush");
-            suggestBorder.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+            ApplyM3Card(suggestBorder);
             _suggestPopup = new Popup
             {
                 Child = suggestBorder,
@@ -255,6 +252,8 @@ public partial class EventDetailWindow : Window
             var grid2 = new UniformGrid { Columns = 2, Margin = new Thickness(0, 8, 0, 0) };
             var nomStack = new StackPanel();
             _nominalPreview = new TextBlock { FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right };
+            if (Application.Current?.TryFindResource("NumericFont") is System.Windows.Media.FontFamily nf)
+                _nominalPreview.FontFamily = nf;
             nomStack.Children.Add(_nominalPreview);
             _nominalBox = new TextBox();
             PreviewTextInputRegistrar.DigitsOnly(_nominalBox);
@@ -281,22 +280,20 @@ public partial class EventDetailWindow : Window
 
             _dupBanner = new Border
             {
-                Padding = new Thickness(12),
                 Margin = new Thickness(0, 12, 0, 0),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
                 Visibility = Visibility.Collapsed,
             };
             _dupBannerText = new TextBlock { TextWrapping = TextWrapping.Wrap };
             _dupBanner.Child = _dupBannerText;
-            _dupBanner.SetResourceReference(Border.BackgroundProperty, "CardBrush");
-            _dupBanner.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+            ApplyM3Card(_dupBanner);
+            _dupBanner.SetResourceReference(Border.BackgroundProperty, "WarningContainerBrush");
+            _dupBannerText.SetResourceReference(TextBlock.ForegroundProperty, "OnWarningContainerBrush");
             InputPanel.Children.Add(_dupBanner);
 
             _saveBtn = new Button
             {
                 Content = "Simpan (offline-first)",
-                Style = (Style)FindResource("PrimaryButton"),
+                Style = M3("PrimaryButton") ?? (Style)FindResource("PrimaryButton"),
                 Margin = new Thickness(0, 12, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 MinWidth = 220,
@@ -305,7 +302,9 @@ public partial class EventDetailWindow : Window
             InputPanel.Children.Add(_saveBtn);
 
             // Search + filter editor (cermin web + mobile).
-            var title0 = new TextBlock { Text = "Cari & filter", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 8) };
+            var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 12, 0, 8) };
+            if (M3("M3SectionTitle") is Style sts) title0.Style = sts;
+            else title0.FontWeight = FontWeights.SemiBold;
             InputPanel.Children.Add(title0);
             _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 8) };
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
@@ -316,10 +315,11 @@ public partial class EventDetailWindow : Window
         }
         var title = new TextBlock
         {
-            Text = $"Terakhir di perangkat ini",
-            FontWeight = FontWeights.SemiBold,
+            Text = "TERAKHIR DI PERANGKAT INI",
             Margin = new Thickness(0, 12, 0, 8)
         };
+        if (M3("M3SectionTitle") is Style m3st) title.Style = m3st;
+        else title.FontWeight = FontWeights.SemiBold;
         InputPanel.Children.Add(title);
         _guestGrid = new DataGrid
         {
@@ -358,16 +358,36 @@ public partial class EventDetailWindow : Window
         _guestFooter = new TextBlock { Margin = new Thickness(0, 6, 0, 0) };
         InputPanel.Children.Add(_guestFooter);
         _guestMoreBtn = new Button { Content = "Muat 50 lagi", Margin = new Thickness(0, 6, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
+        if (M3("OutlineButton") is Style ob) _guestMoreBtn.Style = ob;
         _guestMoreBtn.Click += (_, _) => { _guestLimit += 50; ApplyGuestFilter(); };
         InputPanel.Children.Add(_guestMoreBtn);
         ApplyGuestFilter();
     }
 
+    private static void ApplyM3Card(Border b)
+    {
+        if (Application.Current?.TryFindResource("M3Card") is Style s)
+            b.Style = s;
+        else
+        {
+            b.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+            b.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+        }
+    }
+
+    private static Style? M3(string key) =>
+        Application.Current?.TryFindResource(key) as Style;
+
     private Border FieldCard(string? title, UIElement field, string? hint)
     {
-        var sp = new StackPanel { Margin = new Thickness(8) };
+        var sp = new StackPanel { Margin = new Thickness(4) };
         if (title != null)
-            sp.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
+        {
+            var t = new TextBlock { Text = title.ToUpperInvariant(), Margin = new Thickness(0, 0, 0, 6) };
+            if (M3("M3SectionTitle") is Style ts) t.Style = ts;
+            else t.FontWeight = FontWeights.SemiBold;
+            sp.Children.Add(t);
+        }
         if (field is TextBox tb && hint != null)
         {
             var tip = new ToolTip { Content = hint };
@@ -376,14 +396,10 @@ public partial class EventDetailWindow : Window
         sp.Children.Add(field);
         var card = new Border
         {
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 0, 8, 0),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            Margin = new Thickness(0, 0, 8, 8),
             Child = sp,
         };
-        card.SetResourceReference(Border.BackgroundProperty, "CardBrush");
-        card.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+        ApplyM3Card(card);
         return card;
     }
 
@@ -407,7 +423,8 @@ public partial class EventDetailWindow : Window
         _orderBox = new ComboBox { Width = 90, ItemsSource = new[] { "↓ Desc", "↑ Asc" }, SelectedIndex = _sortDesc ? 0 : 1 };
         _orderBox.SelectionChanged += (_, _) => { _sortDesc = _orderBox.SelectedIndex == 0; ApplyGuestFilter(); };
         bar.Children.Add(_orderBox);
-        var reset = new Button { Content = "Reset", Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(12, 4, 12, 4) };
+        var reset = new Button { Content = "Reset", Margin = new Thickness(8, 0, 0, 0) };
+        if (M3("TextButton") is Style tbs) reset.Style = tbs;
         reset.Click += (_, _) => { _mejaFilter = null; _kasirFilter = null; _guestQ = ""; if (_guestSearchBox != null) _guestSearchBox.Text = ""; _guestLimit = 50; BuildInputPanel(); };
         bar.Children.Add(reset);
         return bar;
@@ -595,6 +612,13 @@ public partial class EventDetailWindow : Window
         }
     }
 
+    private static void ApplyChip(Button b, bool active)
+    {
+        var key = active ? "M3ChipActive" : "M3Chip";
+        if (M3(key) is Style s) b.Style = s;
+        else if (active) b.FontWeight = FontWeights.Bold;
+    }
+
     private void RefreshChips()
     {
         if (_alamatChips != null)
@@ -606,11 +630,9 @@ public partial class EventDetailWindow : Window
                 var b = new Button
                 {
                     Content = t.Jumlah > 0 ? $"{t.Label} • {t.Jumlah}" : t.Label,
-                    Margin = new Thickness(0, 0, 6, 6),
-                    Padding = new Thickness(10, 4, 10, 4),
                     Tag = t.Label,
                 };
-                if (active) b.FontWeight = FontWeights.Bold;
+                ApplyChip(b, active);
                 b.Click += (s, _) =>
                 {
                     if (_alamatBox != null && s is Button btn && btn.Tag is string tag)
@@ -630,11 +652,9 @@ public partial class EventDetailWindow : Window
                 var b = new Button
                 {
                     Content = t.Jumlah > 0 ? $"{GuestRow.FormatRp(t.Nominal)} • {t.Jumlah}" : GuestRow.FormatRp(t.Nominal),
-                    Margin = new Thickness(0, 0, 6, 6),
-                    Padding = new Thickness(10, 4, 10, 4),
                     Tag = t.Nominal.ToString(),
                 };
-                if (active) b.FontWeight = FontWeights.Bold;
+                ApplyChip(b, active);
                 b.Click += (s, _) =>
                 {
                     if (_nominalBox != null && s is Button btn && btn.Tag is string tag)
@@ -792,28 +812,50 @@ public partial class EventDetailWindow : Window
         await RefreshAsync();
     }
 
+    private Window M3Dialog(string title, UIElement content, int height = 320)
+    {
+        var win = new Window
+        {
+            Title = title, Width = 480, Height = height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
+            Content = content,
+        };
+        win.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty, "SurfaceBrush");
+        return win;
+    }
+
+    private static TextBlock M3Label(string text, Thickness? margin = null)
+    {
+        var t = new TextBlock { Text = text.ToUpperInvariant(), Margin = margin ?? new Thickness(0, 0, 0, 4) };
+        if (M3("M3SectionTitle") is Style s) t.Style = s;
+        return t;
+    }
+
+    private static Button M3Primary(string content)
+    {
+        var b = new Button { Content = content, Margin = new Thickness(0, 12, 0, 0) };
+        if (M3("PrimaryButton") is Style s) b.Style = s;
+        return b;
+    }
+
     private void EditGuestDialog(GuestModel g)
     {
         var nb = new TextBox { Text = g.Nama, Margin = new Thickness(0, 0, 0, 8) };
         var ab = new TextBox { Text = g.Alamat, Margin = new Thickness(0, 0, 0, 8) };
         var nob = new TextBox { Text = g.Nominal.ToString(), Margin = new Thickness(0, 0, 0, 8) };
         PreviewTextInputRegistrar.DigitsOnly(nob);
-        var win = new Window
+        var save = M3Primary("Simpan");
+        var win = M3Dialog("Edit Pemberian", new StackPanel
         {
-            Title = "Edit Pemberian", Width = 480, Height = 320,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Children = {
-                    new TextBlock { Text = "Nama" }, nb,
-                    new TextBlock { Text = "Alamat" }, ab,
-                    new TextBlock { Text = "Nominal" }, nob,
-                    new Button { Content = "Simpan", Margin = new Thickness(0, 12, 0, 0) },
+            Margin = new Thickness(20),
+            Children = {
+                    M3Label("Nama"), nb,
+                    M3Label("Alamat"), ab,
+                    M3Label("Nominal"), nob,
+                    save,
                 }
-            }
-        };
-        ((Button)((StackPanel)win.Content).Children[^1]).Click += async (_, _) =>
+        });
+        save.Click += async (_, _) =>
         {
             var fields = new Dictionary<string, object?>
             {
@@ -869,21 +911,17 @@ public partial class EventDetailWindow : Window
     private async void OnAddBook(object sender, RoutedEventArgs e)
     {
         var n = new TextBox(); var a = new TextBox();
-        var win = new Window
+        var save = M3Primary("Simpan");
+        var win = M3Dialog("Buku tamu baru", new StackPanel
         {
-            Title = "Buku tamu baru", Width = 480, Height = 280,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Children = {
-                    new TextBlock { Text = "Nama" }, n,
-                    new TextBlock { Text = "Alamat", Margin = new Thickness(0,8,0,0) }, a,
-                    new Button { Content = "Simpan", Margin = new Thickness(0, 12, 0, 0) },
+            Margin = new Thickness(20),
+            Children = {
+                    M3Label("Nama"), n,
+                    M3Label("Alamat", new Thickness(0,8,0,4)), a,
+                    save,
                 }
-            }
-        };
-        ((Button)((StackPanel)win.Content).Children[^1]).Click += async (_, _) =>
+        }, 280);
+        save.Click += async (_, _) =>
         {
             if (n.Text.Trim().Length < 2 || a.Text.Trim().Length < 2) return;
             var id = $"bk-{Guid.NewGuid()}";
@@ -931,19 +969,15 @@ public partial class EventDetailWindow : Window
         catch { return; }
         var n = new TextBox { Text = b.Nama, Margin = new Thickness(0, 0, 0, 8) };
         var a = new TextBox { Text = b.Alamat, Margin = new Thickness(0, 0, 0, 8) };
-        var win = new Window
+        var save = M3Primary("Simpan");
+        var win = M3Dialog("Edit buku tamu", new StackPanel
         {
-            Title = "Edit buku tamu", Width = 480, Height = 280,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Children = { new TextBlock { Text = "Nama" }, n,
-                    new TextBlock { Text = "Alamat", Margin = new Thickness(0,8,0,0) }, a,
-                    new Button { Content = "Simpan", Margin = new Thickness(0, 12, 0, 0) } }
-            }
-        };
-        ((Button)((StackPanel)win.Content).Children[^1]).Click += async (_, _) =>
+            Margin = new Thickness(20),
+            Children = { M3Label("Nama"), n,
+                    M3Label("Alamat", new Thickness(0,8,0,4)), a,
+                    save }
+        }, 280);
+        save.Click += async (_, _) =>
         {
             var fields = new Dictionary<string, object?>
                 { ["nama"] = TitleCase(n.Text), ["alamat"] = a.Text.Trim() };
