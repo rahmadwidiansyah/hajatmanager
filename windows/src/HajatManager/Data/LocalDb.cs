@@ -120,6 +120,17 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
         return out_;
     }
 
+    public async Task<List<string>> EventIdsAsync()
+    {
+        var ids = new List<string>();
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT id FROM events";
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) ids.Add(r.GetString(0));
+        return ids;
+    }
+
     public async Task SetMyRoleAsync(string eventId, string role)
     {
         using var c = Open();
@@ -299,6 +310,136 @@ VALUES($id,$e,$n,$a,$c)";
         foreach (var b in list) await InsertBookAsync(b);
     }
 
+    // Merge server data without replacing rows that still have a local outbox operation.
+    // Pull responses do not contain deletes, so existing local rows are intentionally kept.
+    public async Task MergePulledAsync(
+        EventModel? eventModel,
+        IEnumerable<GuestModel> guests,
+        IEnumerable<GuestBookModel> books,
+        IEnumerable<string>? deletedGuestIds = null,
+        IEnumerable<string>? deletedBookIds = null)
+    {
+        using var c = Open();
+        using var tx = c.BeginTransaction();
+        var pending = new HashSet<string>(StringComparer.Ordinal);
+
+        using (var pendingCmd = c.CreateCommand())
+        {
+            pendingCmd.Transaction = tx;
+            pendingCmd.CommandText = "SELECT tableName, action, payload FROM outbox";
+            using var r = await pendingCmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                var table = r.GetString(0) switch
+                {
+                    "guestBooks" => "guest_books",
+                    var value => value,
+                };
+                var payload = r.IsDBNull(2) ? null : r.GetString(2);
+                if (string.IsNullOrEmpty(payload)) continue;
+                try
+                {
+                    using var json = System.Text.Json.JsonDocument.Parse(payload);
+                    var root = json.RootElement;
+                    if (root.TryGetProperty("id", out var id) &&
+                        id.ValueKind == System.Text.Json.JsonValueKind.String)
+                        pending.Add($"{table}:{id.GetString()}");
+                    // Update/delete payloads use { id, fields } while older
+                    // writers may put the identifier inside the fields object.
+                    if (root.TryGetProperty("fields", out var fields) &&
+                        fields.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                        fields.TryGetProperty("id", out var nestedId) &&
+                        nestedId.ValueKind == System.Text.Json.JsonValueKind.String)
+                        pending.Add($"{table}:{nestedId.GetString()}");
+                }
+                catch (System.Text.Json.JsonException) { /* malformed outbox is handled by flush */ }
+            }
+        }
+
+        if (eventModel != null && !pending.Contains($"events:{eventModel.Id}"))
+        {
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO events(id,namaAcara,namaTuanRumah,tanggal,lokasi,catatan,mejaList)
+VALUES($id,$n,$t,$tg,$l,$ct,$m)
+ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
+  lokasi=$l,catatan=$ct,mejaList=$m";
+            cmd.Parameters.AddWithValue("$id", eventModel.Id);
+            cmd.Parameters.AddWithValue("$n", eventModel.NamaAcara);
+            cmd.Parameters.AddWithValue("$t", (object?)eventModel.NamaTuanRumah ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$tg", eventModel.Tanggal.ToString("o"));
+            cmd.Parameters.AddWithValue("$l", (object?)eventModel.Lokasi ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$ct", (object?)eventModel.Catatan ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$m", string.Join(",", eventModel.MejaList));
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        foreach (var book in books)
+        {
+            if (pending.Contains($"guest_books:{book.Id}")) continue;
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO guest_books(id,eventId,nama,alamat,createdAt)
+VALUES($id,$e,$n,$a,$c)
+ON CONFLICT(id) DO UPDATE SET eventId=$e,nama=$n,alamat=$a,createdAt=$c";
+            cmd.Parameters.AddWithValue("$id", book.Id);
+            cmd.Parameters.AddWithValue("$e", book.EventId);
+            cmd.Parameters.AddWithValue("$n", book.Nama);
+            cmd.Parameters.AddWithValue("$a", book.Alamat);
+            cmd.Parameters.AddWithValue("$c", book.CreatedAt.ToString("o"));
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        foreach (var guest in guests)
+        {
+            if (pending.Contains($"guests:{guest.Id}")) continue;
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO guests(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,createdAt,updatedAt)
+VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)
+ON CONFLICT(id) DO UPDATE SET eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
+  nominal=$nom,metode=$m,catatan=$ct,petugasId=$p,mejaLabel=$mj,kodeInput=$k,
+  deviceId=$d,createdAt=$ca,updatedAt=$ua";
+            cmd.Parameters.AddWithValue("$id", guest.Id);
+            cmd.Parameters.AddWithValue("$e", guest.EventId);
+            cmd.Parameters.AddWithValue("$gb", (object?)guest.GuestBookId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$n", guest.Nama);
+            cmd.Parameters.AddWithValue("$a", guest.Alamat);
+            cmd.Parameters.AddWithValue("$nom", guest.Nominal);
+            cmd.Parameters.AddWithValue("$m", guest.Metode);
+            cmd.Parameters.AddWithValue("$ct", (object?)guest.Catatan ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$p", (object?)guest.PetugasId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$mj", (object?)guest.MejaLabel ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$k", (object?)guest.KodeInput ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$d", (object?)guest.DeviceId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$ca", guest.CreatedAt.ToString("o"));
+            cmd.Parameters.AddWithValue("$ua", guest.UpdatedAt.ToString("o"));
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        foreach (var id in deletedGuestIds ?? Enumerable.Empty<string>())
+        {
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM guests WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        foreach (var id in deletedBookIds ?? Enumerable.Empty<string>())
+        {
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM guest_books WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        tx.Commit();
+    }
+
     // ---------- outbox ----------
     public async Task EnqueueAsync(OutboxOp op)
     {
@@ -347,6 +488,20 @@ VALUES($id,$e,$a,$t,$p,$n,$le,$c)";
         cmd.CommandText = "SELECT COUNT(*) FROM outbox WHERE eventId=$e";
         cmd.Parameters.AddWithValue("$e", eventId);
         return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+    }
+
+    public async Task<List<string>> OutboxEventIdsAsync()
+    {
+        var ids = new List<string>();
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT DISTINCT eventId FROM outbox ORDER BY eventId";
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            if (!r.IsDBNull(0)) ids.Add(r.GetString(0));
+        }
+        return ids;
     }
 
     public async Task OutboxRemoveAsync(IEnumerable<string> ids)

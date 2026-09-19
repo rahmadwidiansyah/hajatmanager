@@ -70,7 +70,20 @@ public partial class LoginWindow : Window
         {
             if (!ApiClient.Instance.HasDeviceToken) return;
             var me = await ApiClient.Instance.DeviceMeAsync();
-            if (me == null) return; // token mati → tetap di layar login
+            if (me == null)
+            {
+                // Offline mode may open cached data, but never treats an
+                // online token rejection as a valid session.
+                var online = await SyncEngine.Instance.CheckNowAsync();
+                if (!online && AppConfig.Instance.GetCachedUser() != null)
+                {
+                    AppLogger.Info("Auto-login offline terbatas menggunakan cache lokal");
+                    var offlineNext = await PinFlow.ResolveNextAsync();
+                    offlineNext.Show();
+                    Close();
+                }
+                return;
+            }
             using (me)
             {
                 var userJson = me.RootElement.GetProperty("user").GetRawText();

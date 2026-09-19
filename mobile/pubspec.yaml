@@ -57,6 +57,7 @@ dependencies:
   url_launcher: ^6.3.2
   sqflite_common_ffi: ^2.4.3
   sqlite3_flutter_libs: ^0.6.0+eol
+  workmanager: ^0.9.3
 
 dev_dependencies:
   flutter_test:

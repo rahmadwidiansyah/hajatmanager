@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
 import 'api_client.dart';
 import 'local_db.dart';
 
 /// Sync engine offline-first:
 /// simpan lokal dulu (SQLite + outbox), kalau online langsung push,
 /// kalau offline antre. Auto-flush 60 dtk + saat online kembali.
-class SyncEngine extends ChangeNotifier {
+class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
   static final SyncEngine instance = SyncEngine._();
   SyncEngine._();
   Timer? _timer;
@@ -17,24 +19,68 @@ class SyncEngine extends ChangeNotifier {
   final Map<String, int> pendingByEvent = {};
   bool online = true;
   bool flushing = false;
+  bool syncing = false;
+  String? lastError;
+  DateTime? lastSyncedAt;
+  Future<void>? _activeSync;
+  bool _started = false;
 
   void start() {
+    if (_started) return;
+    _started = true;
+    WidgetsBinding.instance.addObserver(this);
     _sub ??= Connectivity().onConnectivityChanged.listen((r) {
       final hasNet = !r.contains(ConnectivityResult.none);
       online = hasNet;
       notifyListeners();
-      if (hasNet) flushAll();
+      if (hasNet) syncInBackground();
     });
-    _timer ??= Timer.periodic(const Duration(seconds: 60), (_) => flushAll());
+    _timer ??= Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => syncInBackground(),
+    );
     checkNow();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      syncInBackground();
+    }
+  }
+
   Future<void> checkNow() async {
-    online = await ApiClient.instance.health().timeout(
-      const Duration(seconds: 6),
-      onTimeout: () => false,
-    ).catchError((_) => false);
+    online = await ApiClient.instance
+        .health()
+        .timeout(const Duration(seconds: 6), onTimeout: () => false)
+        .catchError((_) => false);
     notifyListeners();
+  }
+
+  Future<void> syncInBackground() {
+    _activeSync ??= _syncAll().whenComplete(() => _activeSync = null);
+    return _activeSync!;
+  }
+
+  Future<void> _syncAll() async {
+    if (syncing) return;
+    syncing = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      await checkNow();
+      if (!online) return;
+      final ids = await LocalDb.instance.eventIds();
+      for (final id in ids) {
+        await flush(id);
+      }
+      lastSyncedAt = DateTime.now();
+    } catch (e) {
+      lastError = e.toString();
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
   }
 
   Future<int> pending(String eventId) async {
@@ -45,7 +91,7 @@ class SyncEngine extends ChangeNotifier {
   }
 
   Future<void> flushAll() async {
-    if (flushing) return;
+    if (flushing || syncing) return;
     flushing = true;
     try {
       final db = await LocalDb.instance.db();
@@ -64,15 +110,13 @@ class SyncEngine extends ChangeNotifier {
     try {
       final dio = await ApiClient.instance.dio();
       final ops = await LocalDb.instance.outboxList(eventId);
-      if (ops.isEmpty) {
-        await pending(eventId);
-        return (0, 0, null);
-      }
       // Pisah: create via batch, sisanya satu-per-satu.
-      final creates =
-          ops.where((o) => '${o['action']}'.startsWith('CREATE_')).toList();
-      final rest =
-          ops.where((o) => !'${o['action']}'.startsWith('CREATE_')).toList();
+      final creates = ops
+          .where((o) => '${o['action']}'.startsWith('CREATE_'))
+          .toList();
+      final rest = ops
+          .where((o) => !'${o['action']}'.startsWith('CREATE_'))
+          .toList();
       final guests = <Map<String, dynamic>>[];
       final books = <Map<String, dynamic>>[];
       final events = <Map<String, dynamic>>[];
@@ -86,11 +130,10 @@ class SyncEngine extends ChangeNotifier {
       String? err;
       if (creates.isNotEmpty) {
         try {
-          final res = await dio.post('/api/sync/push', data: {
-            'guests': guests,
-            'guestBooks': books,
-            'events': events,
-          });
+          final res = await dio.post(
+            '/api/sync/push',
+            data: {'guests': guests, 'guestBooks': books, 'events': events},
+          );
           final data = Map<String, dynamic>.from(res.data as Map);
           final cfl = (data['conflicts'] as List? ?? []);
           final cIds = cfl.map((e) => '${(e as Map)['id']}').toSet();
@@ -107,7 +150,8 @@ class SyncEngine extends ChangeNotifier {
           if (forbidden.isNotEmpty) {
             await LocalDb.instance.outboxRemove(forbidden);
           }
-          flushed = (data['synced']?['guests'] as int? ?? 0) +
+          flushed =
+              (data['synced']?['guests'] as int? ?? 0) +
               (data['synced']?['guestBooks'] as int? ?? 0) +
               (data['synced']?['events'] as int? ?? 0);
           conflicts = cIds.length;
@@ -136,28 +180,32 @@ class SyncEngine extends ChangeNotifier {
           flushed += 1;
         } else if (r.conflict) {
           conflicts += 1;
-          await LocalDb.instance
-              .outboxBump('${op['id']}', 'DUPLICATE_NEED_NOTE');
+          await LocalDb.instance.outboxBump(
+            '${op['id']}',
+            'DUPLICATE_NEED_NOTE',
+          );
           err ??= 'DUPLICATE_NEED_NOTE';
         } else {
-          await LocalDb.instance
-              .outboxBump('${op['id']}', r.error ?? 'flush-failed');
+          await LocalDb.instance.outboxBump(
+            '${op['id']}',
+            r.error ?? 'flush-failed',
+          );
           err ??= r.error;
           if (r.error == 'offline') break;
         }
       }
       // pull best-effort
       try {
-        final since =
-            await LocalDb.instance.getMeta('lastPull:$eventId') ?? '';
-        final q = {
-          'eventId': eventId,
-          if (since.isNotEmpty) 'since': since,
-        };
+        final since = await LocalDb.instance.getMeta('lastPull:$eventId') ?? '';
+        final q = {'eventId': eventId, if (since.isNotEmpty) 'since': since};
         final pr = await dio.get('/api/sync/pull', queryParameters: q);
         final pj = Map<String, dynamic>.from(pr.data as Map);
         final g = (pj['guests'] as List? ?? []);
         final b = (pj['guestBooks'] as List? ?? []);
+        await LocalDb.instance.removeSyncedIds(
+          guestIds: (pj['deletedGuestIds'] as List? ?? []),
+          bookIds: (pj['deletedGuestBookIds'] as List? ?? []),
+        );
         if (since.isEmpty) {
           if (g.isNotEmpty) {
             await LocalDb.instance.putGuests(eventId, g);
@@ -170,7 +218,9 @@ class SyncEngine extends ChangeNotifier {
           await LocalDb.instance.mergeBooks(eventId, b);
         }
         await LocalDb.instance.setMeta(
-            'lastPull:$eventId', '${pj['pulledAt'] ?? ''}');
+          'lastPull:$eventId',
+          '${pj['pulledAt'] ?? ''}',
+        );
       } catch (_) {}
       await pending(eventId);
       return (flushed, conflicts, err);
@@ -181,24 +231,28 @@ class SyncEngine extends ChangeNotifier {
 
   String _netErr(DioException e) =>
       e.type == DioExceptionType.connectionError ||
-              e.type == DioExceptionType.connectionTimeout
-          ? 'offline'
-          : 'HTTP ${e.response?.statusCode}';
+          e.type == DioExceptionType.connectionTimeout
+      ? 'offline'
+      : 'HTTP ${e.response?.statusCode}';
 
   /// Flush satu op non-create via endpoint langsung.
   /// 404 = anggap sinkron (sudah hilang di server), 409 = konflik,
   /// 4xx lain = buang agar antrean tidak macet.
   Future<({bool done, bool conflict, String? error})> _flushSingle(
-      Dio dio, Map<String, dynamic> op) async {
+    Dio dio,
+    Map<String, dynamic> op,
+  ) async {
     final p = jsonDecode('${op['payload']}') as Map<String, dynamic>;
     final action = '${op['action']}';
     final eventId = '${op['eventId']}';
     final id = '${p['id'] ?? op['id']}';
     try {
       late final Response res;
-      final fields = (p['fields'] is Map)
-          ? Map<String, dynamic>.from(p['fields'] as Map)
-          : Map<String, dynamic>.from(p)..remove('id');
+      final fields =
+          (p['fields'] is Map)
+                ? Map<String, dynamic>.from(p['fields'] as Map)
+                : Map<String, dynamic>.from(p)
+            ..remove('id');
       if (action == 'UPDATE_GUEST') {
         res = await dio.patch('/api/guests/$id', data: fields);
       } else if (action == 'DELETE_GUEST') {
@@ -210,27 +264,27 @@ class SyncEngine extends ChangeNotifier {
       } else if (action == 'UPDATE_EVENT') {
         res = await dio.patch('/api/events/$eventId', data: fields);
       } else if (action == 'ADD_MEMBER') {
-        res = await dio.post('/api/events/$eventId/members',
-            data: fields);
+        res = await dio.post('/api/events/$eventId/members', data: fields);
       } else if (action == 'SET_ROLE') {
-        res = await dio.patch('/api/events/$eventId/members', data: {
-          'userId': '${p['userId'] ?? ''}',
-          'role': '${p['role'] ?? ''}',
-        });
+        res = await dio.patch(
+          '/api/events/$eventId/members',
+          data: {
+            'userId': '${p['userId'] ?? ''}',
+            'role': '${p['role'] ?? ''}',
+          },
+        );
       } else if (action == 'REMOVE_MEMBER') {
-        res = await dio.delete('/api/events/$eventId/members',
-            queryParameters: {'userId': '${p['userId'] ?? ''}'});
+        res = await dio.delete(
+          '/api/events/$eventId/members',
+          queryParameters: {'userId': '${p['userId'] ?? ''}'},
+        );
       } else {
         return (done: false, conflict: false, error: 'unknown-action');
       }
       if (res.statusCode == 200 || res.statusCode == 201) {
         return (done: true, conflict: false, error: null);
       }
-      return (
-        done: false,
-        conflict: false,
-        error: 'HTTP ${res.statusCode}'
-      );
+      return (done: false, conflict: false, error: 'HTTP ${res.statusCode}');
     } on DioException catch (e) {
       final s = e.response?.statusCode ?? 0;
       if (s == 404) return (done: true, conflict: false, error: null);
@@ -262,11 +316,14 @@ class SyncEngine extends ChangeNotifier {
   }
 
   /// Isi catatan untuk konflik duplikat lalu antre ulang.
-  Future<void> resolveConflict(
-      String opId, String catatan) async {
+  Future<void> resolveConflict(String opId, String catatan) async {
     final db = await LocalDb.instance.db();
-    final rows =
-        await db.query('outbox', where: 'id=?', whereArgs: [opId], limit: 1);
+    final rows = await db.query(
+      'outbox',
+      where: 'id=?',
+      whereArgs: [opId],
+      limit: 1,
+    );
     if (rows.isEmpty) return;
     final op = rows.first;
     final p = jsonDecode('${op['payload']}') as Map<String, dynamic>;
@@ -289,6 +346,7 @@ class SyncEngine extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _sub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }

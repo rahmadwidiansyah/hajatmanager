@@ -41,7 +41,7 @@ public partial class EventDetailWindow : Window
     private (string nama, string nominalFormatted)? _liveDup;
     private DataGrid? _guestGrid;
 
-    private static readonly string[] Methodes = { "AMPLOP", "QRIS", "TRANSFER" };
+    private static readonly string[] Methodes = { "CASH", "AMPLOP", "QRIS", "TRANSFER", "BARANG" };
 
     public EventDetailWindow(EventModel ev)
     {
@@ -749,10 +749,16 @@ public partial class EventDetailWindow : Window
         await LocalDb.Instance.DeleteGuestLocalAsync(r.Model.Id);
         await LocalDb.Instance.EnqueueAsync(new OutboxOp
         {
-            EventId = _ev.Id, Action = "DELETE_GUEST", TableName = "guests",
+            Id = r.Model.Id, EventId = _ev.Id, Action = "DELETE_GUEST", TableName = "guests",
             Payload = JsonSerializer.Serialize(new { id = r.Model.Id }),
         });
-        try { await ApiClient.Instance.DeleteAsync($"/api/guests/{r.Model.Id}"); } catch { }
+        try
+        {
+            using var response = await ApiClient.Instance.DeleteAsync($"/api/guests/{r.Model.Id}");
+            if (response.IsSuccessStatusCode || (int)response.StatusCode == 404)
+                await LocalDb.Instance.OutboxRemoveAsync(new[] { r.Model.Id });
+        }
+        catch (Exception ex) { AppLogger.Warn($"Hapus guest online gagal: {ex.Message}"); }
         await RefreshAsync();
     }
 
@@ -869,8 +875,16 @@ public partial class EventDetailWindow : Window
                 EventId = _ev.Id, Action = "UPDATE_GUEST", TableName = "guests",
                 Payload = JsonSerializer.Serialize(new { id = g.Id, fields }),
             });
-            try { await ApiClient.Instance.PatchJsonAsync($"/api/guests/{g.Id}", fields); }
-            catch { }
+            try
+            {
+                using var response = await ApiClient.Instance.PatchJsonAsync($"/api/guests/{g.Id}", fields);
+                if (response.IsSuccessStatusCode || (int)response.StatusCode == 404)
+                    await LocalDb.Instance.OutboxRemoveAsync(
+                        (await LocalDb.Instance.OutboxListAsync(_ev.Id))
+                        .Where(x => x.Action == "UPDATE_GUEST" && x.Payload.Contains($"\"id\":\"{g.Id}\""))
+                        .Select(x => x.Id));
+            }
+            catch (Exception ex) { AppLogger.Warn($"Update guest online gagal: {ex.Message}"); }
             win.Close();
             await RefreshAsync();
         };
@@ -987,8 +1001,16 @@ public partial class EventDetailWindow : Window
                 EventId = _ev.Id, Action = "UPDATE_BOOK", TableName = "guest_books",
                 Payload = JsonSerializer.Serialize(new { id = b.Id, fields }),
             });
-            try { await ApiClient.Instance.PatchJsonAsync($"/api/guestbooks/{b.Id}", fields); }
-            catch { }
+            try
+            {
+                using var response = await ApiClient.Instance.PatchJsonAsync($"/api/guestbooks/{b.Id}", fields);
+                if (response.IsSuccessStatusCode || (int)response.StatusCode == 404)
+                    await LocalDb.Instance.OutboxRemoveAsync(
+                        (await LocalDb.Instance.OutboxListAsync(_ev.Id))
+                        .Where(x => x.Action == "UPDATE_BOOK" && x.Payload.Contains($"\"id\":\"{b.Id}\""))
+                        .Select(x => x.Id));
+            }
+            catch (Exception ex) { AppLogger.Warn($"Update buku tamu online gagal: {ex.Message}"); }
             win.Close();
             await RefreshAsync();
         };
@@ -1005,10 +1027,19 @@ public partial class EventDetailWindow : Window
         await LocalDb.Instance.DeleteBookLocalAsync(b.Id);
         await LocalDb.Instance.EnqueueAsync(new OutboxOp
         {
-            EventId = _ev.Id, Action = "DELETE_BOOK", TableName = "guest_books",
+            Id = b.Id, EventId = _ev.Id, Action = "DELETE_BOOK", TableName = "guest_books",
             Payload = JsonSerializer.Serialize(new { id = b.Id }),
         });
-        try { await ApiClient.Instance.DeleteAsync($"/api/guestbooks/{b.Id}"); } catch { }
+        try
+        {
+            using var response = await ApiClient.Instance.DeleteAsync($"/api/guestbooks/{b.Id}");
+            if (response.IsSuccessStatusCode || (int)response.StatusCode == 404)
+                await LocalDb.Instance.OutboxRemoveAsync(
+                    (await LocalDb.Instance.OutboxListAsync(_ev.Id))
+                    .Where(x => x.Action == "DELETE_BOOK" && x.Payload.Contains($"\"id\":\"{b.Id}\""))
+                    .Select(x => x.Id));
+        }
+        catch (Exception ex) { AppLogger.Warn($"Hapus buku tamu online gagal: {ex.Message}"); }
         await RefreshAsync();
     }
 

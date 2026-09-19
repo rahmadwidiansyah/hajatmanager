@@ -15,11 +15,20 @@ export async function GET(req: Request) {
   const sinceDate = since ? new Date(since) : new Date(0);
   if (isNaN(sinceDate.getTime())) return NextResponse.json({ error: "invalid since" }, { status: 400 });
 
-  const [event, guests, guestBooks] = await Promise.all([
+  const [event, guests, guestBooks, deletedGuests, deletedGuestBooks] = await Promise.all([
     prisma.event.findUnique({ where: { id: eventId } }),
-    prisma.guest.findMany({ where: { eventId, updatedAt: { gt: sinceDate } }, orderBy: { updatedAt: "asc" }, take: 2000 }),
-    prisma.guestBook.findMany({ where: { eventId, createdAt: { gt: sinceDate } }, orderBy: { createdAt: "asc" }, take: 2000 }),
+    prisma.guest.findMany({ where: { eventId, deletedAt: null, updatedAt: { gt: sinceDate } }, orderBy: { updatedAt: "asc" }, take: 2000 }),
+    prisma.guestBook.findMany({ where: { eventId, deletedAt: null, createdAt: { gt: sinceDate } }, orderBy: { createdAt: "asc" }, take: 2000 }),
+    prisma.guest.findMany({ where: { eventId, deletedAt: { gt: sinceDate } }, select: { id: true }, take: 2000 }),
+    prisma.guestBook.findMany({ where: { eventId, deletedAt: { gt: sinceDate } }, select: { id: true }, take: 2000 }),
   ]);
 
-  return NextResponse.json({ event, guests, guestBooks, pulledAt: new Date().toISOString() });
+  return NextResponse.json({
+    event,
+    guests,
+    guestBooks,
+    deletedGuestIds: deletedGuests.map((g) => g.id),
+    deletedGuestBookIds: deletedGuestBooks.map((b) => b.id),
+    pulledAt: new Date().toISOString(),
+  });
 }

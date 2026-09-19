@@ -15,14 +15,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   // Ambil semua Guest sudah tercatat untuk filter (duplicate A: nama+alamat)
   const existingGuests = await prisma.guest.findMany({
-    where: { eventId: id },
+    where: { eventId: id, deletedAt: null },
     select: { nama: true, alamat: true },
   });
   const sudahAda = new Set(existingGuests.map((g) => `${g.nama.toLowerCase()}|${g.alamat.toLowerCase()}`));
 
   // cari hanya di GuestBook yang BELUM tercatat (filter tidak tampil)
   const books = await prisma.guestBook.findMany({
-    where: { eventId: id, nama: { contains: q, mode: "insensitive" } },
+    where: { eventId: id, deletedAt: null, nama: { contains: q, mode: "insensitive" } },
     take: 10,
     orderBy: { nama: "asc" },
   });

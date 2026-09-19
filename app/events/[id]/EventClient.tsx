@@ -2203,7 +2203,6 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
           <div className="bg-[var(--surface-container-lowest)] rounded-2xl border border-[var(--outline-variant)] shadow-xl max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--outline-variant)]">
               <h3 className="font-semibold text-[var(--on-surface)]">Export Data</h3>
-              <button onClick={() => setExportModal(false)} className="w-8 h-8 rounded-lg hover:bg-[var(--surface-container)] flex items-center justify-center text-[var(--on-surface-variant)] transition-colors"><X size={16} /></button>
             </div>
 
             <div className="px-6 py-5 space-y-5">
@@ -2222,7 +2221,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
               {/* Orientasi */}
               <div>
-                <p className={`${inputCls.replace("w-full h-11 px-4", "")} text-xs font-medium text-[var(--on-surface-variant)] uppercase tracking-wide mb-2`}>Orientasi</p>
+                <p className={`${labelCls} mb-2`}>Orientasi</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { val: "portrait", label: "Vertikal", Icon: RectangleVertical, rows: exportType === "tamu" ? "42" : "32" },

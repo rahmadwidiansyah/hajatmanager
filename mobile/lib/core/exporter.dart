@@ -157,7 +157,7 @@ Future<Uint8List> buildExportPdf({
   final title =
       '$eventName — ${isPemberian ? 'Laporan Pemberian' : 'Buku Tamu'}';
   final meta =
-      '$_stamp() • $userName • ${rows.length} tamu${isPemberian ? ' • ${formatRp(totalNominal)}' : ''}';
+      '${_stamp()} • $userName • ${rows.length} tamu${isPemberian ? ' • ${formatRp(totalNominal)}' : ''}';
   final perPage = landscaped ? 24 : 32;
   final totalPages = (rows.length / perPage).ceil().clamp(1, 9999);
   pw.Widget table() => pw.Column(children: [

@@ -66,7 +66,12 @@ public sealed class SyncEngine
         try
         {
             var ops = await LocalDb.Instance.OutboxListAsync(eventId);
-            if (ops.Count == 0) return (0, 0, null);
+            if (ops.Count == 0)
+            {
+                try { await PullAsync(eventId); }
+                catch (Exception ex) { return (0, 0, ex.Message); }
+                return (0, 0, null);
+            }
 
             var creates = ops.Where(o => o.Action.StartsWith("CREATE_")).ToList();
             var rest = ops.Where(o => !o.Action.StartsWith("CREATE_")).ToList();
@@ -92,6 +97,11 @@ public sealed class SyncEngine
                     using var res = await ApiClient.Instance.PostJsonAsync(
                         "/api/sync/push",
                         new { guests, guestBooks = books, events });
+                    if (!res.IsSuccessStatusCode)
+                    {
+                        var status = (int)res.StatusCode;
+                        return (0, 0, status >= 500 ? "server-error" : $"rejected-{status}");
+                    }
                     var doc = await res.Content.ReadFromJsonAsync<JsonDocument>(JsonOpts);
                     var cfl = doc?.RootElement.TryGetProperty("conflicts", out var c) == true
                         ? c.EnumerateArray().ToList() : new List<JsonElement>();
@@ -193,8 +203,15 @@ public sealed class SyncEngine
 
     public async Task FlushAllAsync()
     {
-        // Flush semua event yang punya antrean — daftar dari outbox global.
-        // Disederhanakan: panggil per eventId yang dikenal pemanggil.
+        var eventIds = await LocalDb.Instance.EventIdsAsync();
+        foreach (var eventId in eventIds)
+        {
+            try { await FlushAsync(eventId); }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Flush event {eventId} gagal: {ex.Message}");
+            }
+        }
     }
 
     public async Task PullAsync(string eventId)
@@ -205,7 +222,29 @@ public sealed class SyncEngine
         var doc = await ApiClient.Instance.GetAsync("/api/sync/pull?" + ApiClient.BuildQuery(q));
         if (doc == null) return;
         var root = doc.RootElement;
-        // Implementasi merge penuh di ViewModel/lapisan data lanjutan.
+        EventModel? eventModel = null;
+        if (root.TryGetProperty("event", out var eventJson) &&
+            eventJson.ValueKind != JsonValueKind.Null)
+            eventModel = eventJson.Deserialize<EventModel>(JsonOpts);
+
+        var guests = root.TryGetProperty("guests", out var guestsJson) &&
+                     guestsJson.ValueKind == JsonValueKind.Array
+            ? guestsJson.Deserialize<List<GuestModel>>(JsonOpts) ?? new()
+            : new List<GuestModel>();
+        var books = root.TryGetProperty("guestBooks", out var booksJson) &&
+                    booksJson.ValueKind == JsonValueKind.Array
+            ? booksJson.Deserialize<List<GuestBookModel>>(JsonOpts) ?? new()
+            : new List<GuestBookModel>();
+        var deletedGuestIds = root.TryGetProperty("deletedGuestIds", out var deletedGuestsJson) &&
+                              deletedGuestsJson.ValueKind == JsonValueKind.Array
+            ? deletedGuestsJson.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : new List<string>();
+        var deletedBookIds = root.TryGetProperty("deletedGuestBookIds", out var deletedBooksJson) &&
+                             deletedBooksJson.ValueKind == JsonValueKind.Array
+            ? deletedBooksJson.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : new List<string>();
+
+        await LocalDb.Instance.MergePulledAsync(eventModel, guests, books, deletedGuestIds, deletedBookIds);
         if (root.TryGetProperty("pulledAt", out var pa))
             await LocalDb.Instance.SetMetaAsync($"lastPull:{eventId}", pa.GetString() ?? "");
     }

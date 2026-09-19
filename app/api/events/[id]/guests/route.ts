@@ -33,7 +33,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit = isExport ? Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10))) : Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
 
-  const where: Record<string, unknown> = { eventId: id };
+  const where: Record<string, unknown> = { eventId: id, deletedAt: null };
   if (q) {
     // search untuk id, nama, alamat, catatan, kodeInput
     const orConditions: Record<string, unknown>[] = [

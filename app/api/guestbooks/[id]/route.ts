@@ -12,7 +12,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!parsed.success) return NextResponse.json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() }, { status: 400 });
 
   const existing = await prisma.guestBook.findUnique({ where: { id } });
-  if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!existing || existing.deletedAt) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
   // cek member
   const member = await prisma.eventMember.findUnique({ where: { eventId_userId: { eventId: existing.eventId, userId: auth.user.id } } });
@@ -31,12 +31,12 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if ("error" in auth) return auth.error;
 
   const existing = await prisma.guestBook.findUnique({ where: { id } });
-  if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!existing || existing.deletedAt) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
   const member = await prisma.eventMember.findUnique({ where: { eventId_userId: { eventId: existing.eventId, userId: auth.user.id } } });
   if (!member || !["OWNER", "ADMIN"].includes(member.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  await prisma.guestBook.delete({ where: { id } });
+  await prisma.guestBook.update({ where: { id }, data: { deletedAt: new Date() } });
   await prisma.auditLog.create({
     data: { eventId: existing.eventId, userId: auth.user.id, aksi: "DELETE_GUESTBOOK", targetId: id, detail: { nama: existing.nama } },
   });
