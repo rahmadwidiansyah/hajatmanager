@@ -3,6 +3,16 @@
 
 ### Bug Fixes
 
+* **ci:** guard release loop + workflow fix-tag untuk perbaiki tag orphan ([9992be0](https://github.com/rahmadwidiansyah/hajatmanager/commit/9992be0793812c6df87758abe02e6b0ddfc7a44b))
+* **ci:** prevent release workflow loop on chore(release) commits ([20b04cc](https://github.com/rahmadwidiansyah/hajatmanager/commit/20b04cc38f8b5e6e91a786d3583f9ebb5adcafc5))
+* improve sync and export flows ([aea43a2](https://github.com/rahmadwidiansyah/hajatmanager/commit/aea43a2a9c774c696ab301572c14534f599a908b))
+* **windows:** atasi crash EventDetail SurfaceContainer + styling M3 full-app ([52b5e73](https://github.com/rahmadwidiansyah/hajatmanager/commit/52b5e7359de8e43e27c000a374fb890e51211e1b))
+
+## [1.9.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.2...v1.9.3) (2026-09-19)
+
+
+### Bug Fixes
+
 * **ci:** prevent release workflow loop on chore(release) commits ([20b04cc](https://github.com/rahmadwidiansyah/hajatmanager/commit/20b04cc38f8b5e6e91a786d3583f9ebb5adcafc5))
 * improve sync and export flows ([aea43a2](https://github.com/rahmadwidiansyah/hajatmanager/commit/aea43a2a9c774c696ab301572c14534f599a908b))
 * **windows:** atasi crash EventDetail SurfaceContainer + styling M3 full-app ([52b5e73](https://github.com/rahmadwidiansyah/hajatmanager/commit/52b5e7359de8e43e27c000a374fb890e51211e1b))
