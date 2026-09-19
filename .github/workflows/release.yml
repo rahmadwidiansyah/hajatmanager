@@ -13,7 +13,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     # Guard lapis-1: skip commit chore(release) agar tidak loop tak berujung.
-    # Pakai startsWith agar tidak bisa disiasati dengan prefix lain.
     if: |
       !startsWith(github.event.head_commit.message, 'chore(release)')
     steps:
@@ -41,40 +40,41 @@ jobs:
             echo "RELEASE_PAT terisi ✓"
           fi
 
-      # Guard lapis-2: cek apakah ada commit baru yang belum dirilis sejak tag terakhir.
-      # Jika tidak ada commit baru (misal hanya chore/merge yang lolos filter di atas),
-      # skip agar semantic-release tidak mencoba membuat tag yang sudah ada.
-      - name: Cek commit baru sejak tag terakhir
-        id: check_commits
+      # Guard lapis-2: jalankan semantic-release dalam mode dry-run dulu
+      # untuk mengetahui versi yang akan dirilis tanpa benar-benar commit/tag.
+      # Jika versi itu sudah ada sebagai tag di remote → skip.
+      - name: Cek apakah rilis baru diperlukan
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
         run: |
-          # Ambil tag semver terakhir
-          LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
-          if [ -z "$LAST_TAG" ]; then
-            echo "Belum ada tag semver, lanjutkan release"
-            echo "has_new_commits=true" >> $GITHUB_OUTPUT
+          # Dry-run: semantic-release print nextRelease.version tanpa push apa-apa
+          OUTPUT=$(npx semantic-release --dry-run --no-ci 2>&1 || true)
+          echo "$OUTPUT" | tail -20
+
+          # Ekstrak versi yang akan dirilis
+          NEXT_VERSION=$(echo "$OUTPUT" | grep -oP '(?<=The next release version is )\S+' | head -1)
+
+          if [ -z "$NEXT_VERSION" ]; then
+            # Semantic-release tidak menemukan commit releasable → tidak ada rilis baru
+            echo "Tidak ada rilis baru yang perlu dibuat, skip."
+            echo "should_release=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          echo "Tag terakhir: $LAST_TAG ($(git rev-list -n 1 $LAST_TAG))"
-          echo "HEAD: $(git rev-parse HEAD)"
 
-          # Hitung commit releasable (feat/fix/perf/breaking) sejak tag terakhir
-          # yang ada di ancestry HEAD (hindari commit dari branch orphan)
-          if git merge-base --is-ancestor $(git rev-list -n 1 $LAST_TAG) HEAD 2>/dev/null; then
-            RELEASABLE=$(git log ${LAST_TAG}..HEAD --oneline --format="%s" | grep -cE '^(feat|fix|perf|revert|BREAKING CHANGE)' || true)
-            echo "Commit releasable sejak $LAST_TAG: $RELEASABLE"
-            if [ "$RELEASABLE" -gt 0 ]; then
-              echo "has_new_commits=true" >> $GITHUB_OUTPUT
-            else
-              echo "has_new_commits=false" >> $GITHUB_OUTPUT
-              echo "::notice::Tidak ada commit releasable baru sejak $LAST_TAG, skip semantic-release."
-            fi
+          echo "Versi berikutnya: $NEXT_VERSION"
+
+          # Cek apakah tag itu sudah ada di remote
+          if git ls-remote --tags origin "refs/tags/v${NEXT_VERSION}" | grep -q "v${NEXT_VERSION}"; then
+            echo "::warning::Tag v${NEXT_VERSION} sudah ada di remote — skip semantic-release untuk mencegah crash."
+            echo "should_release=false" >> $GITHUB_OUTPUT
           else
-            echo "Tag $LAST_TAG bukan ancestor HEAD (state diverge) — tetap jalankan semantic-release"
-            echo "has_new_commits=true" >> $GITHUB_OUTPUT
+            echo "Tag v${NEXT_VERSION} belum ada → lanjutkan release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
       - name: semantic-release
-        if: steps.check_commits.outputs.has_new_commits == 'true'
+        if: steps.check_release.outputs.should_release == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
         run: npx semantic-release
