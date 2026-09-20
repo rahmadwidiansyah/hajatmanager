@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.8...v1.10.0) (2026-09-20)
+
+
+### Features
+
+* **sync:** fase localId idempoten — anti-double offline + rekonsiliasi id + onPull stream ([56b180d](https://github.com/rahmadwidiansyah/hajatmanager/commit/56b180dafd76231fa5f9c22913a1719201144a24))
+
 ## [1.9.8](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.7...v1.9.8) (2026-09-20)
 
 
