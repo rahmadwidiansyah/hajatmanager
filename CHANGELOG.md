@@ -1,3 +1,10 @@
+## [1.9.7](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.6...v1.9.7) (2026-09-20)
+
+
+### Bug Fixes
+
+* remove leftover _more usage in LogWindow ([4b3e6ad](https://github.com/rahmadwidiansyah/hajatmanager/commit/4b3e6ad975ea28aea8442f800bf116528b6a01f2))
+
 ## [1.9.6](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.5...v1.9.6) (2026-09-20)
 
 
