@@ -32,7 +32,7 @@ public partial class LogWindow : Window
 
     private async Task LoadAsync(bool reset = false)
     {
-        if (reset) { _page = 1; _more = true; }
+        if (reset) { _page = 1; }
         ErrText.Visibility = Visibility.Collapsed;
         try
         {
