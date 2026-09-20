@@ -6,6 +6,9 @@ import { z } from "zod";
 const schema = z.object({
   nama: z.string().min(2),
   alamat: z.string().min(2),
+  // localId: UUID dari client (Flutter/native), dipakai untuk idempoten lookup.
+  // Kalau dikirim dan sudah ada di DB → return existing (tidak insert ulang).
+  localId: z.string().uuid().optional().nullable(),
 });
 
 const bulkSchema = z.object({
@@ -69,9 +72,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() }, { status: 400 });
 
+  // --- Idempoten via localId ---
+  // Kalau client mengirim localId dan sudah ada di DB (retry / flush ganda),
+  // kembalikan baris yang sudah ada tanpa insert ulang. HTTP 200 agar client
+  // tahu ini bukan create baru.
+  if (parsed.data.localId) {
+    const byLocalId = await prisma.guestBook.findUnique({
+      where: { localId: parsed.data.localId },
+    });
+    if (byLocalId && !byLocalId.deletedAt) {
+      return NextResponse.json(byLocalId, { status: 200 });
+    }
+  }
+
   // Anti-double: tolak nama+alamat sama (case-insensitive) seperti guests 409.
   const existing = await prisma.guestBook.findFirst({
-    where: { eventId: id, nama: { equals: parsed.data.nama, mode: "insensitive" }, alamat: { equals: parsed.data.alamat, mode: "insensitive" } },
+    where: { eventId: id, nama: { equals: parsed.data.nama, mode: "insensitive" }, alamat: { equals: parsed.data.alamat, mode: "insensitive" }, deletedAt: null },
     select: { id: true, nama: true, alamat: true },
   });
   if (existing) {
@@ -81,9 +97,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
   }
 
-  const created = await prisma.guestBook.create({ data: { eventId: id, nama: parsed.data.nama, alamat: parsed.data.alamat } });
+  const created = await prisma.guestBook.create({
+    data: {
+      eventId: id,
+      nama: parsed.data.nama,
+      alamat: parsed.data.alamat,
+      localId: parsed.data.localId ?? null,
+    },
+  });
   await prisma.auditLog.create({
-    data: { eventId: id, userId: auth.user.id, aksi: "CREATE_GUESTBOOK", targetId: created.id, detail: { nama: created.nama, alamat: created.alamat } },
+    data: {
+      eventId: id,
+      userId: auth.user.id,
+      aksi: "CREATE_GUESTBOOK",
+      targetId: created.id,
+      detail: { nama: created.nama, alamat: created.alamat, localId: parsed.data.localId ?? null },
+    },
   });
   return NextResponse.json(created, { status: 201 });
 }

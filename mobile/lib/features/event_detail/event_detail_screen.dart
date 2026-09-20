@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:uuid/uuid.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show ConflictAlgorithm;
 
 import '../../core/api_client.dart';
 import '../../core/app_config.dart';
@@ -112,6 +112,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   String _lastBookSig = '';
   int _lastBookAt = 0;
 
+  // Subscription ke onPull stream — silent background refresh tanpa loading flash.
+  StreamSubscription<SyncPullEvent>? _pullSub;
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +131,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       if (mounted) unawaited(_refreshAll());
     });
     SyncEngine.instance.addListener(_onSync);
+    // Subscribe onPull: setiap kali pull delta selesai untuk event ini,
+    // reload data lokal secara silent — tanpa loading indicator / setState
+    // yang menyebabkan flash kosong. User tetap lihat data lama sambil
+    // perubahan baru muncul mulus di belakang layar.
+    _pullSub = SyncEngine.instance.onPull
+        .where((e) => e.eventId == widget.event.id)
+        .listen((_) {
+      if (mounted) unawaited(_loadLocal());
+    });
   }
 
   Future<void> _initMeja() async {
@@ -269,6 +281,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   @override
   void dispose() {
     SyncEngine.instance.removeListener(_onSync);
+    _pullSub?.cancel();
     tab.removeListener(_onTabChanged);
     _suggestDebounce?.cancel();
     _dupDebounce?.cancel();
@@ -804,8 +817,18 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       final user = await AuthStore.cachedUser();
       final deviceId = await AppConfig.getDeviceId();
       final meja = mejaSelected;
-      final id = 'gst-${const Uuid().v4()}';
+      final catatan =
+          catatanC.text.trim().isEmpty ? null : catatanC.text.trim();
       final now = DateTime.now().toIso8601String();
+
+      // localId: UUID v4 murni — identitas tetap dari client.
+      // id awal == localId (sementara), akan diganti server id setelah POST.
+      // Dengan cara ini:
+      //   - satu localId = satu baris di server (tidak bisa dobel)
+      //   - flush outbox pun idempoten karena server lookup by localId dulu
+      final localId = LocalDb.instance.newLocalId();
+      final id = localId; // id awal == localId
+
       final payload = {
         'id': id,
         'eventId': widget.event.id,
@@ -813,30 +836,40 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         'alamat': alamat,
         'nominal': nominal,
         'metode': metode,
-        'catatan': catatanC.text.trim().isEmpty ? null : catatanC.text.trim(),
+        'catatan': catatan,
         'petugasId': '${user?['id'] ?? 'lokal'}',
         'mejaLabel': meja,
         'deviceId': deviceId,
+        'localId': localId,
         'createdAt': now,
         'updatedAt': now,
       };
-      // 1) tulis lokal (langsung kelihatan)
-      final db = await LocalDb.instance.db();
-      await db.insert('guests', {
-        'id': id,
-        'eventId': widget.event.id,
-        'guestBookId': null,
-        'nama': nama,
-        'alamat': alamat,
-        'nominal': nominal,
-        'metode': metode,
-        'catatan': payload['catatan'],
-        'petugasId': payload['petugasId'],
-        'mejaLabel': meja,
-        'deviceId': deviceId,
-        'createdAt': now,
-        'updatedAt': now,
-      });
+
+      // 1) Tulis lokal dulu (langsung kelihatan di list, offline-first).
+      //    id = localId sementara; localId disimpan untuk rekonsiliasi.
+      final d = await LocalDb.instance.db();
+      await d.insert(
+        'guests',
+        {
+          'id': id,
+          'eventId': widget.event.id,
+          'guestBookId': null,
+          'nama': nama,
+          'alamat': alamat,
+          'nominal': nominal,
+          'metode': metode,
+          'catatan': catatan,
+          'petugasId': payload['petugasId'],
+          'mejaLabel': meja,
+          'deviceId': deviceId,
+          'localId': localId,
+          'createdAt': now,
+          'updatedAt': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // 2) Masuk outbox (payload termasuk localId untuk flush offline).
       await LocalDb.instance.enqueue(
         widget.event.id,
         'CREATE_GUEST',
@@ -844,7 +877,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         payload,
         id: id,
       );
-      // 2) coba push langsung
+
+      // 3) Coba POST langsung ke server (best-effort, bisa gagal jika offline).
       String? err;
       try {
         final dio = await ApiClient.instance.dio();
@@ -855,51 +889,67 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             'alamat': alamat,
             'nominal': nominal,
             'metode': metode,
-            if (payload['catatan'] != null) 'catatan': payload['catatan'],
+            'catatan': catatan,
             if (meja.isNotEmpty) 'mejaLabel': meja,
             if (deviceId.isNotEmpty) 'deviceId': deviceId,
+            // localId dikirim agar server bisa cek idempoten.
+            // Jika sudah ada di DB (retry) → server return existing (200).
+            'localId': localId,
           },
         );
-        if (r.statusCode == 201) {
-          // Rekonsiliasi id: server bikin id baru (bukan gst-*). Ganti baris
-          // lokal agar pull berikutnya tidak merge sebagai baris kedua.
-          try {
-            final srv = r.data is Map
-                ? Map<String, dynamic>.from(r.data as Map)
-                : null;
-            if (srv != null &&
-                '${srv['id']}'.isNotEmpty &&
-                '${srv['id']}' != id) {
-              // Safety: server lama bisa balas mejaLabel null. Jangan timpa
-              // baris lokal yang sudah benar dengan null.
-              if ((srv['mejaLabel'] == null ||
-                      '${srv['mejaLabel']}'.isEmpty ||
-                      '${srv['mejaLabel']}' == 'null') &&
-                  meja.isNotEmpty) {
-                srv['mejaLabel'] = meja;
-              }
-              await LocalDb.instance.replaceGuestWithServer(
-                eventId: widget.event.id,
-                oldId: id,
-                server: srv,
+
+        // 201 = baru dibuat, 200 = idempoten (sudah ada, return existing).
+        if (r.statusCode == 201 || r.statusCode == 200) {
+          final srv =
+              r.data is Map ? Map<String, dynamic>.from(r.data as Map) : null;
+          if (srv != null && '${srv['id']}'.isNotEmpty) {
+            final serverId = '${srv['id']}';
+            if (serverId != localId) {
+              // Server generate id sendiri (CUID) — rekonsiliasi:
+              // UPDATE guests SET id=serverId WHERE localId=localId
+              // Jauh lebih aman dari delete+insert karena tidak orphan outbox.
+              await LocalDb.instance.updateGuestServerId(
+                localId: localId,
+                serverId: serverId,
+                serverFields: {
+                  'guestBookId': srv['guestBookId'],
+                  'mejaLabel':
+                      (srv['mejaLabel'] == null ||
+                              '${srv['mejaLabel']}' == 'null' ||
+                              '${srv['mejaLabel']}'.isEmpty)
+                          ? meja
+                          : srv['mejaLabel'],
+                  'petugasId': srv['petugasId'],
+                  'createdAt': srv['createdAt'],
+                  'updatedAt': srv['updatedAt'],
+                },
               );
+              // Hapus dari outbox — sudah landing di server.
+              // outboxRemove by serverId karena updateGuestServerId sudah
+              // update id di outbox dari localId → serverId.
+              await LocalDb.instance.outboxRemove([serverId]);
+            } else {
+              // server id == localId (tidak biasa tapi aman) — cukup hapus outbox.
+              await LocalDb.instance.outboxRemove([localId]);
             }
-          } catch (_) {
-            // Bentuk respons tak dikenal — biarkan baris lokal apa adanya.
           }
-          await LocalDb.instance.outboxRemove([id]);
         }
       } on DioException catch (e) {
         if (e.response?.statusCode == 409) {
-          err = 'Duplikat nama+alamat — tambah catatan penanda lalu simpan ulang (tetap antre lokal).';
+          err =
+              'Duplikat nama+alamat — tambah catatan penanda lalu simpan ulang '
+              '(data aman, antre lokal).';
         } else if (e.type == DioExceptionType.connectionError ||
             e.type == DioExceptionType.connectionTimeout) {
-          err = null; // offline murni -> antre diam-diam
+          err = null; // offline murni → antre diam-diam, tidak perlu pesan
         } else {
           err =
-              'Tersimpan lokal, sync tertunda (${e.response?.statusCode ?? 'offline'})';
+              'Tersimpan lokal, sync tertunda '
+              '(${e.response?.statusCode ?? 'offline'})';
         }
       }
+
+      // 4) Reset form.
       namaC.clear();
       alamatC.clear();
       nominalC.clear();
@@ -948,18 +998,17 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       onSync: () async {
         final (f, c, e) = await SyncEngine.instance.flush(widget.event.id);
         await _refreshAll();
-        if (context.mounted) {
-          showTopSnack(
-            context,
-            SnackBar(
-              content: Text(
-                e == null
-                    ? 'Sync: $f terkirim, $c konflik'
-                    : 'Sync tertunda ($e) — data aman di lokal',
-              ),
+        if (!mounted) return;
+        showTopSnack(
+          context,
+          SnackBar(
+            content: Text(
+              e == null
+                  ? 'Sync: $f terkirim, $c konflik'
+                  : 'Sync tertunda ($e) — data aman di lokal',
             ),
-          );
-        }
+          ),
+        );
       },
     ),
     IconButton(
@@ -2732,23 +2781,38 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     _bookSaving = true;
     _lastBookSig = sig;
     _lastBookAt = nowMs;
-    final id = 'bk-${const Uuid().v4()}';
+
+    // localId: UUID v4 murni — identitas tetap dari client.
+    // id awal == localId (sementara), akan diganti server id setelah POST.
+    final localId = LocalDb.instance.newLocalId();
+    final id = localId;
+    final createdAt = DateTime.now().toIso8601String();
+
     final payload = {
       'id': id,
       'eventId': widget.event.id,
       'nama': nama,
       'alamat': alamat,
-      'createdAt': DateTime.now().toIso8601String(),
+      'localId': localId,
+      'createdAt': createdAt,
     };
     try {
-      final db = await LocalDb.instance.db();
-      await db.insert('guest_books', {
-        'id': id,
-        'eventId': widget.event.id,
-        'nama': payload['nama'],
-        'alamat': payload['alamat'],
-        'createdAt': payload['createdAt'],
-      });
+      // 1) Tulis lokal dulu.
+      final d = await LocalDb.instance.db();
+      await d.insert(
+        'guest_books',
+        {
+          'id': id,
+          'eventId': widget.event.id,
+          'nama': nama,
+          'alamat': alamat,
+          'localId': localId,
+          'createdAt': createdAt,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // 2) Masuk outbox (payload termasuk localId untuk flush offline).
       await LocalDb.instance.enqueue(
         widget.event.id,
         'CREATE_BOOK',
@@ -2756,14 +2820,52 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         payload,
         id: id,
       );
+
+      // 3) Coba POST langsung ke server.
       try {
         final dio = await ApiClient.instance.dio();
-        await dio.post(
+        final r = await dio.post(
           '/api/events/${widget.event.id}/guestbooks',
-          data: {'nama': payload['nama'], 'alamat': payload['alamat']},
+          data: {
+            'nama': nama,
+            'alamat': alamat,
+            // localId dikirim agar server cek idempoten by localId.
+            'localId': localId,
+          },
         );
-        await LocalDb.instance.outboxRemove([id]);
-      } catch (_) {}
+        // 201 = baru dibuat, 200 = idempoten (sudah ada, return existing).
+        if (r.statusCode == 201 || r.statusCode == 200) {
+          final srv =
+              r.data is Map ? Map<String, dynamic>.from(r.data as Map) : null;
+          if (srv != null && '${srv['id']}'.isNotEmpty) {
+            final serverId = '${srv['id']}';
+            if (serverId != localId) {
+              // Rekonsiliasi: UPDATE guest_books SET id=serverId WHERE localId=localId
+              await LocalDb.instance.updateBookServerId(
+                localId: localId,
+                serverId: serverId,
+              );
+              // Hapus outbox by serverId (outbox id sudah diupdate oleh updateBookServerId).
+              await LocalDb.instance.outboxRemove([serverId]);
+            } else {
+              await LocalDb.instance.outboxRemove([localId]);
+            }
+          }
+        }
+      } on DioException catch (e) {
+        // 409 duplicate atau offline — data tetap aman di outbox lokal.
+        if (e.response?.statusCode == 409 && mounted) {
+          showTopSnack(
+            context,
+            const SnackBar(
+              content: Text(
+                'Nama+alamat sudah ada di buku tamu (tersimpan lokal, antre sync).',
+              ),
+            ),
+          );
+        }
+        // Offline / error lain — biarkan antre diam-diam.
+      }
       await _refreshAll();
     } finally {
       _bookSaving = false;

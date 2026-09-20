@@ -134,6 +134,10 @@ model GuestBook {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   nama      String
   alamat    String
+  // localId: UUID yang digenerate client (Flutter/native) saat buat data offline.
+  // Dipakai sebagai kunci idempoten — server cek localId sebelum insert
+  // agar tidak dobel meski POST dikirim ulang. Null = data lama dari web.
+  localId   String?  @unique
   createdAt DateTime @default(now())
   deletedAt DateTime?
 
@@ -155,6 +159,11 @@ model Guest {
   mejaLabel   String?
   kodeInput   String?
   deviceId    String?
+  // localId: UUID yang digenerate client (Flutter/native) saat buat data offline.
+  // Dipakai sebagai kunci idempoten — server cek localId sebelum insert
+  // agar tidak dobel meski POST dikirim ulang (online retry + offline flush).
+  // Null = data lama yang dibuat via web sebelum fitur ini ada.
+  localId     String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?

@@ -13,6 +13,9 @@ const schema = z.object({
   mejaLabel: z.string().max(20).optional().nullable(),
   kodeInput: z.string().max(30).optional().nullable(),
   deviceId: z.string().max(50).optional().nullable(),
+  // localId: UUID dari client (Flutter/native), dipakai untuk idempoten lookup.
+  // Kalau dikirim dan sudah ada di DB → return existing (tidak insert ulang).
+  localId: z.string().uuid().optional().nullable(),
 });
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -72,11 +75,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() }, { status: 400 });
 
-  const { nama, alamat, nominal, metode, catatan, guestBookId, mejaLabel, kodeInput, deviceId } = parsed.data;
+  const { nama, alamat, nominal, metode, catatan, guestBookId, mejaLabel, kodeInput, deviceId, localId } = parsed.data;
+
+  // --- Idempoten via localId ---
+  // Kalau client mengirim localId dan sudah ada di DB (retry / flush ganda),
+  // kembalikan baris yang sudah ada tanpa insert ulang. HTTP 200 agar client
+  // tahu ini bukan create baru — ia tetap harus update id lokal ke server id.
+  if (localId) {
+    const byLocalId = await prisma.guest.findUnique({
+      where: { localId },
+    });
+    if (byLocalId && !byLocalId.deletedAt) {
+      return NextResponse.json(byLocalId, { status: 200 });
+    }
+  }
 
   // Duplicate A: cek nama+alamat persis (case-insensitive) untuk event ini
   const existing = await prisma.guest.findFirst({
-    where: { eventId: id, nama: { equals: nama, mode: "insensitive" }, alamat: { equals: alamat, mode: "insensitive" } },
+    where: { eventId: id, nama: { equals: nama, mode: "insensitive" }, alamat: { equals: alamat, mode: "insensitive" }, deletedAt: null },
     select: { id: true, nama: true, alamat: true, nominal: true, metode: true, catatan: true, createdAt: true, petugasId: true },
   });
   if (existing) {
@@ -98,16 +114,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // auto-link guestBook jika tidak diisi tapi cocok nama+alamat
   let linkedId = guestBookId ?? null;
   if (!linkedId) {
-    const gb = await prisma.guestBook.findFirst({ where: { eventId: id, nama: { equals: nama, mode: "insensitive" }, alamat: { equals: alamat, mode: "insensitive" } } });
+    const gb = await prisma.guestBook.findFirst({ where: { eventId: id, nama: { equals: nama, mode: "insensitive" }, alamat: { equals: alamat, mode: "insensitive" }, deletedAt: null } });
     if (gb) linkedId = gb.id;
   }
 
   const guest = await prisma.guest.create({
-    data: { eventId: id, nama, alamat, nominal, metode, catatan: catatan || null, guestBookId: linkedId, petugasId: auth.user.id, mejaLabel: mejaLabel || null, kodeInput: kodeInput || null, deviceId: deviceId || null },
+    data: {
+      eventId: id,
+      nama,
+      alamat,
+      nominal,
+      metode,
+      catatan: catatan || null,
+      guestBookId: linkedId,
+      petugasId: auth.user.id,
+      mejaLabel: mejaLabel || null,
+      kodeInput: kodeInput || null,
+      deviceId: deviceId || null,
+      localId: localId ?? null,
+    },
   });
 
   await prisma.auditLog.create({
-    data: { eventId: id, userId: auth.user.id, aksi: existing ? "CREATE_GUEST_DUPLICATE_WITH_NOTE" : "CREATE_GUEST", targetId: guest.id, detail: { nama, alamat, nominal, metode, catatan, duplicateOf: existing?.id ?? null, mejaLabel: mejaLabel || null, kodeInput: kodeInput || null } },
+    data: {
+      eventId: id,
+      userId: auth.user.id,
+      aksi: existing ? "CREATE_GUEST_DUPLICATE_WITH_NOTE" : "CREATE_GUEST",
+      targetId: guest.id,
+      detail: { nama, alamat, nominal, metode, catatan, duplicateOf: existing?.id ?? null, mejaLabel: mejaLabel || null, kodeInput: kodeInput || null, localId: localId ?? null },
+    },
   });
 
   return NextResponse.json(guest, { status: 201 });

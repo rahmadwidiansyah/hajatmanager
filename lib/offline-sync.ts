@@ -470,7 +470,7 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
     }
   }
 
-  // Batch guest creates via /api/sync/push (idempoten by id di server).
+  // Batch guest creates via /api/sync/push (idempoten by localId di server).
   if (creates.length) {
     const guests = creates.map((o) => o.payload);
     const r = await pushBatch("/api/sync/push", { guests, events: [], guestBooks: [] });
@@ -485,7 +485,11 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
         return { flushed: 0, conflicts: 0, error: r.error };
       }
     } else {
-      const j = r.json as { synced?: { guests?: number }; conflicts?: { id: string; reason?: string }[] };
+      const j = r.json as {
+        synced?: { guests?: number };
+        syncedItems?: { guests?: { id: string; localId: string | null }[] };
+        conflicts?: { id: string; localId?: string | null; reason?: string }[];
+      };
       const forbiddenIds = new Set((j.conflicts || []).filter((c) => c.reason === "FORBIDDEN").map((c) => c.id));
       const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
       const doneIds = creates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
@@ -494,6 +498,23 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
       flushed += j.synced?.guests ?? doneIds.length;
       conflicts += conflictIds.size;
       for (const o of creates) if (conflictIds.has(o.id) && !forbiddenIds.has(o.id)) await outboxBump(o.id, "DUPLICATE_NEED_NOTE");
+      // Rekonsiliasi id: update Dexie cache — ganti baris yang id-nya == localId
+      // dengan server id yang dikembalikan di syncedItems.guests.
+      // Ini memastikan pull delta berikutnya tidak insert baris kedua.
+      try {
+        const syncedGuests = j.syncedItems?.guests ?? [];
+        for (const item of syncedGuests) {
+          if (!item.localId || item.id === item.localId) continue;
+          const { getCachedGuests, putCachedGuests } = await import("./db");
+          const cur = await getCachedGuests(eventId);
+          const updated = cur.map((g) =>
+            (g as Record<string, unknown>).id === item.localId
+              ? { ...(g as Record<string, unknown>), id: item.id }
+              : g
+          );
+          await putCachedGuests(eventId, updated);
+        }
+      } catch {}
     }
   }
 
@@ -505,7 +526,11 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
       firstError = firstError || r.error;
       for (const o of bookCreates) await outboxBump(o.id, r.error || "push-failed");
     } else {
-      const j = r.json as { synced?: { guestBooks?: number }; conflicts?: { id: string; reason?: string }[] };
+      const j = r.json as {
+        synced?: { guestBooks?: number };
+        syncedItems?: { guestBooks?: { id: string; localId: string | null }[] };
+        conflicts?: { id: string; localId?: string | null; reason?: string }[];
+      };
       // Server push untuk buku bersifat upsert-skip; yang done dihapus,
       // yang FORBIDDEN (VIEWER) juga dibuang bukan retry.
       const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
@@ -515,6 +540,21 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
       if (forbiddenIds.length) await outboxRemove(forbiddenIds);
       flushed += j.synced?.guestBooks ?? doneIds.length;
       conflicts += (j.conflicts || []).length;
+      // Rekonsiliasi id untuk buku tamu di Dexie cache.
+      try {
+        const syncedBooks = j.syncedItems?.guestBooks ?? [];
+        for (const item of syncedBooks) {
+          if (!item.localId || item.id === item.localId) continue;
+          const { getCachedBooks, putCachedBooks } = await import("./db");
+          const cur = await getCachedBooks(eventId);
+          const updated = cur.map((b) =>
+            (b as Record<string, unknown>).id === item.localId
+              ? { ...(b as Record<string, unknown>), id: item.id }
+              : b
+          );
+          await putCachedBooks(eventId, updated);
+        }
+      } catch {}
     }
   }
 
