@@ -120,8 +120,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   String _lastBookSig = '';
   int _lastBookAt = 0;
 
-  // Subscription ke onPull stream — silent background refresh tanpa loading flash.
-  StreamSubscription<SyncPullEvent>? _pullSub;
 
   @override
   void initState() {
@@ -144,15 +142,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     _pullSub = SyncEngine.instance.onPull
         .where((e) => e.eventId == widget.event.id)
         .listen((_) => _mergeInPlace());
-    // Subscribe onPull: setiap kali pull delta selesai untuk event ini,
-    // reload data lokal secara silent — tanpa loading indicator / setState
-    // yang menyebabkan flash kosong. User tetap lihat data lama sambil
-    // perubahan baru muncul mulus di belakang layar.
-    _pullSub = SyncEngine.instance.onPull
-        .where((e) => e.eventId == widget.event.id)
-        .listen((_) {
-      if (mounted) unawaited(_loadLocal());
-    });
   }
 
   Future<void> _initMeja() async {
@@ -2216,17 +2205,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               ),
               const SizedBox(height: 8),
               if (shownGuests.isEmpty)
-                EmptyState(
-                  icon: guests.isEmpty
-                      ? Icons.inbox_outlined
-                      : Icons.search_off_outlined,
-                  title: guests.isEmpty
-                      ? 'Belum ada pemberian tercatat'
-                      : 'Tidak ketemu “$guestQ”',
-                  subtitle: guests.isEmpty
-                      ? 'Minta OWNER/ADMIN untuk menambah data.'
-                      : 'Coba kata kunci lain.',
-                )
+                // Skeleton: hanya saat data lokal belum ada sama sekali.
+                // Saat refetch, data lama tetap tampil — tidak flash kosong.
+                (!_localLoaded || (guests.isEmpty && guestQ.isEmpty))
+                    ? const SkeletonList(count: 5)
+                    : EmptyState(
+                        icon: guests.isEmpty
+                            ? Icons.inbox_outlined
+                            : Icons.search_off_outlined,
+                        title: guests.isEmpty
+                            ? 'Belum ada pemberian tercatat'
+                            : 'Tidak ketemu "$guestQ"',
+                        subtitle: guests.isEmpty
+                            ? 'Minta OWNER/ADMIN untuk menambah data.'
+                            : 'Coba kata kunci lain.',
+                      )
               else
                 ...(medium
                     ? [_guestTable(shownGuests)]
@@ -2415,16 +2408,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             if (canEdit) _guestFilters(),
             if (canEdit) const SizedBox(height: 8),
             if (canEdit && shownGuests.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    guests.isEmpty
-                        ? 'Belum ada pemberian tercatat.'
-                        : 'Tidak ketemu “$guestQ”.',
-                  ),
-                ),
-              ),
+              // Skeleton: hanya saat data lokal belum ada sama sekali.
+              (!_localLoaded || (guests.isEmpty && guestQ.isEmpty))
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: SkeletonList(count: 5),
+                    )
+                  : Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          guests.isEmpty
+                              ? 'Belum ada pemberian tercatat.'
+                              : 'Tidak ketemu "$guestQ".',
+                        ),
+                      ),
+                    ),
             if (canEdit)
               ...(medium
                   ? [_guestTable()]

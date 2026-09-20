@@ -47,6 +47,10 @@ export type QueuedGuest = {
   mejaLabel?: string | null;
   kodeInput?: string | null;
   deviceId?: string | null;
+  // localId: UUID v4 murni yang digenerate client saat buat data.
+  // Kunci idempoten — server lookup by localId sebelum insert,
+  // sehingga retry / flush ganda tidak menghasilkan baris dobel.
+  localId?: string | null;
   createdAt: string;
 };
 
@@ -206,17 +210,41 @@ export function newOpId(prefix = "op"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Generate UUID v4 murni untuk localId.
+ * Tidak pakai prefix agar bisa dipakai sebagai id sementara di SQLite lokal
+ * dan dikenali server sebagai non-CUID (beda format = mudah di-debug).
+ */
+export function newLocalId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch {}
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /** Fase 2: enqueue generik ke Dexie outbox (+ mirror SQLite native best-effort). */
 export async function enqueueOp(eventId: string, action: OutboxAction, tableName: OutboxOp["tableName"], payload: Record<string, unknown>, id?: string): Promise<string> {
-  const opId = id || (typeof payload.id === "string" ? (payload.id as string) : newOpId("op"));
+  // Untuk CREATE_GUEST dan CREATE_BOOK: generate localId jika belum ada.
+  // localId adalah UUID v4 murni — kunci idempoten di server.
+  // id outbox == localId agar flush outbox bisa cleanup by id yang sama.
+  let opId = id || (typeof payload.id === "string" ? (payload.id as string) : newOpId("op"));
+  let enrichedPayload = payload;
+
+  if (action === "CREATE_GUEST" || action === "CREATE_BOOK") {
+    const localId = (typeof payload.localId === "string" && payload.localId) ? payload.localId : newLocalId();
+    // id lokal == localId (sementara, akan diganti server id setelah rekonsiliasi).
+    opId = id || localId;
+    enrichedPayload = { ...payload, id: opId, localId };
+  }
+
   try {
-    await outboxAdd({ id: opId, eventId, action, tableName, payload });
+    await outboxAdd({ id: opId, eventId, action, tableName, payload: enrichedPayload });
   } catch {}
   if (sqliteAdapter?.exec) {
     try {
       await sqliteAdapter.exec(
         "INSERT OR REPLACE INTO syncQueue (id, action, tableName, payload, createdAt, attempts) VALUES (?,?,?,?,?,0)",
-        [opId, action, tableName, JSON.stringify({ eventId, ...payload }), new Date().toISOString()]
+        [opId, action, tableName, JSON.stringify({ eventId, ...enrichedPayload }), new Date().toISOString()]
       );
     } catch {}
   }

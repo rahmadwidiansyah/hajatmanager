@@ -1,17 +1,41 @@
-# [1.10.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.8...v1.10.0) (2026-09-20)
-
+## [2.0.0-beta.1] — Anti-Double Sync Architecture (2026-09-20)
 
 ### Features
 
-* **sync:** fase localId idempoten — anti-double offline + rekonsiliasi id + onPull stream ([56b180d](https://github.com/rahmadwidiansyah/hajatmanager/commit/56b180dafd76231fa5f9c22913a1719201144a24))
+* **sync:** tambah kolom `localId` (UUID v4 client) di tabel `Guest` dan `GuestBook` — kunci idempoten agar satu input = satu baris di server, tidak peduli berapa kali dikirim ulang ([migration 20260920000000_add_local_id])
+* **sync:** `/api/events/[id]/guests` dan `/api/events/[id]/guestbooks` menerima `localId` di body POST — jika `localId` sudah ada di DB, kembalikan existing (HTTP 200) tanpa insert ulang
+* **sync:** `/api/sync/push` lookup by `localId` sebelum by `id` — flush outbox offline tidak bisa menghasilkan baris dobel meski POST langsung sudah berhasil sebelumnya
+* **sync:** `/api/sync/push` response tambah `syncedItems.{guests,guestBooks}` berisi `{id, localId}` per item — client bisa rekonsiliasi id lokal sementara → server CUID
+* **sync:** `/api/sync/pull` sertakan `localId` di setiap baris guest/guestBook, tambah `deletedGuestLocalIds` dan `deletedGuestBookLocalIds` untuk hapus baris lokal by localId
+* **mobile:** SQLite lokal versi 3 — kolom `localId UNIQUE` di tabel `guests` dan `guest_books`, partial unique index `WHERE localId IS NOT NULL`
+* **mobile:** `mergeGuests()` dan `mergeBooks()` upsert by `localId` (`ON CONFLICT(localId) DO UPDATE SET id=excluded.id`) — pull delta tidak bisa insert dobel
+* **mobile:** `_saveGuest()` dan `_addBookDialog()` generate `localId = UUID v4`, kirim ke server, rekonsiliasi via `updateGuestServerId()` / `updateBookServerId()` (UPDATE SQLite by localId, lebih aman dari delete+insert)
+* **mobile:** `SyncEngine` polling 30 detik (sebelumnya 60 detik), tambah `onPull` broadcast stream — UI subscribe untuk silent update tanpa pull-to-refresh manual
+* **mobile/web:** `EventDetailScreen` subscribe `SyncEngine.onPull`, `_mergeInPlace()` update list in-place tanpa flash kosong
+* **mobile/web:** Skeleton shimmer (`shimmer: ^3.0.0`) di EventsScreen, EventDetailScreen, LogScreen — hanya saat data lokal benar-benar kosong, data lama tetap tampil saat refetch
+* **mobile:** `LogScreen` pertahankan data lama saat filter berubah/refresh — error tampil sebagai banner di atas list, bukan replace list
+* **web:** `enqueueOp()` auto-generate `localId` untuk `CREATE_GUEST` dan `CREATE_BOOK`, sertakan di payload outbox
+* **docs:** tambah `docs/e2e-sync-checklist.md` — 9 skenario test manual dengan query verifikasi DB
 
-## [1.9.8](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.7...v1.9.8) (2026-09-20)
+### Bug Fixes
 
+* **mobile:** `guestDedupeKey()` hapus `catatan` dari kunci dedupe — null vs "" tidak lagi menyebabkan false-miss, data dobel lama lebih terdeteksi
+* **mobile:** `removeSyncedIds()` terima parameter `guestLocalIds` dan `bookLocalIds` — hapus baris lokal by localId maupun by server id
+* **sync:** duplicate check di `POST /guests` tambahkan filter `deletedAt: null` — data yang sudah dihapus tidak lagi memblok insert baru dengan nama+alamat sama
+
+### BREAKING CHANGES
+
+* **db:** migration wajib dijalankan sebelum deploy: `npx prisma migrate deploy`
+* **mobile:** DB SQLite lokal otomatis upgrade ke versi 3 saat app dibuka — tidak perlu aksi user
 
 ### Bug Fixes
 
 * **windows:** NullReferenceException saat login & InvalidOperationException TryConfigure ([e904a02](https://github.com/rahmadwidiansyah/hajatmanager/commit/e904a02ffd3f650764b7ad537fbd81e52bee0fc4))
 
+
+---
+
+## [1.9.8](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.7...v1.9.8) (2026-09-20)
 ## [1.9.7](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.6...v1.9.7) (2026-09-20)
 
 
