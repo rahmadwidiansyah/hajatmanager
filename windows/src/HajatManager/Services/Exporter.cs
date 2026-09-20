@@ -122,7 +122,7 @@ public static class Exporter
         }).GeneratePdf(path);
     }
 
-    private static void SignBlock(QuestPDF.Fluent.IRelativeItem item, string title, string subtitle, bool optional)
+    private static void SignBlock(IContainer item, string title, string subtitle, bool optional)
     {
         item.Column(c =>
         {
