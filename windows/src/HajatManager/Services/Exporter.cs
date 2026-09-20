@@ -134,7 +134,7 @@ public static class Exporter
                 c.Item().Row(r =>
                 {
                     r.ConstantItem(52).Text(label).FontSize(7);
-                    r.RelativeItem().PaddingBottom(14).LineBottom(0.5f).LineColor(Colors.Grey.Medium);
+                    r.RelativeItem().PaddingBottom(14).BorderBottom(0.5f).BorderColor(Colors.Grey.Medium);
                 });
                 c.Item().PaddingBottom(label == "Tanda tangan" ? 14 : 8);
             }

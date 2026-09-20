@@ -8,7 +8,6 @@ public partial class LogWindow : Window
 {
     private readonly string _eventId;
     private int _page = 1;
-    private bool _more = true;
 
     public sealed class Row
     {
