@@ -64,8 +64,14 @@ public partial class SettingsWindow : Window
         return "";
     }
 
+    private bool _savingInfo;
+
     private async void OnSaveInfo(object sender, RoutedEventArgs e)
     {
+        if (_savingInfo) return;
+        _savingInfo = true;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
         try
         {
             using var r = await ApiClient.Instance.PatchJsonAsync($"/api/events/{_ev.Id}",
@@ -82,6 +88,7 @@ public partial class SettingsWindow : Window
                 r.IsSuccessStatusCode ? MessageBoxImage.Information : MessageBoxImage.Error);
         }
         catch { MessageBox.Show(this, "Tidak ada koneksi", "Info", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally { _savingInfo = false; if (btn != null) btn.IsEnabled = true; }
     }
 
     private async void OnAddMeja(object sender, RoutedEventArgs e)
@@ -123,11 +130,15 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
+    private bool _addingMember;
+
     private async void OnAddMember(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        if (_addingMember) return;
         if (ResultList.SelectedItem is not string s) return;
         var id = s.Contains('|') ? s.Split('|')[^1] : "";
         if (string.IsNullOrEmpty(id)) return;
+        _addingMember = true;
         try
         {
             using var r = await ApiClient.Instance.PostJsonAsync(
@@ -147,14 +158,21 @@ public partial class SettingsWindow : Window
             }
         }
         catch { MessageBox.Show(this, "Butuh online.", "Anggota", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally { _addingMember = false; }
     }
+
+    private bool _deleting;
 
     private async void OnDelete(object sender, RoutedEventArgs e)
     {
+        if (_deleting) return;
         var c = MessageBox.Show(this,
             "Hapus acara ini permanen beserta semua datanya? Tindakan tidak bisa dibatalkan.",
             "Hapus Acara", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (c != MessageBoxResult.Yes) return;
+        _deleting = true;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
         try
         {
             using var r = await ApiClient.Instance.DeleteAsync($"/api/events/{_ev.Id}");
@@ -165,5 +183,6 @@ public partial class SettingsWindow : Window
             }
         }
         catch { MessageBox.Show(this, "Hapus butuh online.", "Hapus", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally { _deleting = false; if (btn != null) btn.IsEnabled = true; }
     }
 }

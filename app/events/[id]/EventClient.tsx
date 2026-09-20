@@ -6,7 +6,7 @@ import { formatRupiah } from "@/lib/utils";
 import { TopBar } from "@/components/stitch/TopBar";
 import { Avatar } from "@/components/ui/Avatar";
 import { roleChipClass, methodChipClass, methodDotClass } from "@/components/ui/color";
-import { AlertTriangle, CheckCircle, Trash2, Pencil, Search, FileSpreadsheet, RectangleVertical, RectangleHorizontal, X, WifiOff, CloudUpload } from "lucide-react";
+import { AlertTriangle, CheckCircle, Trash2, Pencil, Search, FileSpreadsheet, RectangleVertical, RectangleHorizontal, X, WifiOff } from "lucide-react";
 // Performa: jsPDF + autotable hanya di-load saat Export (dynamic import), bukan di bundle utama.
 import { enqueueGuest, enqueueOp, flushOfflineQueue, getConflictOps, getPendingCount, getQueue, getTotalPendingAsync, isOnline, pullDelta, refreshPendingCount, startBackgroundSync, subscribeNetworkStatus, LAST_SYNC_KEY, type QueuedGuest } from "@/lib/offline-sync";
 import { getCachedBooks, getCachedEvent, getCachedGuests, kvGet, kvSet, putCachedBooks, putCachedEvent, putCachedGuests } from "@/lib/db";
@@ -189,6 +189,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   const [bookPage, setBookPage] = useState(1);
   const [bookNama, setBookNama] = useState("");
   const [bookAlamat, setBookAlamat] = useState("");
+  const [isAddingBook, setIsAddingBook] = useState(false);
   const [bookSearch, setBookSearch] = useState("");
   const [editBook, setEditBook] = useState<GuestBook | null>(null);
   const [editBookData, setEditBookData] = useState({ nama: "", alamat: "" });
@@ -834,21 +835,13 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   async function handleAddBook(e: React.FormEvent) {
     e.preventDefault();
     if (denyViewer()) return;
+    if (isAddingBook) return;
     const namaB = toTitleCasePerKata(bookNama);
     const alamatB = toTitleCasePerKata(bookAlamat);
-    if (!isOnline()) {
-      const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
-        setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
-        setBookTotal((t) => t + 1);
-      });
-      setBookNama(""); setBookAlamat("");
-      return;
-    }
+    if (namaB.trim().length < 2 || alamatB.trim().length < 2) return;
+    setIsAddingBook(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: namaB, alamat: alamatB }) });
-      if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+      if (!isOnline()) {
         const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
           setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
@@ -857,14 +850,30 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         setBookNama(""); setBookAlamat("");
         return;
       }
-    } catch {
-      const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
-        setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
-        setBookTotal((t) => t + 1);
-      });
-      setBookNama(""); setBookAlamat("");
-      return;
+      try {
+        const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: namaB, alamat: alamatB }) });
+        if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); return; }
+        if (res.status === 409) return;
+        if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
+          const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
+            setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
+            setBookTotal((t) => t + 1);
+          });
+          setBookNama(""); setBookAlamat("");
+          return;
+        }
+      } catch {
+        const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
+          setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
+          setBookTotal((t) => t + 1);
+        });
+        setBookNama(""); setBookAlamat("");
+        return;
+      }
+    } finally {
+      setIsAddingBook(false);
     }
   }
   function openEditBook(b: GuestBook) { setEditBook(b); setEditBookData({ nama: b.nama, alamat: b.alamat }); }
@@ -1429,8 +1438,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         )}
         {!isBrowserOffline && pendingCount > 0 && (
           <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} belum sync — hijau berarti sudah di server` : `${pendingCount} data menunggu sync · otomatis 1 mnt`}</span>
-            <button onClick={handleSyncNow} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium flex items-center gap-1 shrink-0 disabled:opacity-50"><CloudUpload size={12} />{isSyncing ? "…" : "Sync"}</button>
+            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} belum sync — tap ikon awan di atas untuk sync` : `${pendingCount} data menunggu sync · tap ikon awan di atas / otomatis 1 mnt`}</span>
+            <button onClick={handleSyncNow} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium shrink-0 disabled:opacity-50">{isSyncing ? "…" : "Sync"}</button>
           </div>
         )}
         {/* Tabs — offset ikuti tinggi header 2-baris mobile (~76px) agar tak tertutup */}
@@ -1479,6 +1488,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                       ref={namaInputRef}
                       id="nama-input"
                       value={nama}
+                      style={{ textTransform: "capitalize" }}
                       onChange={e => { setNama(e.target.value); setSuggestOpen(true); }}
                       onFocus={() => setSuggestOpen(true)}
                       onKeyDown={e => {
@@ -1514,7 +1524,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                   {/* Alamat */}
                   <div>
                     <label className={labelCls}>Alamat *</label>
-                    <input value={alamat} onChange={e => setAlamat(e.target.value)} required disabled={!isEditor} placeholder="Nama desa/kampung" className={`mt-1.5 ${inputCls}`} />
+                    <input value={alamat} onChange={e => setAlamat(e.target.value)} required disabled={!isEditor} placeholder="Nama desa/kampung" style={{ textTransform: "capitalize" }} className={`mt-1.5 ${inputCls}`} />
                     {shortcuts.alamatTop.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {shortcuts.alamatTop.map(a => (
@@ -1765,14 +1775,14 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
               <h3 className="font-semibold text-[var(--on-surface)] mb-4">Tambah Tamu</h3>
               <form onSubmit={handleAddBook} className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-5">
-                  <input ref={bookNamaInputRef} id="book-nama-input" value={bookNama} onChange={e => setBookNama(e.target.value)} required disabled={!isEditor} placeholder="Nama tamu" className={inputCls} />
+                  <input ref={bookNamaInputRef} id="book-nama-input" value={bookNama} onChange={e => setBookNama(e.target.value)} required disabled={!isEditor} placeholder="Nama tamu" style={{ textTransform: "capitalize" }} className={inputCls} />
                 </div>
                 <div className="md:col-span-5">
-                  <input value={bookAlamat} onChange={e => setBookAlamat(e.target.value)} required disabled={!isEditor} placeholder="Alamat / desa" className={inputCls} />
+                  <input value={bookAlamat} onChange={e => setBookAlamat(e.target.value)} required disabled={!isEditor} placeholder="Alamat / desa" style={{ textTransform: "capitalize" }} className={inputCls} />
                 </div>
                 <div className="md:col-span-2">
-                  <button disabled={!isEditor} type="submit" className="w-full h-11 rounded-xl bg-[var(--primary)] hover:opacity-90 text-[var(--on-primary)] font-medium text-sm transition-colors disabled:opacity-50">
-                    Tambah
+                  <button disabled={!isEditor || isAddingBook} type="submit" className="w-full h-11 rounded-xl bg-[var(--primary)] hover:opacity-90 text-[var(--on-primary)] font-medium text-sm transition-colors disabled:opacity-50">
+                    {isAddingBook ? "Menambah…" : "Tambah"}
                   </button>
                 </div>
               </form>

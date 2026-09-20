@@ -13,6 +13,7 @@ namespace HajatManager.Views;
 public partial class EventsView : UserControl
 {
     private List<EventModel> _items = new();
+    private bool _creating;
 
     public EventsView()
     {
@@ -26,10 +27,26 @@ public partial class EventsView : UserControl
                 try { ApplyFilter(); } catch { }
             }
         };
+        // Ctrl+F fokus ke pencarian (cermin mobile CallbackShortcuts).
+        try
+        {
+            KeyDown += (_, e) =>
+            {
+                if (e.Key == System.Windows.Input.Key.F &&
+                    (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0)
+                {
+                    try { SearchBox.Focus(); } catch { }
+                    e.Handled = true;
+                }
+            };
+            Focusable = true;
+        }
+        catch { }
     }
 
     public async Task ReloadAsync()
     {
+        try { LoadingBar.Visibility = Visibility.Visible; } catch { }
         var myId = "";
         try
         {
@@ -65,6 +82,7 @@ public partial class EventsView : UserControl
             }
         }
         try { ApplyFilter(); } catch (Exception ex) { AppLogger.LogException("ApplyFilter gagal", ex); }
+        try { LoadingBar.Visibility = Visibility.Collapsed; } catch { }
     }
 
     internal static EventModel ParseEvent(JsonElement m, string myId)
@@ -109,11 +127,24 @@ public partial class EventsView : UserControl
 
     private void ApplyFilter()
     {
-        var q = SearchBox.Text.Trim().ToLowerInvariant();
-        List.ItemsSource = string.IsNullOrEmpty(q)
+        var q = (SearchBox.Text ?? "").Trim();
+        var shown = string.IsNullOrEmpty(q)
             ? _items
-            : _items.Where(x => x.NamaAcara.ToLowerInvariant().Contains(q) ||
-                (x.Lokasi ?? "").ToLowerInvariant().Contains(q)).ToList();
+            : _items.Where(x => x.NamaAcara.ToLowerInvariant().Contains(q.ToLowerInvariant()) ||
+                (x.Lokasi ?? "").ToLowerInvariant().Contains(q.ToLowerInvariant())).ToList();
+        List.ItemsSource = shown;
+        try
+        {
+            CountText.Text = $"{_items.Count} acara";
+            var empty = shown.Count == 0;
+            EmptyPanel.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+            EmptyCreateBtn.Visibility = _items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            EmptyTitle.Text = _items.Count == 0 ? "Belum ada acara" : $"Tidak ketemu \"{q}\"";
+            EmptySub.Text = _items.Count == 0
+                ? "Buat acara pertama atau minta panitia menambahkanmu."
+                : "Coba kata kunci lain.";
+        }
+        catch { }
     }
 
     private void OnOpen(object sender, MouseButtonEventArgs e)
@@ -122,10 +153,21 @@ public partial class EventsView : UserControl
             new EventDetailWindow(ev).ShowDialog();
     }
 
+    private void OnOpenKey(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter &&
+            (sender as FrameworkElement)?.DataContext is EventModel ev)
+            new EventDetailWindow(ev).ShowDialog();
+    }
+
     private async void OnCreate(object sender, RoutedEventArgs e)
     {
+        if (_creating) return;
         var d = new CreateEventDialog();
         if (d.ShowDialog() != true || d.Tanggal == null) return;
+        _creating = true;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
         try
         {
         var id = $"evt-{Guid.NewGuid()}";
@@ -166,7 +208,7 @@ public partial class EventsView : UserControl
                 await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
         }
         catch (Exception ex) { AppLogger.Warn($"Create event push gagal (masuk outbox): {ex.Message}"); }
-        try { await SyncEngine.Instance.FlushAsync(id); }
+        try { await SyncEngine.Instance.SyncInBackgroundAsync(id); }
         catch (Exception ex) { AppLogger.LogException("Flush create-event gagal", ex); }
         await ReloadAsync();
         }
@@ -175,6 +217,11 @@ public partial class EventsView : UserControl
             AppLogger.LogException("OnCreate gagal", ex);
             MessageBox.Show($"Gagal buat acara: {ex.Message}\n\nLog: {AppLogger.LogFile}",
                 "Hajat Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _creating = false;
+            if (btn != null) btn.IsEnabled = true;
         }
     }
 }

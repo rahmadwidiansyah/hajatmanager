@@ -130,10 +130,8 @@ class _EventsScreenState extends State<EventsScreen> {
         appBar: AppBar(
           title: const Text('Acara Hajatan'),
           actions: [
-            SyncStatusBadge(),
-            IconButton(
-              tooltip: 'Sinkron semua',
-              onPressed: () async {
+            SyncButton(
+              onSync: () async {
                 await SyncEngine.instance.checkNow();
                 await SyncEngine.instance.flushAll();
                 await _load();
@@ -146,7 +144,6 @@ class _EventsScreenState extends State<EventsScreen> {
                   );
                 }
               },
-              icon: const Icon(Icons.cloud_upload_outlined),
             ),
             IconButton(
               tooltip: 'Akun saya',

@@ -19,25 +19,25 @@ public sealed class CreateEventDialog : Window
     public CreateEventDialog()
     {
         Title = "Acara baru";
-        Width = 520; Height = 480;
+        Width = 520; Height = 520;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(20) };
-        p.Children.Add(new TextBlock { Text = "Nama acara *" });
-        p.Children.Add(_n);
-        p.Children.Add(new TextBlock { Text = "Tuan rumah *", Margin = new Thickness(0, 8, 0, 0) });
-        p.Children.Add(_t);
-        p.Children.Add(new TextBlock { Text = "Tanggal * (wajib pilih)", Margin = new Thickness(0, 8, 0, 0) });
-        p.Children.Add(_d);
-        p.Children.Add(new TextBlock { Text = "Lokasi", Margin = new Thickness(0, 8, 0, 0) });
-        p.Children.Add(_l);
-        p.Children.Add(new TextBlock { Text = "Catatan", Margin = new Thickness(0, 8, 0, 0) });
-        p.Children.Add(_c);
-        p.Children.Add(new TextBlock
+        p.Children.Add(M3Title("Acara baru"));
+        p.Children.Add(Field("Nama acara *", _n, "Pernikahan Budi & Ani"));
+        p.Children.Add(Field("Tuan rumah *", _t, "H. Slamet"));
+        p.Children.Add(Field("Tanggal * (wajib pilih)", _d, null));
+        p.Children.Add(Field("Lokasi", _l, "Balai Desa Krajan"));
+        p.Children.Add(Field("Catatan", _c, "Opsional"));
+        var info = new TextBlock
         {
             Text = "Jika offline, acara disimpan lokal lalu auto-push saat online.",
             FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap
-        });
-        var err = new TextBlock { Foreground = Ui.ErrorBrush };
+        };
+        info.SetResourceReference(ForegroundProperty, "OnVariantBrush");
+        p.Children.Add(info);
+        var err = new TextBlock();
+        err.SetResourceReference(ForegroundProperty, "ErrorBrush");
         p.Children.Add(err);
         var row = new StackPanel
         {
@@ -46,8 +46,10 @@ public sealed class CreateEventDialog : Window
             Margin = new Thickness(0, 12, 0, 0)
         };
         var batal = new Button { Content = "Batal", Margin = new Thickness(0, 0, 8, 0) };
+        if (TryFindResource("TextButton") is Style tbs) batal.Style = tbs;
         batal.Click += (_, _) => DialogResult = false;
         var simpan = new Button { Content = "Simpan" };
+        if (TryFindResource("PrimaryButton") is Style ps) simpan.Style = ps;
         simpan.Click += (_, _) =>
         {
             if (_n.Text.Trim().Length < 2) { err.Text = "Nama acara minimal 2 huruf"; return; }
@@ -61,5 +63,29 @@ public sealed class CreateEventDialog : Window
         row.Children.Add(simpan);
         p.Children.Add(row);
         Content = p;
+    }
+
+    private static TextBlock M3Title(string t)
+    {
+        var tb = new TextBlock { Text = t, Margin = new Thickness(0, 0, 0, 8) };
+        if (Application.Current?.TryFindResource("M3Headline") is Style s) tb.Style = s;
+        else tb.FontWeight = FontWeights.Bold;
+        return tb;
+    }
+
+    private static StackPanel Field(string label, Control input, string? hint)
+    {
+        var box = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var l = new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 4) };
+        if (Application.Current?.TryFindResource("M3SectionTitle") is Style s) l.Style = s;
+        box.Children.Add(l);
+        box.Children.Add(input);
+        if (!string.IsNullOrEmpty(hint))
+        {
+            var h = new TextBlock { Text = hint, FontSize = 11 };
+            h.SetResourceReference(ForegroundProperty, "OnVariantBrush");
+            box.Children.Add(h);
+        }
+        return box;
     }
 }

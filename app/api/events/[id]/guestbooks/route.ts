@@ -69,6 +69,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() }, { status: 400 });
 
+  // Anti-double: tolak nama+alamat sama (case-insensitive) seperti guests 409.
+  const existing = await prisma.guestBook.findFirst({
+    where: { eventId: id, nama: { equals: parsed.data.nama, mode: "insensitive" }, alamat: { equals: parsed.data.alamat, mode: "insensitive" } },
+    select: { id: true, nama: true, alamat: true },
+  });
+  if (existing) {
+    return NextResponse.json(
+      { error: "DUPLICATE", message: "Nama dan alamat sudah tercatat di buku tamu.", existing },
+      { status: 409 }
+    );
+  }
+
   const created = await prisma.guestBook.create({ data: { eventId: id, nama: parsed.data.nama, alamat: parsed.data.alamat } });
   await prisma.auditLog.create({
     data: { eventId: id, userId: auth.user.id, aksi: "CREATE_GUESTBOOK", targetId: created.id, detail: { nama: created.nama, alamat: created.alamat } },

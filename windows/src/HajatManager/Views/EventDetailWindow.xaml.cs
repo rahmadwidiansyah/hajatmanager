@@ -40,6 +40,13 @@ public partial class EventDetailWindow : Window
     private System.Windows.Threading.DispatcherTimer? _suggestTimer, _dupTimer;
     private (string nama, string nominalFormatted)? _liveDup;
     private DataGrid? _guestGrid;
+    // Anti-double-submit (cermin mobile _saveToken/_lastSig/saving + web isAddingBook).
+    private bool _guestSaving, _bookSaving, _bookDialogOpen, _syncing, _exporting;
+    private int _saveToken;
+    private string _lastGuestSig = "";
+    private long _lastGuestAt;
+    private string _lastBookSig = "";
+    private long _lastBookAt;
 
     private static readonly string[] Methodes = { "CASH", "AMPLOP", "QRIS", "TRANSFER", "BARANG" };
 
@@ -56,6 +63,37 @@ public partial class EventDetailWindow : Window
                 RekapGrid.Columns = e.NewSize.Width < 900 ? 1 : 2;
         };
         Loaded += async (_, _) => await RefreshAsync();
+        // Auto-refresh saat background sync selesai / online berubah.
+        SyncEngine.Instance.Changed += OnSyncChanged;
+        System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += OnNetChanged;
+        Closed += (_, _) =>
+        {
+            try { SyncEngine.Instance.Changed -= OnSyncChanged; } catch { }
+            try { System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged -= OnNetChanged; } catch { }
+        };
+    }
+
+    private void OnSyncChanged()
+    {
+        try { Dispatcher.InvokeAsync(async () => await RefreshStatusOnlyAsync()); } catch { }
+    }
+
+    private void OnNetChanged(object? s, System.Net.NetworkInformation.NetworkAvailabilityEventArgs e)
+    {
+        try { Dispatcher.InvokeAsync(async () => await RefreshAsync()); } catch { }
+    }
+
+    private async Task RefreshStatusOnlyAsync()
+    {
+        try
+        {
+            var online = SyncEngine.Instance.Online;
+            PendingText.Text =
+                $"Antre: {await LocalDb.Instance.OutboxCountAsync(_ev.Id)} • " +
+                (online ? "Online ✓" : "Offline ✗");
+            ApplyGuestFilter();
+        }
+        catch { }
     }
 
     private async Task RefreshAsync()
@@ -185,8 +223,8 @@ public partial class EventDetailWindow : Window
         return pid.Length > 12 ? pid[..12] + "…" : pid;
     }
 
-    private static bool IsPendingGuest(GuestModel g) =>
-        (g.Id ?? "").StartsWith("gst-", StringComparison.Ordinal) || g.PetugasId == "lokal";
+    // Pending per-baris dihapus (badge count saja ikut mobile):
+    // source of truth = COUNT(outbox), bukan prefix gst-.
 
     // ---------- Tab Input (porting Linux/tablet) ----------
     private void BuildInputPanel()
@@ -460,7 +498,7 @@ public partial class EventDetailWindow : Window
         var all = ShownGuests();
         var total = all.Sum(g => g.Nominal);
         var data = all.Take(_guestLimit).ToList();
-        _guestGrid.ItemsSource = data.Select((g, i) => new GuestRow(g, i + 1, KasirName(g), IsPendingGuest(g))).ToList();
+        _guestGrid.ItemsSource = data.Select((g, i) => new GuestRow(g, i + 1, KasirName(g))).ToList();
         if (_guestFooter != null)
             _guestFooter.Text = $"Total tampil: {GuestRow.FormatRp(total)} • {all.Count} data";
         if (_guestMoreBtn != null)
@@ -473,10 +511,10 @@ public partial class EventDetailWindow : Window
     public sealed class GuestRow
     {
         private readonly GuestModel _g;
-        public GuestRow(GuestModel g, int no, string kasir, bool pending)
+        public GuestRow(GuestModel g, int no, string kasir)
         {
             _g = g; No = no; Kasir = kasir;
-            NamaFull = pending ? $"{g.Nama} [pending]" : g.Nama;
+            NamaFull = g.Nama;
             if (!string.IsNullOrEmpty(g.Catatan)) NamaFull += $" ↳ {g.Catatan}";
         }
         public GuestModel Model => _g;
@@ -488,7 +526,7 @@ public partial class EventDetailWindow : Window
         public string Meja => string.IsNullOrEmpty(_g.MejaLabel) ? "—" : _g.MejaLabel;
         public string Kasir { get; }
         public string Metode => _g.Metode;
-        public static string FormatRp(long v) => $"Rp{v:N0}".Replace(",", ".");
+        public static string FormatRp(long v) => $"Rp {v:N0}".Replace(",", ".");
     }
 
     public sealed class BookRow
@@ -744,8 +782,13 @@ public partial class EventDetailWindow : Window
     private async void OnGridDelete(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not GuestRow r) return;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null && !btn.IsEnabled) return;
         if (MessageBox.Show(this, $"Hapus {r.Nama}?", "Hapus",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (btn != null) btn.IsEnabled = false;
+        try
+        {
         await LocalDb.Instance.DeleteGuestLocalAsync(r.Model.Id);
         await LocalDb.Instance.EnqueueAsync(new OutboxOp
         {
@@ -760,6 +803,8 @@ public partial class EventDetailWindow : Window
         }
         catch (Exception ex) { AppLogger.Warn($"Hapus guest online gagal: {ex.Message}"); }
         await RefreshAsync();
+        }
+        finally { if (btn != null) btn.IsEnabled = true; }
     }
 
     private async Task SaveGuestAsync()
@@ -776,6 +821,16 @@ public partial class EventDetailWindow : Window
         }
         var metode = (_metodeBox?.SelectedItem as string) ?? "AMPLOP";
         var catatan = (_catatanBox?.Text ?? "").Trim();
+        var sig = $"{_ev.Id}|{nama}|{alamat}|{nominal}|{metode}|{catatan}";
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (_guestSaving || (sig == _lastGuestSig && nowMs - _lastGuestAt < 3000)) return;
+        var token = ++_saveToken;
+        _guestSaving = true;
+        _lastGuestSig = sig;
+        _lastGuestAt = nowMs;
+        if (_saveBtn != null) { _saveBtn.IsEnabled = false; _saveBtn.Content = "Menyimpan…"; }
+        try
+        {
         var id = $"gst-{Guid.NewGuid()}";
         var now = DateTime.Now;
         var email = UserEmail();
@@ -816,6 +871,15 @@ public partial class EventDetailWindow : Window
         if (_suggestPopup != null) _suggestPopup.IsOpen = false;
         RefreshDupBanner();
         await RefreshAsync();
+        }
+        finally
+        {
+            if (token == _saveToken)
+            {
+                _guestSaving = false;
+                if (_saveBtn != null) { _saveBtn.IsEnabled = true; RefreshDupBanner(); }
+            }
+        }
     }
 
     private Window M3Dialog(string title, UIElement content, int height = 320)
@@ -863,6 +927,9 @@ public partial class EventDetailWindow : Window
         });
         save.Click += async (_, _) =>
         {
+            save.IsEnabled = false;
+            try
+            {
             var fields = new Dictionary<string, object?>
             {
                 ["nama"] = TitleCase(nb.Text), ["alamat"] = ab.Text.Trim(),
@@ -887,6 +954,8 @@ public partial class EventDetailWindow : Window
             catch (Exception ex) { AppLogger.Warn($"Update guest online gagal: {ex.Message}"); }
             win.Close();
             await RefreshAsync();
+            }
+            finally { try { save.IsEnabled = true; } catch { } }
         };
         win.ShowDialog();
     }
@@ -924,6 +993,8 @@ public partial class EventDetailWindow : Window
 
     private async void OnAddBook(object sender, RoutedEventArgs e)
     {
+        if (_bookDialogOpen || _bookSaving) return;
+        _bookDialogOpen = true;
         var n = new TextBox(); var a = new TextBox();
         var save = M3Primary("Simpan");
         var win = M3Dialog("Buku tamu baru", new StackPanel
@@ -935,9 +1006,28 @@ public partial class EventDetailWindow : Window
                     save,
                 }
         }, 280);
+        win.Closed += (_, _) => { _bookDialogOpen = false; };
         save.Click += async (_, _) =>
         {
             if (n.Text.Trim().Length < 2 || a.Text.Trim().Length < 2) return;
+            var namaBk = TitleCase(n.Text);
+            var alamatBk = a.Text.Trim();
+            if (_books.Any(b => string.Equals(b.Nama, namaBk, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(b.Alamat, alamatBk, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show(this, "Nama dan alamat sudah tercatat di buku tamu.", "Duplikat",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            var sig = $"{_ev.Id}|{namaBk}|{alamatBk}";
+            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (_bookSaving || (sig == _lastBookSig && nowMs - _lastBookAt < 3000)) return;
+            _bookSaving = true;
+            _lastBookSig = sig;
+            _lastBookAt = nowMs;
+            save.IsEnabled = false;
+            try
+            {
             var id = $"bk-{Guid.NewGuid()}";
             var payload = new Dictionary<string, object?>
             {
@@ -965,6 +1055,12 @@ public partial class EventDetailWindow : Window
             catch { }
             win.Close();
             await RefreshAsync();
+            }
+            finally
+            {
+                _bookSaving = false;
+                try { save.IsEnabled = true; } catch { }
+            }
         };
         win.ShowDialog();
     }
@@ -993,6 +1089,9 @@ public partial class EventDetailWindow : Window
         }, 280);
         save.Click += async (_, _) =>
         {
+            save.IsEnabled = false;
+            try
+            {
             var fields = new Dictionary<string, object?>
                 { ["nama"] = TitleCase(n.Text), ["alamat"] = a.Text.Trim() };
             await LocalDb.Instance.UpdateBookLocalAsync(b.Id, TitleCase(n.Text), a.Text.Trim());
@@ -1013,6 +1112,8 @@ public partial class EventDetailWindow : Window
             catch (Exception ex) { AppLogger.Warn($"Update buku tamu online gagal: {ex.Message}"); }
             win.Close();
             await RefreshAsync();
+            }
+            finally { try { save.IsEnabled = true; } catch { } }
         };
         win.ShowDialog();
     }
@@ -1022,8 +1123,13 @@ public partial class EventDetailWindow : Window
         GuestBookModel b;
         try { b = ResolveBook((sender as FrameworkElement)?.DataContext); }
         catch { return; }
+        var delBtn = sender as System.Windows.Controls.Button;
+        if (delBtn != null && !delBtn.IsEnabled) return;
         if (MessageBox.Show(this, $"Hapus {b.Nama}?", "Hapus",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (delBtn != null) delBtn.IsEnabled = false;
+        try
+        {
         await LocalDb.Instance.DeleteBookLocalAsync(b.Id);
         await LocalDb.Instance.EnqueueAsync(new OutboxOp
         {
@@ -1041,12 +1147,26 @@ public partial class EventDetailWindow : Window
         }
         catch (Exception ex) { AppLogger.Warn($"Hapus buku tamu online gagal: {ex.Message}"); }
         await RefreshAsync();
+        }
+        finally { if (delBtn != null) delBtn.IsEnabled = true; }
     }
 
     private async void OnSync(object sender, RoutedEventArgs e)
     {
-        await SyncEngine.Instance.FlushAsync(_ev.Id);
-        await RefreshAsync();
+        if (_syncing) return;
+        _syncing = true;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
+        try
+        {
+            await SyncEngine.Instance.SyncInBackgroundAsync(_ev.Id);
+            await RefreshAsync();
+        }
+        finally
+        {
+            _syncing = false;
+            if (btn != null) btn.IsEnabled = true;
+        }
     }
 
     // ---------- Tab Rekap ----------
@@ -1100,18 +1220,29 @@ public partial class EventDetailWindow : Window
 
     private async void OnExport(object sender, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            FileName = $"{_ev.NamaAcara}-pemberian-{DateTime.Now:yyyy-MM-dd}.pdf",
-            Filter = "PDF (*.pdf)|*.pdf|Excel (*.xlsx)|*.xlsx",
-        };
-        if (dlg.ShowDialog() != true) return;
+        if (_exporting) return;
+        _exporting = true;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
         try
         {
-            if (dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                Services.Exporter.ExportXlsx(dlg.FileName, _ev, _guests.ToList());
-            else
-                Services.Exporter.ExportPdf(dlg.FileName, _ev, _guests.ToList());
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = $"{_ev.NamaAcara}-pemberian-{DateTime.Now:yyyy-MM-dd}.pdf",
+                Filter = "PDF (*.pdf)|*.pdf|Excel (*.xlsx)|*.xlsx",
+            };
+            if (dlg.ShowDialog() != true) return;
+            var snapshot = _guests.ToList();
+            var isXlsx = dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+            var email = UserEmail();
+            var meja = _meja;
+            await Task.Run(() =>
+            {
+                if (isXlsx)
+                    Services.Exporter.ExportXlsx(dlg.FileName, _ev, snapshot);
+                else
+                    Services.Exporter.ExportPdf(dlg.FileName, _ev, snapshot, email, meja);
+            });
             MessageBox.Show(this, $"Tersimpan: {dlg.FileName}", "Export",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -1119,6 +1250,11 @@ public partial class EventDetailWindow : Window
         {
             MessageBox.Show(this, $"Export gagal: {ex.Message}", "Export",
                 MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _exporting = false;
+            if (btn != null) btn.IsEnabled = true;
         }
     }
 

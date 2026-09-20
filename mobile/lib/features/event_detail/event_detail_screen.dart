@@ -106,6 +106,11 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   int _saveToken = 0;
   String _lastSig = '';
   int _lastAt = 0;
+  // Guard khusus buku tamu (dialog Simpan bisa double-tap).
+  bool _bookSaving = false;
+  bool _bookDialogOpen = false;
+  String _lastBookSig = '';
+  int _lastBookAt = 0;
 
   @override
   void initState() {
@@ -490,9 +495,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   }
 
   void _selectSuggest(Map<String, dynamic> s) {
-    namaC.text = '${s['nama']}';
+    namaC.text = capitalizeWords('${s['nama']}');
     final al = '${s['alamat'] ?? ''}';
-    if (al.isNotEmpty) alamatC.text = al;
+    if (al.isNotEmpty) alamatC.text = capitalizeWords(al);
     setState(() {
       suggest = [];
       suggestHi = -1;
@@ -766,7 +771,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (denyViewer()) return;
     // Kapital tiap awal kata + validasi huruf saja (tanpa angka/simbol).
     final nama = capitalizeWords(namaC.text);
-    final alamat = alamatC.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final alamat = capitalizeWords(alamatC.text);
     final nominal = parseNominal(nominalC.text);
     if (!isValidNama(nama)) {
       showTopSnack(
@@ -851,6 +856,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             'nominal': nominal,
             'metode': metode,
             if (payload['catatan'] != null) 'catatan': payload['catatan'],
+            if (meja.isNotEmpty) 'mejaLabel': meja,
+            if (deviceId.isNotEmpty) 'deviceId': deviceId,
           },
         );
         if (r.statusCode == 201) {
@@ -863,6 +870,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             if (srv != null &&
                 '${srv['id']}'.isNotEmpty &&
                 '${srv['id']}' != id) {
+              // Safety: server lama bisa balas mejaLabel null. Jangan timpa
+              // baris lokal yang sudah benar dengan null.
+              if ((srv['mejaLabel'] == null ||
+                      '${srv['mejaLabel']}'.isEmpty ||
+                      '${srv['mejaLabel']}' == 'null') &&
+                  meja.isNotEmpty) {
+                srv['mejaLabel'] = meja;
+              }
               await LocalDb.instance.replaceGuestWithServer(
                 eventId: widget.event.id,
                 oldId: id,
@@ -886,6 +901,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         }
       }
       namaC.clear();
+      alamatC.clear();
       nominalC.clear();
       catatanC.clear();
       setState(() {
@@ -927,7 +943,25 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   ];
 
   List<Widget> get _tabActions => [
-    SyncStatusBadge(),
+    SyncButton(
+      eventId: widget.event.id,
+      onSync: () async {
+        final (f, c, e) = await SyncEngine.instance.flush(widget.event.id);
+        await _refreshAll();
+        if (context.mounted) {
+          showTopSnack(
+            context,
+            SnackBar(
+              content: Text(
+                e == null
+                    ? 'Sync: $f terkirim, $c konflik'
+                    : 'Sync tertunda ($e) — data aman di lokal',
+              ),
+            ),
+          );
+        }
+      },
+    ),
     IconButton(
       tooltip: 'Log aktivitas',
       icon: const Icon(Icons.history_outlined),
@@ -956,28 +990,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             }
             _refreshAll();
           }),
-    ),
-    ListenableBuilder(
-      listenable: SyncEngine.instance,
-      builder: (context, _) => SyncBadge(
-        pending: SyncEngine.instance.pendingByEvent[widget.event.id] ?? pending,
-        onTap: () async {
-          final (f, c, e) = await SyncEngine.instance.flush(widget.event.id);
-          await _refreshAll();
-          if (context.mounted) {
-            showTopSnack(
-              context,
-              SnackBar(
-                content: Text(
-                  e == null
-                      ? 'Sync: $f terkirim, $c konflik'
-                      : 'Sync tertunda ($e) — data aman di lokal',
-                ),
-              ),
-            );
-          }
-        },
-      ),
     ),
   ];
 
@@ -1145,7 +1157,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             ),
             onPressed: canEdit
                 ? () {
-                    alamatC.text = a;
+                    alamatC.text = capitalizeWords(a);
                     _scheduleDupCheck();
                   }
                 : null,
@@ -2166,9 +2178,16 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: mejaList.contains(mejaSelected)
-                              ? mejaSelected
-                              : mejaList.first,
+                          // ValueKey paksa rebuild agar initialValue ikut update
+                          // (Flutter 3.33+: `value` deprecated, pakai initialValue).
+                          key: ValueKey(
+                            'meja-${mejaSelected}_${mejaList.join("|")}',
+                          ),
+                          initialValue: mejaList.isEmpty
+                              ? null
+                              : (mejaList.contains(mejaSelected)
+                                  ? mejaSelected
+                                  : mejaList.first),
                           items: mejaList
                               .map(
                                 (x) => DropdownMenuItem(
@@ -2651,6 +2670,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _addBookDialog() async {
     if (denyViewer()) return;
+    // Cegah dialog berlapis saat tombol Add di-tap 2x cepat.
+    if (_bookDialogOpen || _bookSaving) return;
+    _bookDialogOpen = true;
     final n = TextEditingController();
     final a = TextEditingController();
     final ok = await showWideDialog<bool>(
@@ -2687,6 +2709,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         ],
       ),
     );
+    _bookDialogOpen = false;
     final nama = capitalizeWords(n.text);
     if (ok != true || !isValidNama(nama)) {
       if (ok == true && mounted) {
@@ -2699,38 +2722,52 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       }
       return;
     }
+    final alamat = a.text.trim().isEmpty ? '-' : capitalizeWords(a.text);
+    // Anti-double: tolak bila masih menyimpan atau payload sama <3 dtk.
+    final sig = '${widget.event.id}|$nama|$alamat';
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (_bookSaving || (sig == _lastBookSig && nowMs - _lastBookAt < 3000)) {
+      return;
+    }
+    _bookSaving = true;
+    _lastBookSig = sig;
+    _lastBookAt = nowMs;
     final id = 'bk-${const Uuid().v4()}';
     final payload = {
       'id': id,
       'eventId': widget.event.id,
       'nama': nama,
-      'alamat': a.text.trim().isEmpty ? '-' : capitalizeWords(a.text),
+      'alamat': alamat,
       'createdAt': DateTime.now().toIso8601String(),
     };
-    final db = await LocalDb.instance.db();
-    await db.insert('guest_books', {
-      'id': id,
-      'eventId': widget.event.id,
-      'nama': payload['nama'],
-      'alamat': payload['alamat'],
-      'createdAt': payload['createdAt'],
-    });
-    await LocalDb.instance.enqueue(
-      widget.event.id,
-      'CREATE_BOOK',
-      'guest_books',
-      payload,
-      id: id,
-    );
     try {
-      final dio = await ApiClient.instance.dio();
-      await dio.post(
-        '/api/events/${widget.event.id}/guestbooks',
-        data: {'nama': payload['nama'], 'alamat': payload['alamat']},
+      final db = await LocalDb.instance.db();
+      await db.insert('guest_books', {
+        'id': id,
+        'eventId': widget.event.id,
+        'nama': payload['nama'],
+        'alamat': payload['alamat'],
+        'createdAt': payload['createdAt'],
+      });
+      await LocalDb.instance.enqueue(
+        widget.event.id,
+        'CREATE_BOOK',
+        'guest_books',
+        payload,
+        id: id,
       );
-      await LocalDb.instance.outboxRemove([id]);
-    } catch (_) {}
-    await _refreshAll();
+      try {
+        final dio = await ApiClient.instance.dio();
+        await dio.post(
+          '/api/events/${widget.event.id}/guestbooks',
+          data: {'nama': payload['nama'], 'alamat': payload['alamat']},
+        );
+        await LocalDb.instance.outboxRemove([id]);
+      } catch (_) {}
+      await _refreshAll();
+    } finally {
+      _bookSaving = false;
+    }
   }
 
   /// Bottom-sheet daftar konflik duplikat → isi catatan / buang.
@@ -3010,7 +3047,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     }
     await _pushGuestEdit(id, {
       'nama': nama,
-      'alamat': a.text.trim(),
+      'alamat': a.text.trim().isEmpty ? '-' : capitalizeWords(a.text),
       'nominal': parseNominal(nom.text),
       'metode': m,
       'catatan': cat.text.trim().isEmpty ? null : cat.text.trim(),
@@ -3640,6 +3677,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       }
       final user = await AuthStore.cachedUser();
       final uname = '${user?['name'] ?? user?['email'] ?? '-'}';
+      String savedPath = '';
       if (pdf) {
         final bytes = await buildExportPdf(
           eventName: widget.event.namaAcara,
@@ -3647,7 +3685,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           opt: opt,
           rows: rows,
         );
-        await shareExportFile(
+        savedPath = await shareExportFile(
           bytes.toList(),
           exportFilename(widget.event.namaAcara, opt, 'pdf'),
           'application/pdf',
@@ -3659,10 +3697,16 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           rows: rows,
         );
         if (bytes == null) throw 'gagal membuat excel';
-        await shareExportFile(
+        savedPath = await shareExportFile(
           bytes,
           exportFilename(widget.event.namaAcara, opt, 'xlsx'),
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+      }
+      if (mounted) {
+        showTopSnack(
+          context,
+          SnackBar(content: Text('Export tersimpan: $savedPath')),
         );
       }
     } catch (e) {

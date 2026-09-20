@@ -23,15 +23,74 @@ public sealed class SyncEngine
         PropertyNameCaseInsensitive = true,
     };
 
+    private bool _netHooked;
+    // Anti-overlap: satu pintu coalesced cermin mobile syncInBackground.
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly HashSet<string> _inFlight = new();
+    private Task? _activeFlushAll;
+
     public void Start()
     {
         _timer ??= new System.Threading.Timer(
-            async _ =>
-            {
-                try { await CheckNowAsync(); await FlushAllAsync(); }
-                catch { /* timer jangan matikan app */ }
-            },
+            _ => { try { _ = SyncInBackgroundAsync(null); } catch { } },
             null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
+        // Instant trigger saat OS lapor jaringan berubah (cermin mobile connectivity).
+        if (!_netHooked)
+        {
+            _netHooked = true;
+            try
+            {
+                NetworkChange.NetworkAvailabilityChanged += (_, _) =>
+                {
+                    try { _ = SyncInBackgroundAsync(null); }
+                    catch { }
+                };
+            }
+            catch { }
+        }
+    }
+
+    /// Satu pintu untuk timer / NetworkChange / tombol manual.
+    /// Pemanggil kedua saat masih jalan ikut task yang sama (tidak overlap).
+    public Task SyncInBackgroundAsync(string? eventId)
+    {
+        if (eventId != null)
+        {
+            lock (_inFlight)
+            {
+                if (!_inFlight.Add(eventId)) return Task.CompletedTask;
+            }
+            return FlushOneGuardedAsync(eventId);
+        }
+        var t = _activeFlushAll;
+        if (t != null && !t.IsCompleted) return t;
+        t = FlushAllGuardedAsync();
+        _activeFlushAll = t;
+        _ = t.ContinueWith(_ => { _activeFlushAll = null; }, TaskScheduler.Default);
+        return t;
+    }
+
+    private async Task FlushOneGuardedAsync(string eventId)
+    {
+        try
+        {
+            await _gate.WaitAsync();
+            try { await CheckNowAsync(); await FlushAsync(eventId); }
+            finally { _gate.Release(); }
+        }
+        catch { }
+        finally { lock (_inFlight) { _inFlight.Remove(eventId); } }
+    }
+
+    private async Task FlushAllGuardedAsync()
+    {
+        try
+        {
+            await _gate.WaitAsync();
+            try { await CheckNowAsync(); await FlushAllAsync(); }
+            finally { _gate.Release(); }
+        }
+        catch { }
     }
 
     public async Task<bool> CheckNowAsync()

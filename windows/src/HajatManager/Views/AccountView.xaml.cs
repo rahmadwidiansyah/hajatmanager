@@ -65,8 +65,16 @@ public partial class AccountView : UserControl
         }
     }
 
-    private void GoProfile(object s, RoutedEventArgs e) => SubHost.Content = new ProfileView();
-    private void GoSecurity(object s, RoutedEventArgs e) => SubHost.Content = new SecurityView();
+    private void MarkActive(System.Windows.Controls.Button active)
+    {
+        foreach (var b in new[] { ProfilBtn, KeamananBtn, PinBtn, TentangBtn })
+        {
+            try { b.SetResourceReference(StyleProperty, ReferenceEquals(b, active) ? "M3ChipActive" : "M3Chip"); } catch { }
+        }
+    }
+
+    private void GoProfile(object s, RoutedEventArgs e) { SubHost.Content = new ProfileView(); MarkActive(ProfilBtn); }
+    private void GoSecurity(object s, RoutedEventArgs e) { SubHost.Content = new SecurityView(); MarkActive(KeamananBtn); }
     private void GoPin(object s, RoutedEventArgs e)
     {
         var email = "";
@@ -77,6 +85,7 @@ public partial class AccountView : UserControl
         }
         catch { }
         new PinSetupWindow(email).ShowDialog();
+        MarkActive(PinBtn);
     }
-    private void GoAbout(object s, RoutedEventArgs e) => SubHost.Content = new AboutView();
+    private void GoAbout(object s, RoutedEventArgs e) { SubHost.Content = new AboutView(); MarkActive(TentangBtn); }
 }

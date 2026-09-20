@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/api_client.dart';
 import 'core/app_theme.dart';
@@ -14,6 +15,11 @@ import 'features/events/events_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Locale id_ID untuk DateFormat/NumberFormat di export — tanpa ini
+  // release build throw "Locale data has not been initialized".
+  try {
+    await initializeDateFormatting('id_ID', null);
+  } catch (_) {}
   await initLocalDb(); // wajib sebelum SQLite dipakai (desktop/FFI)
   await configureBackgroundSync();
   await ThemeController.load(); // Fase A: pilihan tema tersimpan

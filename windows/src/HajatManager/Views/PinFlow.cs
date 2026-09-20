@@ -45,6 +45,7 @@ public sealed class PinDialog : Window
         Title = title;
         Width = 360; Height = 220;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(24) };
         p.Children.Add(new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap });
         p.Children.Add(_box);
@@ -65,6 +66,7 @@ public sealed class PinSetupWindow : Window
         Title = "Buat PIN Offline";
         Width = 420; Height = 300;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(24) };
         p.Children.Add(new TextBlock
         {
@@ -77,22 +79,28 @@ public sealed class PinSetupWindow : Window
         var ok = new Button { Content = "Simpan PIN", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += async (_, _) =>
         {
+            if (!ok.IsEnabled) return;
             if (b1.Password.Length != 6 || b1.Password != b2.Password ||
                 !b1.Password.All(char.IsDigit))
             {
                 err.Text = "PIN harus 6 digit angka dan sama.";
                 return;
             }
-            AuthStore.SetPin(_email, b1.Password);
+            ok.IsEnabled = false;
             try
             {
-                await ApiClient.Instance.PostJsonAsync("/api/users/pin",
-                    new { pin = b1.Password });
+                AuthStore.SetPin(_email, b1.Password);
+                try
+                {
+                    await ApiClient.Instance.PostJsonAsync("/api/users/pin",
+                        new { pin = b1.Password });
+                }
+                catch { /* offline: PIN lokal tetap sah */ }
+                AppConfig.Instance.MarkUnlocked();
+                new MainWindow().Show();
+                Close();
             }
-            catch { /* offline: PIN lokal tetap sah */ }
-            AppConfig.Instance.MarkUnlocked();
-            new MainWindow().Show();
-            Close();
+            finally { try { ok.IsEnabled = true; } catch { } }
         };
         p.Children.Add(new TextBlock { Text = "PIN baru", Margin = new Thickness(0, 8, 0, 0) });
         p.Children.Add(b1);
@@ -111,6 +119,7 @@ public sealed class PinRestoreWindow : Window
         Title = "Verifikasi PIN Lama";
         Width = 420; Height = 260;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(24) };
         p.Children.Add(new TextBlock
         {
@@ -122,6 +131,8 @@ public sealed class PinRestoreWindow : Window
         var ok = new Button { Content = "Verifikasi", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += async (_, _) =>
         {
+            if (!ok.IsEnabled) return;
+            ok.IsEnabled = false;
             try
             {
                 using var r = await ApiClient.Instance.PostJsonAsync(
@@ -133,14 +144,15 @@ public sealed class PinRestoreWindow : Window
                 Close();
             }
             catch { err.Text = "Tidak ada koneksi ke server"; }
+            finally { try { ok.IsEnabled = true; } catch { } }
         };
         var lupa = new Button
         {
             Content = "Lupa PIN? Buat baru",
-            Background = System.Windows.Media.Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Margin = new Thickness(0, 8, 0, 0)
         };
+        if (TryFindResource("TextButton") is Style tbs) lupa.Style = tbs;
         lupa.Click += (_, _) => { new PinSetupWindow(email, forceNew: true).Show(); Close(); };
         p.Children.Add(b);
         p.Children.Add(err);

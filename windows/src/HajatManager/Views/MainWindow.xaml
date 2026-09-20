@@ -5,19 +5,60 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
   <DockPanel>
-    <Menu DockPanel.Dock="Top">
-      <MenuItem x:Name="AcaraMenu" Header="Acara" Click="GoEvents"/>
-      <MenuItem x:Name="AkunMenu" Header="Akun" Click="GoAccount"/>
-      <MenuItem Header="Sync Semua" Click="OnSyncAll"/>
-      <MenuItem Header="Keluar" Click="OnLogout"/>
-    </Menu>
-    <StatusBar DockPanel.Dock="Bottom">
-      <StatusBarItem>
-        <TextBlock x:Name="StatusText" Text="Siap"/>
-      </StatusBarItem>
-    </StatusBar>
-    <!-- page-shell cermin web (max 1120px, auto-center) -->
-    <ContentControl x:Name="Host" Margin="16" MaxWidth="1120"
-                    HorizontalAlignment="Stretch" FontFamily="{DynamicResource AppFont}"/>
+    <!-- M3 TopAppBar: judul + status chip kiri, aksi kanan -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1"
+            Padding="16,10">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Hajat Manager" Style="{DynamicResource M3Headline}" VerticalAlignment="Center"/>
+          <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8"
+                  Background="{DynamicResource SurfaceContainerHighBrush}"
+                  BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                  VerticalAlignment="Center">
+            <TextBlock x:Name="StatusText" Text="Siap" FontSize="12"
+                       Foreground="{DynamicResource OnSurfaceBrush}"/>
+          </Border>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="SyncBtn" Content="Sync Semua" Click="OnSyncAll"
+                  Style="{DynamicResource TonalButton}" Margin="0,0,8,0"/>
+          <Button Content="Akun" Click="GoAccount" Style="{DynamicResource TextButton}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <!-- Rail kiri M3 + konten page-shell -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="200"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Border Background="{DynamicResource SurfaceBrush}"
+              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0"
+              Padding="8">
+        <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect" SelectedIndex="0"
+                 BorderThickness="0" Background="Transparent">
+          <ListBoxItem x:Name="AcaraItem" Tag="events" Padding="12,10">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE8B5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
+              <TextBlock Text="Acara" VerticalAlignment="Center"/>
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem x:Name="AkunItem" Tag="account" Padding="12,10">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
+              <TextBlock Text="Akun" VerticalAlignment="Center"/>
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+      </Border>
+      <!-- page-shell cermin web (max 1120px, auto-center) -->
+      <ContentControl x:Name="Host" Grid.Column="1" Margin="16" MaxWidth="1120"
+                      HorizontalAlignment="Stretch" FontFamily="{DynamicResource AppFont}"/>
+    </Grid>
   </DockPanel>
 </Window>

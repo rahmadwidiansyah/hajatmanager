@@ -36,7 +36,24 @@ public partial class MainWindow : Window
                 try { GoEvents(null, new RoutedEventArgs()); } catch { }
             }
             _ = RefreshStatusAsync();
+            SyncEngine.Instance.Changed += OnSyncChanged;
+            System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += OnNetChanged;
         };
+        Closed += (_, _) =>
+        {
+            try { SyncEngine.Instance.Changed -= OnSyncChanged; } catch { }
+            try { System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged -= OnNetChanged; } catch { }
+        };
+    }
+
+    private void OnSyncChanged()
+    {
+        try { Dispatcher.InvokeAsync(async () => await RefreshStatusAsync()); } catch { }
+    }
+
+    private void OnNetChanged(object? s, System.Net.NetworkInformation.NetworkAvailabilityEventArgs e)
+    {
+        try { Dispatcher.InvokeAsync(async () => await RefreshStatusAsync()); } catch { }
     }
 
     private static string UserEmail()
@@ -63,41 +80,56 @@ public partial class MainWindow : Window
         }
     }
 
-    // Fase 5: tandai menu aktif (bold) seperti nav web.
+    // Rail M3: selected ikut konten (cermin mobile NavigationRail).
     private void GoEvents(object? s, RoutedEventArgs e)
     {
         Host.Content = new EventsView();
-        AcaraMenu.FontWeight = FontWeights.Bold;
-        AkunMenu.FontWeight = FontWeights.Normal;
+        try { NavRail.SelectedItem = AcaraItem; } catch { }
     }
 
     private void GoAccount(object? s, RoutedEventArgs e)
     {
         Host.Content = new AccountView();
-        AcaraMenu.FontWeight = FontWeights.Normal;
-        AkunMenu.FontWeight = FontWeights.Bold;
+        try { NavRail.SelectedItem = AkunItem; } catch { }
     }
+
+    private void OnNavSelect(object s, SelectionChangedEventArgs e)
+    {
+        if (NavRail.SelectedItem == AkunItem) GoAccount(s, new RoutedEventArgs());
+        else GoEvents(s, new RoutedEventArgs());
+    }
+
+    private bool _syncingAll;
 
     private async void OnSyncAll(object? s, RoutedEventArgs e)
     {
+        if (_syncingAll) return;
+        _syncingAll = true;
+        var item = s as System.Windows.Controls.MenuItem;
+        var btn = s as System.Windows.Controls.Button;
+        if (item != null) item.IsEnabled = false;
+        if (btn != null) btn.IsEnabled = false;
         try
         {
             StatusText.Text = "Sync…";
-            // Flush semua event yang punya antrean (daftar dari DB lokal).
+            await SyncEngine.Instance.SyncInBackgroundAsync(null);
             var events = await Data.LocalDb.Instance.GetEventsAsync();
-            int f = 0, c = 0;
+            int pending = 0;
             foreach (var ev in events)
-            {
-                var (fl, cf, _) = await SyncEngine.Instance.FlushAsync(ev.Id);
-                f += fl; c += cf;
-            }
-            StatusText.Text = $"Sync: {f} terkirim, {c} konflik";
+                pending += await Data.LocalDb.Instance.OutboxCountAsync(ev.Id);
+            StatusText.Text = pending == 0 ? "Tersinkron ✓" : $"Antre: {pending}";
             if (Host.Content is EventsView ev2) await ev2.ReloadAsync();
         }
         catch (Exception ex)
         {
             AppLogger.LogException("SyncAll gagal", ex);
             try { StatusText.Text = "Sync gagal ✗"; } catch { }
+        }
+        finally
+        {
+            _syncingAll = false;
+            if (item != null) item.IsEnabled = true;
+            if (btn != null) btn.IsEnabled = true;
         }
     }
 

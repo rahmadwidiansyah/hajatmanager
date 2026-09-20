@@ -114,6 +114,15 @@ export async function POST(req: Request) {
       conflicts.push({ id: gb.id, reason: "FORBIDDEN" });
       continue;
     }
+    // Anti-double offline: nama+alamat sama dianggap duplikat.
+    const dupBook = await prisma.guestBook.findFirst({
+      where: { eventId: gb.eventId, nama: { equals: gb.nama, mode: "insensitive" }, alamat: { equals: gb.alamat, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (dupBook) {
+      conflicts.push({ id: gb.id, reason: "DUPLICATE" });
+      continue;
+    }
     try {
       await prisma.guestBook.create({ data: { id: gb.id, eventId: gb.eventId, nama: gb.nama, alamat: gb.alamat, createdAt: gb.createdAt ? new Date(gb.createdAt) : new Date() } });
       syncedBooks++;
