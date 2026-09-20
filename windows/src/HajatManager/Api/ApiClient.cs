@@ -77,14 +77,23 @@ public sealed class ApiClient
     }
 
     /// Fase 1: tidak pernah throw — return false bila URL invalid.
+    /// Bila BaseAddress sudah sama, tidak diubah (HttpClient melarang perubahan
+    /// setelah request pertama: InvalidOperationException).
     public bool TryConfigure(string? baseUrl, out string? err)
     {
         if (!TryNormalizeBaseUrl(baseUrl, out var normalized, out err))
             return false;
         _baseUrl = normalized;
-        var uri = new Uri(_baseUrl);
-        _http.BaseAddress = uri;
-        _authHttp.BaseAddress = uri;
+        var uri = new Uri(_baseUrl + "/");
+        // HttpClient.BaseAddress hanya boleh diset sekali — jangan ubah bila sama.
+        if (_http.BaseAddress?.ToString().TrimEnd('/') != normalized)
+        {
+            try { _http.BaseAddress = uri; } catch (InvalidOperationException) { /* sudah pernah request */ }
+        }
+        if (_authHttp.BaseAddress?.ToString().TrimEnd('/') != normalized)
+        {
+            try { _authHttp.BaseAddress = uri; } catch (InvalidOperationException) { /* sudah pernah request */ }
+        }
         err = null;
         return true;
     }

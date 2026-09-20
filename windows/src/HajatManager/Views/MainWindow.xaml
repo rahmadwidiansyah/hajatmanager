@@ -40,7 +40,7 @@
       <Border Background="{DynamicResource SurfaceBrush}"
               BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0"
               Padding="8">
-        <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect" SelectedIndex="0"
+        <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect"
                  BorderThickness="0" Background="Transparent">
           <ListBoxItem x:Name="AcaraItem" Tag="events" Padding="12,10">
             <StackPanel Orientation="Horizontal">

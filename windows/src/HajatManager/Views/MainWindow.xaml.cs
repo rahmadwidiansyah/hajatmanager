@@ -11,6 +11,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Pasang SelectedIndex setelah InitializeComponent agar OnNavSelect tidak
+        // dipicu saat XAML di-parse (Host & AcaraItem belum siap → NullReferenceException).
+        NavRail.SelectedIndex = 0;
         Loaded += async (_, _) =>
         {
             try
@@ -83,18 +86,21 @@ public partial class MainWindow : Window
     // Rail M3: selected ikut konten (cermin mobile NavigationRail).
     private void GoEvents(object? s, RoutedEventArgs e)
     {
+        if (Host == null) return; // guard: dipanggil sebelum InitializeComponent selesai
         Host.Content = new EventsView();
-        try { NavRail.SelectedItem = AcaraItem; } catch { }
+        try { if (NavRail != null && AcaraItem != null) NavRail.SelectedItem = AcaraItem; } catch { }
     }
 
     private void GoAccount(object? s, RoutedEventArgs e)
     {
+        if (Host == null) return;
         Host.Content = new AccountView();
-        try { NavRail.SelectedItem = AkunItem; } catch { }
+        try { if (NavRail != null && AkunItem != null) NavRail.SelectedItem = AkunItem; } catch { }
     }
 
     private void OnNavSelect(object s, SelectionChangedEventArgs e)
     {
+        if (NavRail == null || Host == null) return;
         if (NavRail.SelectedItem == AkunItem) GoAccount(s, new RoutedEventArgs());
         else GoEvents(s, new RoutedEventArgs());
     }
