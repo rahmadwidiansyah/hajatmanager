@@ -1,3 +1,10 @@
+## [1.9.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.3...v1.9.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* meja ke-save online, title-case alamat, sync single-icon, export metode+TTD, anti-double semua platform, M3 windows ([5e9ccbf](https://github.com/rahmadwidiansyah/hajatmanager/commit/5e9ccbf60b4b7208f852a1975a330586cbcc1e39))
+
 ## [1.9.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.2...v1.9.3) (2026-09-19)
 
 
