@@ -18,6 +18,7 @@ import '../../core/sync_engine.dart';
 import '../../models/models.dart';
 import '../../widgets/app_widgets.dart';
 import '../../widgets/pending_badge.dart';
+import '../../widgets/skeleton_list.dart';
 import '../event_settings/event_settings_screen.dart';
 import '../log/log_screen.dart';
 
@@ -67,6 +68,13 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   // Sumber kebenaran label pending: id op di outbox (bukan prefix id).
   Set<String> pendingIds = {};
   bool _pendingLoaded = false;
+  // _localLoaded: true setelah _loadLocal() pertama selesai.
+  // Dipakai skeleton: tampilkan shimmer HANYA saat belum ada data lokal sama sekali.
+  // Saat refetch, data lama tetap tampil (tidak ada flash kosong).
+  bool _localLoaded = false;
+  // Subscription ke SyncEngine.onPull untuk silent background update.
+  // UI diupdate in-place tanpa setState(loading=true).
+  StreamSubscription<SyncPullEvent>? _pullSub;
   // Suggest nama: dropdown overlay absolut + navigasi keyboard.
   final namaFocus = FocusNode();
   final alamatFocus = FocusNode();
@@ -131,6 +139,11 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       if (mounted) unawaited(_refreshAll());
     });
     SyncEngine.instance.addListener(_onSync);
+    // Subscribe pull stream — saat data baru tiba dari background sync,
+    // merge in-place tanpa reset list ke kosong (tidak ada flash).
+    _pullSub = SyncEngine.instance.onPull
+        .where((e) => e.eventId == widget.event.id)
+        .listen((_) => _mergeInPlace());
     // Subscribe onPull: setiap kali pull delta selesai untuk event ini,
     // reload data lokal secara silent — tanpa loading indicator / setState
     // yang menyebabkan flash kosong. User tetap lihat data lama sambil
@@ -329,14 +342,43 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     books = await LocalDb.instance.booksLocal(widget.event.id);
     pendingIds = await LocalDb.instance.outboxIds(widget.event.id);
     _pendingLoaded = true;
-    // Bersihkan kembaran lama (bug rekonsiliasi): gst-* yang sudah punya
-    // twin id-server identik dan tak lagi antre → hapus sekali jalan.
+    _localLoaded = true;
+    // Bersihkan kembaran lama (bug rekonsiliasi): baris dengan id==localId
+    // yang sudah punya twin server id identik dan tak lagi antre → hapus.
     final cleaned = await LocalDb.instance.dedupeSyncedLocalGuests(
       widget.event.id,
     );
     if (cleaned > 0) {
       guests = await LocalDb.instance.guestsLocal(widget.event.id);
     }
+    _recalcTops();
+    _recalcRekap();
+    if (mounted) setState(() {});
+  }
+
+  /// Update list in-place setelah pull delta — tanpa reset ke kosong.
+  /// Dipanggil oleh _pullSub listener saat SyncEngine emit SyncPullEvent.
+  /// User tidak melihat flash kosong: data lama tetap tampil sampai
+  /// data baru siap, lalu diganti secara silent.
+  Future<void> _mergeInPlace() async {
+    if (!mounted) return;
+    final newGuests = await LocalDb.instance.guestsLocal(widget.event.id);
+    final newBooks = await LocalDb.instance.booksLocal(widget.event.id);
+    final newPendingIds = await LocalDb.instance.outboxIds(widget.event.id);
+    // Dedupe safety net — hapus baris sementara yang sudah ter-replace.
+    final cleaned = await LocalDb.instance.dedupeSyncedLocalGuests(
+      widget.event.id,
+    );
+    final finalGuests = cleaned > 0
+        ? await LocalDb.instance.guestsLocal(widget.event.id)
+        : newGuests;
+    if (!mounted) return;
+    setState(() {
+      guests = finalGuests;
+      books = newBooks;
+      pendingIds = newPendingIds;
+      _localLoaded = true;
+    });
     _recalcTops();
     _recalcRekap();
     if (mounted) setState(() {});
