@@ -1,3 +1,10 @@
+## [1.9.8](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.7...v1.9.8) (2026-09-20)
+
+
+### Bug Fixes
+
+* **windows:** NullReferenceException saat login & InvalidOperationException TryConfigure ([e904a02](https://github.com/rahmadwidiansyah/hajatmanager/commit/e904a02ffd3f650764b7ad537fbd81e52bee0fc4))
+
 ## [1.9.7](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.6...v1.9.7) (2026-09-20)
 
 
