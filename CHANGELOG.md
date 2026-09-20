@@ -1,3 +1,10 @@
+## [1.9.5](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.4...v1.9.5) (2026-09-20)
+
+
+### Bug Fixes
+
+* **windows:** SignBlock pakai IContainer, bukan IRelativeItem ([dee57ff](https://github.com/rahmadwidiansyah/hajatmanager/commit/dee57ff0438ec46e7d1202a13decaadbe627a9cd))
+
 ## [1.9.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.9.3...v1.9.4) (2026-09-20)
 
 
