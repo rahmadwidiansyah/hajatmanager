@@ -33,14 +33,14 @@ services:
       NODE_ENV: production
       # override DATABASE_URL agar web di dalam docker bisa resolve hostname postgres via network internal
       DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/pencatat_kondangan?schema=public"
+      # Trust proxy (Cloudflare/reverse proxy) agar Auth.js baca host forwarded dengan benar.
+      # AUTH_URL tetap dari .env agar fleksibel per-environment.
+      AUTH_TRUST_HOST: "true"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - appnet
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     # JANGAN tambahkan volumes bind-mount di production!
     # volumes dev hanya di docker-compose.override.yml
 

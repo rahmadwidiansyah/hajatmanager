@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: web-ghcr-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # Build per-arch di runner NATIVE (tanpa emulasi QEMU) — paralel.

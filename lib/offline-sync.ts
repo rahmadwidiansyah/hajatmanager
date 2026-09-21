@@ -273,6 +273,7 @@ export async function migrateLSQueueToOutbox(eventId: string): Promise<number> {
   }
   const have = new Set(existing.map((o) => o.id));
   const fresh = q.filter((g) => !have.has(g.id));
+  const moved: string[] = [];
   for (const g of fresh) {
     try {
       await outboxAdd({
@@ -282,11 +283,17 @@ export async function migrateLSQueueToOutbox(eventId: string): Promise<number> {
         tableName: "guests",
         payload: { ...g } as unknown as Record<string, unknown>,
       });
+      moved.push(g.id);
     } catch {}
   }
-  // Move: bersihkan LS setelah dipindah (jangan dobel-kirim).
+  // Move aman: hanya hapus dari LS yang benar-benar sudah ada di outbox.
+  // Jika IndexedDB diblokir (private mode/quota), antrean LS dipertahankan agar tidak hilang.
   try {
-    setQueueLS(eventId, []);
+    if (moved.length) {
+      const movedSet = new Set([...have, ...moved]);
+      const rest = getQueueLS(eventId).filter((g) => !movedSet.has(g.id));
+      setQueueLS(eventId, rest);
+    }
   } catch {}
   try {
     await kvSet(`migrated:${eventId}`, new Date().toISOString());
@@ -333,33 +340,44 @@ export async function pullDelta(eventId: string): Promise<{ pulled: number; erro
       guests?: Record<string, unknown>[];
       guestBooks?: Record<string, unknown>[];
       pulledAt?: string;
+      deletedGuestIds?: string[];
+      deletedGuestLocalIds?: string[];
+      deletedGuestBookIds?: string[];
+      deletedGuestBookLocalIds?: string[];
     };
     const guests = Array.isArray(j.guests) ? j.guests : [];
     const books = Array.isArray(j.guestBooks) ? j.guestBooks : [];
+    const delG = new Set([...(j.deletedGuestIds || []), ...(j.deletedGuestLocalIds || [])]);
+    const delB = new Set([...(j.deletedGuestBookIds || []), ...(j.deletedGuestBookLocalIds || [])]);
+    const liveGuests = guests.filter((g) => typeof (g as { id?: unknown }).id === "string" && !delG.has((g as { id: string }).id));
+    const liveBooks = books.filter((b) => typeof (b as { id?: unknown }).id === "string" && !delB.has((b as { id: string }).id));
     // Merge ke cache: untuk Fase 2, replace-per-event jika full pull, append-merge jika delta.
     // Sederhana & aman: jika !since → replace; else merge by id.
+    // Baris yang di-soft-delete di server (deleted*Ids) selalu di-evict dari cache.
     try {
       if (j.event && typeof j.event.id === "string") await putCachedEvent(j.event);
       if (!since) {
-        await putCachedGuests(eventId, guests);
-        await putCachedBooks(eventId, books);
-      } else if (guests.length || books.length) {
+        await putCachedGuests(eventId, liveGuests);
+        await putCachedBooks(eventId, liveBooks);
+      } else if (liveGuests.length || liveBooks.length || delG.size || delB.size) {
         const { getCachedGuests, getCachedBooks } = await import("./db");
         const curG = await getCachedGuests(eventId);
         const curB = await getCachedBooks(eventId);
         const byId = new Map<string, Record<string, unknown>>();
         for (const g of curG) if (g && typeof (g as { id?: unknown }).id === "string") byId.set((g as { id: string }).id, g);
-        for (const g of guests) if (g && typeof (g as { id?: unknown }).id === "string") byId.set((g as { id: string }).id, g);
+        for (const g of liveGuests) if (g && typeof (g as { id?: unknown }).id === "string") byId.set((g as { id: string }).id, g);
+        for (const id of delG) byId.delete(id);
         const byB = new Map<string, Record<string, unknown>>();
         for (const b of curB) if (b && typeof (b as { id?: unknown }).id === "string") byB.set((b as { id: string }).id, b);
-        for (const b of books) if (b && typeof (b as { id?: unknown }).id === "string") byB.set((b as { id: string }).id, b);
+        for (const b of liveBooks) if (b && typeof (b as { id?: unknown }).id === "string") byB.set((b as { id: string }).id, b);
+        for (const id of delB) byB.delete(id);
         await putCachedGuests(eventId, [...byId.values()]);
         await putCachedBooks(eventId, [...byB.values()]);
       }
       await kvSet(`lastPull:${eventId}`, j.pulledAt || new Date().toISOString());
     } catch {}
-    logOffline("pull ok", { eventId, guests: guests.length, books: books.length });
-    return { pulled: guests.length + books.length };
+    logOffline("pull ok", { eventId, guests: liveGuests.length, books: liveBooks.length });
+    return { pulled: liveGuests.length + liveBooks.length };
   } catch (e) {
     const isAbort = e instanceof DOMException && e.name === "AbortError";
     return { pulled: 0, error: isAbort ? "timeout" : "offline" };
@@ -559,15 +577,16 @@ async function flushOutbox(eventId: string): Promise<FlushResult> {
         syncedItems?: { guestBooks?: { id: string; localId: string | null }[] };
         conflicts?: { id: string; localId?: string | null; reason?: string }[];
       };
-      // Server push untuk buku bersifat upsert-skip; yang done dihapus,
-      // yang FORBIDDEN (VIEWER) juga dibuang bukan retry.
+      // Server push untuk buku: samakan dengan tamu — hanya FORBIDDEN (VIEWER)
+      // yang dibuang. DUPLICATE di-bump agar muncul di UI resolusi, bukan hilang diam-diam.
+      const forbiddenIds = new Set((j.conflicts || []).filter((c) => c.reason === "FORBIDDEN").map((c) => c.id));
       const conflictIds = new Set((j.conflicts || []).map((c) => c.id));
       const doneIds = bookCreates.filter((o) => !conflictIds.has(o.id)).map((o) => o.id);
       if (doneIds.length) await outboxRemove(doneIds);
-      const forbiddenIds = bookCreates.filter((o) => conflictIds.has(o.id)).map((o) => o.id);
-      if (forbiddenIds.length) await outboxRemove(forbiddenIds);
+      if (forbiddenIds.size) await outboxRemove([...forbiddenIds]);
       flushed += j.synced?.guestBooks ?? doneIds.length;
       conflicts += (j.conflicts || []).length;
+      for (const o of bookCreates) if (conflictIds.has(o.id) && !forbiddenIds.has(o.id)) await outboxBump(o.id, "DUPLICATE_NEED_NOTE");
       // Rekonsiliasi id untuk buku tamu di Dexie cache.
       try {
         const syncedBooks = j.syncedItems?.guestBooks ?? [];

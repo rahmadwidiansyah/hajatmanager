@@ -7,6 +7,9 @@ import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSync } from "./DashboardSync";
 import { CalendarDays, MapPin, ArrowRight } from "lucide-react";
 
+// Halaman auth+DB: jangan di-prerender saat build (DATABASE_URL dummy di Docker).
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");

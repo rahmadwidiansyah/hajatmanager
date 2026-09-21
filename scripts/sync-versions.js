@@ -20,8 +20,21 @@ function updateJson(file, updater) {
   console.log(`updated ${file} -> ${clean}`);
 }
 
-// root package.json
+// root package.json + package-lock.json (version + packages[""].version)
 updateJson("package.json", (j) => { j.version = clean; });
+(function updatePackageLock() {
+  const p = path.join(__dirname, "..", "package-lock.json");
+  if (!fs.existsSync(p)) return console.warn("skip package-lock.json not found");
+  try {
+    const j = JSON.parse(fs.readFileSync(p, "utf8"));
+    j.version = clean;
+    if (j.packages && j.packages[""]) j.packages[""].version = clean;
+    fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+    console.log(`updated package-lock.json -> ${clean}`);
+  } catch (e) {
+    console.warn(`skip package-lock.json: ${e.message}`);
+  }
+})();
 updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
 
 // windows .NET WPF — <Version>x.y.z</Version> di csproj
@@ -58,12 +71,15 @@ updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
   console.log(`updated packaging/linux/PKGBUILD -> ${clean}`);
 })();
 
-// mobile/pubspec.yaml — version: x.y.z+N (N = GITHUB_RUN_NUMBER agar naik tiap rilis)
+// mobile/pubspec.yaml — version: x.y.z+N (N monoton naik agar Play Store tidak tolak versionCode)
 (function updatePubspec() {
   const p = path.join(__dirname, "..", "mobile", "pubspec.yaml");
   if (!fs.existsSync(p)) return console.warn("skip mobile/pubspec.yaml not found");
-  const build = process.env.GITHUB_RUN_NUMBER || "1";
   let s = fs.readFileSync(p, "utf8");
+  const prevBuild = (/^version:\s*[^\s+]+\+(\d+)\s*$/m.exec(s) || [])[1];
+  const runNum = parseInt(process.env.GITHUB_RUN_NUMBER || "0", 10) || 0;
+  const prevNum = parseInt(prevBuild || "0", 10) || 0;
+  const build = String(Math.max(runNum, prevNum + 1, 1));
   if (/^version:\s*.*$/m.test(s)) {
     s = s.replace(/^version:\s*.*$/m, `version: ${clean}+${build}`);
   } else {

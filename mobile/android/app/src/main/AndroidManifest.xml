@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- WAJIB untuk release: tanpa ini APK release gagal login/sync (SocketException). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="hajat_manager"
         android:name="${applicationName}"

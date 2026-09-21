@@ -2,6 +2,10 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import EventClient from "./EventClient";
 
+// Halaman auth only (tanpa query DB langsung), tapi tandai dinamis
+// agar tidak di-prerender saat build Docker.
+export const dynamic = "force-dynamic";
+
 export default async function EventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
   const { tab } = await searchParams;

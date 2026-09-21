@@ -35,7 +35,8 @@ jobs:
       - name: Cek RELEASE_PAT
         run: |
           if [ -z "${{ secrets.RELEASE_PAT }}" ]; then
-            echo "::warning::RELEASE_PAT belum diisi — tag rilis tidak akan memicu build aset (Flutter/Windows/APK). Lihat docs/release.md."
+            echo "::error::RELEASE_PAT belum diisi — push/tag via GITHUB_TOKEN TIDAK memicu workflow aset (aturan GitHub). Isi Settings → Secrets → RELEASE_PAT (PAT classic, scope repo+workflow). Lihat docs/release.md."
+            exit 1
           else
             echo "RELEASE_PAT terisi ✓"
           fi

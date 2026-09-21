@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import AccountClient from "./AccountClient";
 
+// Halaman auth+DB: jangan di-prerender saat build (DATABASE_URL dummy di Docker).
+export const dynamic = "force-dynamic";
+
 export default async function AccountPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
