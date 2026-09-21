@@ -3,7 +3,7 @@
 ; ke ..\src\HajatManager\publish-setup, lalu ISCC.exe script ini.
 ; Versi disync otomatis via `node scripts/sync-versions.js <ver>`.
 #define MyAppName "Hajat Manager"
-#define MyAppVersion "1.6.3"
+#define MyAppVersion "1.10.1"
 #define MyAppPublisher "Rahmad Widiansyah"
 #define MyAppExeName "HajatManager.exe"
 

@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.0...v1.10.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* perbaiki build v1.10.0 gagal + audit project ([8d23d78](https://github.com/rahmadwidiansyah/hajatmanager/commit/8d23d78d189d0394b9f7d6edc41d39dd07a22470))
+
 ## [2.0.0-beta.1] — Anti-Double Sync Architecture (2026-09-20)
 
 ### Features
