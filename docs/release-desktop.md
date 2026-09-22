@@ -102,7 +102,7 @@ Alur normal (Fase 4):
 Cek awal bila macet:
 
 ```bash
-xdg-open https://hajat.widihhh.my.id
+xdg-open https://hajat.sanding.online
 ```
 
 Bila perintah di atas tidak membuka browser, perbaiki default browser dulu

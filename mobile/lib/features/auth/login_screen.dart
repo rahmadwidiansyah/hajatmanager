@@ -273,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: serverC,
                       keyboardType: TextInputType.url,
                       decoration: const InputDecoration(
-                          hintText: 'https://hajat.widihhh.my.id',
+                          hintText: 'https://hajat.sanding.online',
                           border: OutlineInputBorder(),
                         filled: true,
                           prefixIcon: Icon(Icons.dns_outlined),
@@ -293,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-                'Default: https://hajat.widihhh.my.id — tap Tes dulu sebelum masuk.',
+                'Default: https://hajat.sanding.online — tap Tes dulu sebelum masuk.',
                 style: const TextStyle(fontSize: 11)),
           ]),
         ),

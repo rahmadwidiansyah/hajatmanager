@@ -53,9 +53,9 @@
       <DockPanel>
         <Button Content="Tes" Click="OnTestServer" DockPanel.Dock="Right"
                 Margin="8,0,0,0" Style="{DynamicResource TonalButton}"/>
-        <TextBox x:Name="ServerBox" Text="https://hajat.widihhh.my.id"/>
+        <TextBox x:Name="ServerBox" Text="https://hajat.sanding.online"/>
       </DockPanel>
-      <TextBlock Text="Default: https://hajat.widihhh.my.id — tap Tes dulu sebelum masuk."
+      <TextBlock Text="Default: https://hajat.sanding.online — tap Tes dulu sebelum masuk."
                  FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
                  TextWrapping="Wrap" Margin="0,4,0,0"/>
     </StackPanel>

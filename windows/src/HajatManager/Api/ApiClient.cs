@@ -60,7 +60,7 @@ public sealed class ApiClient
         var v = (raw ?? "").Trim().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(v))
         {
-            err = "URL server kosong — isi dulu, contoh https://hajat.widihhh.my.id";
+            err = "URL server kosong — isi dulu, contoh https://hajat.sanding.online";
             return false;
         }
         if (!v.Contains("://", StringComparison.Ordinal))
@@ -68,7 +68,7 @@ public sealed class ApiClient
         if (!Uri.TryCreate(v, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            err = $"URL tidak valid: '{raw}'. Contoh: https://hajat.widihhh.my.id";
+            err = $"URL tidak valid: '{raw}'. Contoh: https://hajat.sanding.online";
             return false;
         }
         normalized = uri.ToString().TrimEnd('/');

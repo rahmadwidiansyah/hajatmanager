@@ -24,13 +24,15 @@ public static class AppPaths
 
 public sealed class AppConfig
 {
-    public const string DefaultProd = "https://hajat.widihhh.my.id";
+    public const string DefaultProd = "https://hajat.sanding.online";
 
     private static readonly string[] LegacyDefaults =
     {
         "http://192.168.1.85:3000",
         "http://127.0.0.1:3000",
         "http://10.0.2.2:3000",
+        "https://hajat.widihhh.my.id",
+        "http://hajat.widihhh.my.id",
     };
 
     private Dictionary<string, string> _kv = new();

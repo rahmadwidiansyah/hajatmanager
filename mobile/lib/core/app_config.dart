@@ -11,7 +11,7 @@ class AppConfig {
   static const _kDeviceId = 'device_id';
   static const _kMeja = 'meja_label';
 
-  static const defaultProd = 'https://hajat.widihhh.my.id';
+  static const defaultProd = 'https://hajat.sanding.online';
   static const defaultEmulator = defaultProd;
   static const defaultDesktop = defaultProd;
   static const defaultLaptop = defaultProd;
@@ -21,6 +21,8 @@ class AppConfig {
     'http://192.168.1.85:3000',
     'http://127.0.0.1:3000',
     'http://10.0.2.2:3000',
+    'https://hajat.widihhh.my.id',
+    'http://hajat.widihhh.my.id',
   };
 
   static Future<String> getBaseUrl() async {
