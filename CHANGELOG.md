@@ -1,3 +1,10 @@
+## [1.10.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.1...v1.10.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **config:** ganti default domain ke hajat.sanding.online + auto-migrasi ([00ee019](https://github.com/rahmadwidiansyah/hajatmanager/commit/00ee01950d9bbff6e3920c9e0394336df681d2aa))
+
 ## [1.10.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.0...v1.10.1) (2026-09-21)
 
 
