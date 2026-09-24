@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.11.0...v1.11.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** arah drag scrollbar horizontal tidak terbalik ([2baf51a](https://github.com/rahmadwidiansyah/hajatmanager/commit/2baf51ade9cd399c2b3d15f8a6dcc9a6e78a4f5f))
+
 # [1.11.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.5...v1.11.0) (2026-09-24)
 
 
