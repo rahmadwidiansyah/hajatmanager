@@ -364,6 +364,16 @@
     </Setter>
   </Style>
 
+  <!-- ComboBox M3 dengan ControlTemplate sendiri (bukan bawaan OS).
+       Alasan: di .NET 9+ / Windows 11 template bawaan = Fluent, yang mengambil
+       warna popup/hover/selected + chrome toggle dari palet Fluent internal.
+       Palet itu tidak ikut Light.xaml/Dark.xaml maupun override SystemColors
+       kita → saat tema aplikasi dark, popup + kotak tertutup tetap terang
+       sementara Foreground mewarisi OnSurface (terang) = putih di atas putih.
+       Template ini mengikat SEMUA permukaan ke token tema (TemplateBinding +
+       DynamicResource) sehingga Terang/Gelap/Sistem selalu konsisten.
+       Cakupan: seluruh app hanya memakai ComboBox non-editable tanpa style
+       eksplisit, jadi satu template global mencakup semuanya. -->
   <Style TargetType="ComboBox">
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
@@ -371,32 +381,130 @@
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid>
+            <ToggleButton x:Name="ToggleButton"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          Foreground="{TemplateBinding Foreground}"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                          Focusable="False" ClickMode="Press">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="Bd"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="8" Padding="12,8"
+                          SnapsToDevicePixels="True">
+                    <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
+                          Fill="{TemplateBinding Foreground}"
+                          Width="10" Height="6" Stretch="Fill"
+                          HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                    </Trigger>
+                    <Trigger Property="IsChecked" Value="True">
+                      <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                      <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </ToggleButton.Template>
+            </ToggleButton>
+            <ContentPresenter x:Name="ContentSite"
+                              Content="{TemplateBinding SelectionBoxItem}"
+                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                              Margin="12,8,34,8" VerticalAlignment="Center" HorizontalAlignment="Left"
+                              IsHitTestVisible="False"/>
+            <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden"
+                     Background="Transparent" BorderThickness="0"
+                     Foreground="{TemplateBinding Foreground}"
+                     FontFamily="{TemplateBinding FontFamily}"
+                     Margin="{TemplateBinding Padding}"
+                     VerticalAlignment="Center" Focusable="True"/>
+            <Popup x:Name="Popup" Placement="Bottom"
+                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                   AllowsTransparency="False" Focusable="False" PopupAnimation="Slide">
+              <Border x:Name="DropDownBorder" Background="{DynamicResource CardBrush}"
+                      BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="8"
+                      Padding="4" SnapsToDevicePixels="True"
+                      MinWidth="{TemplateBinding ActualWidth}"
+                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                <ScrollViewer SnapsToDevicePixels="True">
+                  <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasItems" Value="False">
+              <Setter TargetName="DropDownBorder" Property="MinHeight" Value="95"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
+              <Setter Property="Opacity" Value="0.6"/>
+            </Trigger>
+            <Trigger Property="IsGrouping" Value="True">
+              <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
+            </Trigger>
+            <Trigger Property="IsEditable" Value="True">
+              <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+              <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
-  <!-- Popup item dropdown: tanpa ini hover/selected fallback biru klasik +
-       di tema dark bisa bg-putih/text-putih (tak terbaca).
-       Cermin ListBoxItem di bawah. -->
+  <!-- Item dropdown M3: template sendiri agar tidak tergantung template Fluent.
+       Root Border mengikat Background item; trigger memakai token tema. -->
   <Style TargetType="ComboBoxItem">
-    <!-- Background = CardBrush (bukan Transparent) agar menutup popup putih
-         bawaan WPF saat tema dark. -->
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="Padding" Value="12,8"/>
-    <Style.Triggers>
-      <Trigger Property="IsMouseOver" Value="True">
-        <Setter Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
-      </Trigger>
-      <Trigger Property="IsSelected" Value="True">
-        <Setter Property="Background" Value="{DynamicResource PrimaryContainerBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
-      </Trigger>
-      <Trigger Property="IsHighlighted" Value="True">
-        <Setter Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
-      </Trigger>
-    </Style.Triggers>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}"
+                  CornerRadius="6" SnapsToDevicePixels="True">
+            <ContentPresenter/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryContainerBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style TargetType="DatePicker">
