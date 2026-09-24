@@ -174,8 +174,8 @@ public sealed class SyncEngine
                             {
                                 foreach (var it in sg.EnumerateArray())
                                 {
-                                    var srv = it.TryGetProperty("id", out var a) ? a.GetString() ?? "" : "";
-                                    var lid = it.TryGetProperty("localId", out var b) ? b.GetString() ?? "" : "";
+                                    var srv = it.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "" : "";
+                                    var lid = it.TryGetProperty("localId", out var lidProp) ? lidProp.GetString() ?? "" : "";
                                     if (!string.IsNullOrEmpty(srv) && !string.IsNullOrEmpty(lid) && srv != lid)
                                         await LocalDb.Instance.UpdateGuestServerIdAsync(lid, srv);
                                 }
@@ -184,8 +184,8 @@ public sealed class SyncEngine
                             {
                                 foreach (var it in sb.EnumerateArray())
                                 {
-                                    var srv = it.TryGetProperty("id", out var a) ? a.GetString() ?? "" : "";
-                                    var lid = it.TryGetProperty("localId", out var b) ? b.GetString() ?? "" : "";
+                                    var srv = it.TryGetProperty("id", out var idProp2) ? idProp2.GetString() ?? "" : "";
+                                    var lid = it.TryGetProperty("localId", out var lidProp2) ? lidProp2.GetString() ?? "" : "";
                                     if (!string.IsNullOrEmpty(srv) && !string.IsNullOrEmpty(lid) && srv != lid)
                                         await LocalDb.Instance.UpdateBookServerIdAsync(lid, srv);
                                 }
