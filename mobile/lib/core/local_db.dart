@@ -296,6 +296,45 @@ class LocalDb {
     await b.commit(noResult: true);
   }
 
+  /// Hapus event lokal yang sudah tidak ada di daftar server.
+  ///
+  /// Dipanggil setelah GET /api/events sukses (daftar otoritatif).
+  /// PENGAMAN: event yang masih punya antrean outbox (mis. CREATE_EVENT
+  /// dari acara yang dibuat offline dan belum ter-push) TIDAK dihapus —
+  /// kalau tidak, niat push malah jadi hapus.
+  /// Mengembalikan jumlah event yang dihapus.
+  Future<int> pruneEventsNotIn(Set<String> serverIds) async {
+    final d = await db();
+    final rows = await d.query('events', columns: ['id']);
+    var pruned = 0;
+    for (final r in rows) {
+      final id = '${r['id']}';
+      if (serverIds.contains(id)) continue;
+      final pending = await d.rawQuery(
+        'SELECT COUNT(*) c FROM outbox WHERE eventId=?',
+        [id],
+      );
+      if (((pending.first['c'] as int?) ?? 0) > 0) continue;
+      await deleteEventLocal(id);
+      pruned++;
+    }
+    return pruned;
+  }
+
+  /// Hapus total satu event dari SQLite lokal: guests, guest_books,
+  /// events, outbox, dan meta (lastPull). Dipakai setelah hapus eksplisit
+  /// maupun saat server memastikan event sudah tidak ada.
+  Future<void> deleteEventLocal(String eventId) async {
+    final d = await db();
+    final b = d.batch();
+    b.delete('guests', where: 'eventId=?', whereArgs: [eventId]);
+    b.delete('guest_books', where: 'eventId=?', whereArgs: [eventId]);
+    b.delete('events', where: 'id=?', whereArgs: [eventId]);
+    b.delete('outbox', where: 'eventId=?', whereArgs: [eventId]);
+    b.delete('meta', where: 'k=?', whereArgs: ['lastPull:$eventId']);
+    await b.commit(noResult: true);
+  }
+
   /// Full replace — dipakai saat full pull (since kosong).
   /// Hapus semua baris lama eventId ini, lalu insert ulang dari server.
   /// localId disertakan agar merge delta berikutnya bisa upsert by localId.

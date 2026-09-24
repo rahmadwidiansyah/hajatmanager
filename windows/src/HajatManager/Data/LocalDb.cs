@@ -172,6 +172,30 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
             cmd.Parameters.AddWithValue("$id", eventId);
             await cmd.ExecuteNonQueryAsync();
         }
+        using var meta = c.CreateCommand();
+        meta.CommandText = "DELETE FROM meta WHERE k=$k";
+        meta.Parameters.AddWithValue("$k", $"lastPull:{eventId}");
+        await meta.ExecuteNonQueryAsync();
+    }
+
+    /// Hapus event lokal yang sudah tidak ada di daftar server.
+    /// Dipanggil setelah GET /api/events sukses (daftar otoritatif).
+    /// PENGAMAN: event yang masih punya antrean outbox (mis. CREATE_EVENT
+    /// dari acara yang dibuat offline dan belum ter-push) TIDAK dihapus.
+    /// Mengembalikan jumlah event yang dihapus.
+    public async Task<int> PruneEventsNotInAsync(IEnumerable<string> serverIds)
+    {
+        var keep = new HashSet<string>(serverIds, StringComparer.Ordinal);
+        var ids = await EventIdsAsync();
+        var pruned = 0;
+        foreach (var id in ids)
+        {
+            if (keep.Contains(id)) continue;
+            if (await OutboxCountAsync(id) > 0) continue;
+            await DeleteEventLocalAsync(id);
+            pruned++;
+        }
+        return pruned;
     }
 
     // ---------- guests ----------

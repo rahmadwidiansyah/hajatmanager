@@ -178,7 +178,27 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         }
         if (mm.isNotEmpty) members = mm;
       });
+    } on DioException catch (e) {
+      await _handleGoneEvent(e);
     } catch (_) {}
+  }
+
+  /// Event sudah tidak ada di server (dihapus/di-kick → 403/404).
+  /// Hapus cache lokal lalu tutup halaman — kecuali masih ada antrean
+  /// outbox (acara offline yang belum sync, jangan dihapus).
+  Future<void> _handleGoneEvent(DioException e) async {
+    final s = e.response?.statusCode ?? 0;
+    if (s != 403 && s != 404) return;
+    final pending = await LocalDb.instance.outboxCount(widget.event.id);
+    if (pending > 0) return;
+    await LocalDb.instance.deleteEventLocal(widget.event.id);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    // ignore: use_build_context_synchronously
+    showTopSnack(
+      context,
+      const SnackBar(content: Text('Acara sudah dihapus di server')),
+    );
   }
 
   String _kasirName(Map<String, dynamic> g) {

@@ -68,6 +68,10 @@ public partial class EventsView : UserControl
             _items = items;
             try { await LocalDb.Instance.PutEventsAsync(items); }
             catch (Exception ex) { AppLogger.LogException("PutEvents gagal", ex); }
+            // Hapus event lokal yang sudah tidak ada di server (dihapus/di-kick).
+            // Aman untuk acara offline: yang masih antre di outbox dilewati.
+            try { await LocalDb.Instance.PruneEventsNotInAsync(items.Select(e => e.Id)); }
+            catch (Exception ex) { AppLogger.LogException("PruneEvents gagal", ex); }
         }
         catch (Exception ex)
         {

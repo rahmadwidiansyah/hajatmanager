@@ -94,6 +94,12 @@ class _EventsScreenState extends State<EventsScreen> {
       // Simpan ke SQLite lokal.
       await LocalDb.instance.putEvents(list);
 
+      // Hapus event lokal yang sudah tidak ada di server (dihapus/di-kick).
+      // Aman untuk acara offline: yang masih antre di outbox dilewati.
+      await LocalDb.instance.pruneEventsNotIn(
+        list.map((m) => '${m['id']}').toSet(),
+      );
+
       // Bangun list baru dari response server.
       final newItems = <EventModel>[];
       for (final m in list) {

@@ -344,6 +344,9 @@ class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
             ),
           );
         }
+      } on DioException catch (e) {
+        // Pull balas 403/404: event mungkin dihapus/di-kick di server.
+        await _handleGonePullEvent(dio, eventId, e);
       } catch (_) {
         // Pull gagal (offline / server error) — bukan masalah fatal,
         // data lokal tetap tersaji.
@@ -361,6 +364,26 @@ class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
           e.type == DioExceptionType.connectionTimeout
       ? 'offline'
       : 'HTTP ${e.response?.statusCode}';
+
+  /// Pull balas 403/404: pastikan event benar-benar hilang di server
+  /// (bukan sesi kedaluwarsa) dan tidak ada antrean outbox, baru hapus lokal.
+  Future<void> _handleGonePullEvent(
+    Dio dio,
+    String eventId,
+    DioException e,
+  ) async {
+    final s = e.response?.statusCode ?? 0;
+    if (s != 403 && s != 404) return;
+    if (await LocalDb.instance.outboxCount(eventId) > 0) return;
+    try {
+      final r = await dio.get('/api/events');
+      final ids =
+          (r.data as List? ?? []).map((m) => '${(m as Map)['id']}').toSet();
+      if (!ids.contains(eventId)) {
+        await LocalDb.instance.deleteEventLocal(eventId);
+      }
+    } catch (_) {}
+  }
 
   /// Flush satu op non-create (UPDATE/DELETE) via endpoint langsung.
   /// 404 = anggap sinkron, 409 = konflik, 4xx lain = buang (tidak macet).

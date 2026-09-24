@@ -354,6 +354,9 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
     try {
       final dio = await ApiClient.instance.dio();
       await dio.delete('/api/events/${widget.event.id}');
+      // Bersihkan cache lokal juga — kalau tidak, baris hantu tetap
+      // tampil saat offline dan terus di-sync sia-sia.
+      await LocalDb.instance.deleteEventLocal(widget.event.id);
       if (!mounted) return;
       Navigator.of(context)
         ..pop(true)

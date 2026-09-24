@@ -272,6 +272,13 @@ public partial class EventDetailWindow : Window
                 }
             }
         }
+        catch (System.Net.Http.HttpRequestException ex) when (
+            ex.StatusCode == System.Net.HttpStatusCode.Forbidden ||
+            ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Event sudah tidak ada di server (dihapus/di-kick).
+            if (await HandleGoneEventAsync()) return;
+        }
         catch { }
         try
         {
@@ -305,6 +312,23 @@ public partial class EventDetailWindow : Window
             }
         }
         catch { }
+    }
+
+    /// Event sudah tidak ada di server (dihapus/di-kick).
+    /// Hapus cache lokal lalu tutup halaman — kecuali masih ada antrean
+    /// outbox (acara offline yang belum sync, jangan dihapus).
+    /// Returns true bila halaman ditutup.
+    private async Task<bool> HandleGoneEventAsync()
+    {
+        try
+        {
+            if (await LocalDb.Instance.OutboxCountAsync(_ev.Id) > 0) return false;
+            await LocalDb.Instance.DeleteEventLocalAsync(_ev.Id);
+        }
+        catch { return false; }
+        try { M3Snack.Show(this, "Acara sudah dihapus di server"); } catch { }
+        try { Close(); } catch { }
+        return true;
     }
 
     private string KasirName(GuestModel g)

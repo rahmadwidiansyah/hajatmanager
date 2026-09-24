@@ -309,7 +309,21 @@ public sealed class SyncEngine
         var since = await LocalDb.Instance.GetMetaAsync($"lastPull:{eventId}") ?? "";
         var q = new Dictionary<string, string?> { ["eventId"] = eventId };
         if (!string.IsNullOrEmpty(since)) q["since"] = since;
-        var doc = await ApiClient.Instance.GetAsync("/api/sync/pull?" + ApiClient.BuildQuery(q));
+        JsonDocument? doc;
+        try
+        {
+            doc = await ApiClient.Instance.GetAsync("/api/sync/pull?" + ApiClient.BuildQuery(q));
+        }
+        catch (System.Net.Http.HttpRequestException ex) when (
+            ex.StatusCode == System.Net.HttpStatusCode.Forbidden ||
+            ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Event mungkin sudah dihapus/di-kick di server → verifikasi
+            // via daftar otoritatif sebelum hapus lokal (sesi kedaluwarsa
+            // juga 403, jangan sampai salah hapus).
+            await HandleGonePullAsync(eventId);
+            return;
+        }
         if (doc == null) return;
         var root = doc.RootElement;
         EventModel? eventModel = null;
@@ -346,5 +360,27 @@ public sealed class SyncEngine
         await LocalDb.Instance.MergePulledAsync(eventModel, guests, books, deletedGuestIds, deletedBookIds, deletedGuestLocalIds, deletedBookLocalIds);
         if (root.TryGetProperty("pulledAt", out var pa))
             await LocalDb.Instance.SetMetaAsync($"lastPull:{eventId}", pa.GetString() ?? "");
+    }
+
+    /// Pull balas 403/404: pastikan event benar-benar hilang di server
+    /// (bukan sesi kedaluwarsa) dan tidak ada antrean outbox, baru hapus lokal.
+    private async Task HandleGonePullAsync(string eventId)
+    {
+        try
+        {
+            if (await LocalDb.Instance.OutboxCountAsync(eventId) > 0) return;
+            var doc = await ApiClient.Instance.GetAsync("/api/events");
+            if (doc == null) return;
+            using (doc)
+            {
+                foreach (var m in doc.RootElement.EnumerateArray())
+                {
+                    if (m.TryGetProperty("id", out var id) && id.GetString() == eventId)
+                        return;
+                }
+            }
+            await LocalDb.Instance.DeleteEventLocalAsync(eventId);
+        }
+        catch { }
     }
 }
