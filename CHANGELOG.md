@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.13.0...v1.13.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** radius skala M3 + ikon MDL2 eksplisit anti-kotak ([0a252c8](https://github.com/rahmadwidiansyah/hajatmanager/commit/0a252c8ce232bebdfd389a3b292711ae2f9057ee))
+
 # [1.13.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.3...v1.13.0) (2026-09-24)
 
 
