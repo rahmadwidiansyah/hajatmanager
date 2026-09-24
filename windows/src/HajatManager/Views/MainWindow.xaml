@@ -8,7 +8,7 @@
     <!-- M3 TopAppBar: judul + status chip kiri, aksi kanan -->
     <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}"
             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1"
-            Padding="16,10">
+            Padding="12,8">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
@@ -34,7 +34,7 @@
     <!-- Rail kiri M3 + konten page-shell -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="200"/>
+        <ColumnDefinition Width="168"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Border Background="{DynamicResource SurfaceBrush}"
@@ -42,13 +42,13 @@
               Padding="8">
         <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect"
                  BorderThickness="0" Background="Transparent">
-          <ListBoxItem x:Name="AcaraItem" Tag="events" Padding="12,10">
+          <ListBoxItem x:Name="AcaraItem" Tag="events" Padding="10,8">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE8B5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
               <TextBlock Text="Acara" VerticalAlignment="Center"/>
             </StackPanel>
           </ListBoxItem>
-          <ListBoxItem x:Name="AkunItem" Tag="account" Padding="12,10">
+          <ListBoxItem x:Name="AkunItem" Tag="account" Padding="10,8">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
               <TextBlock Text="Akun" VerticalAlignment="Center"/>

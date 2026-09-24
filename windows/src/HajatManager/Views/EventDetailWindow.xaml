@@ -40,7 +40,7 @@
       </TabItem>
       <TabItem Header="Buku Tamu">
         <DockPanel Margin="4">
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBox x:Name="BookSearch" Width="300" TextChanged="OnBookSearch"/>
             <Button x:Name="AddBookBtn" Content="+ Tamu" Margin="8,0,0,0" Click="OnAddBook"
                     Style="{DynamicResource PrimaryButton}"/>

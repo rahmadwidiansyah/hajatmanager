@@ -174,7 +174,7 @@ public sealed class CodePasteDialog : Window
         Title = "Tempel Kode Google";
         Width = 440; Height = 280;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var p = new StackPanel { Margin = new Thickness(24) };
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(new TextBlock
         {
             Text = "Salin kode dari halaman browser (tombol \"Salin kode\"), tempel di sini.",
@@ -215,7 +215,7 @@ public sealed class LinkCopyDialog : Window
         Title = "Buka Tautan Manual";
         Width = 480; Height = 300;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var p = new StackPanel { Margin = new Thickness(24) };
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(new TextBlock
         {
             Text = "Browser tidak terbuka otomatis. Salin tautan ini, tempel di browser, " +

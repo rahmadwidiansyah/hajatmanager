@@ -18,7 +18,7 @@ public static class M3Chrome
             "M3Attached", typeof(bool), typeof(M3Chrome),
             new PropertyMetadata(false));
 
-    public const double BarHeight = 40;
+    public const double BarHeight = 36;
 
     public static void Attach(Window w, bool dialog = false)
     {

@@ -19,9 +19,9 @@
     <TextBlock DockPanel.Dock="Top" Text="Pilih acara untuk input, buku tamu, dan rekap."
                Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,8"/>
     <!-- Search M3 dengan hint -->
-    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
       <TextBox x:Name="SearchBox" TextChanged="OnSearch"
-               Padding="36,10,12,10"/>
+               Padding="34,6,12,6"/>
       <TextBlock Margin="36,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
                  Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
                  Text="Cari acara / lokasi… (Ctrl+F)">
@@ -53,7 +53,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Border MinWidth="300" MaxWidth="480" Margin="0,0,12,12" Padding="16"
+              <Border MinWidth="280" MaxWidth="480" Margin="0,0,8,8" Padding="12"
                       Style="{DynamicResource M3Card}"
                       Cursor="Hand" Focusable="True"
                       ToolTip="Buka acara (Enter)"
@@ -65,11 +65,11 @@
                     <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
                   <!-- Kotak tanggal ala Linux (secondaryContainer) -->
-                  <Border Width="52" Height="52" CornerRadius="12" VerticalAlignment="Top"
+                  <Border Width="48" Height="48" CornerRadius="12" VerticalAlignment="Top"
                           Background="{DynamicResource SecondaryContainerBrush}"
                           BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                      <TextBlock Text="{Binding Tanggal, StringFormat=dd}" FontWeight="Bold" FontSize="16"
+                      <TextBlock Text="{Binding Tanggal, StringFormat=dd}" FontWeight="Bold" FontSize="15"
                                  Foreground="{DynamicResource OnSecondaryContainerBrush}"
                                  HorizontalAlignment="Center"/>
                       <TextBlock Text="{Binding Tanggal, StringFormat=MMM}" FontSize="11"
@@ -78,7 +78,7 @@
                     </StackPanel>
                   </Border>
                   <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding NamaAcara}" FontWeight="SemiBold" FontSize="15"
+                    <TextBlock Text="{Binding NamaAcara}" FontWeight="SemiBold" FontSize="14"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
                                TextTrimming="CharacterEllipsis">
@@ -131,9 +131,9 @@
         </ItemsControl>
       </ScrollViewer>
       <!-- Empty state ala Linux/Web -->
-      <Border x:Name="EmptyPanel" Visibility="Collapsed" Margin="0,24,0,0"
+      <Border x:Name="EmptyPanel" Visibility="Collapsed" Margin="0,16,0,0"
               Style="{DynamicResource M3Card}" HorizontalAlignment="Center" VerticalAlignment="Top"
-              MaxWidth="480" Padding="24">
+              MaxWidth="480" Padding="16">
         <StackPanel HorizontalAlignment="Center">
           <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="40"
                      Foreground="{DynamicResource OnVariantBrush}" HorizontalAlignment="Center"/>

@@ -6,8 +6,7 @@
         Background="{DynamicResource SurfaceBrush}">
   <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
   <DockPanel Margin="16" MaxWidth="1120">
-    <TextBlock DockPanel.Dock="Top" Text="Log Aktivitas" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
       <TextBox x:Name="SearchBox" Width="300" TextChanged="OnSearchGo"/>
       <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload" Style="{DynamicResource TonalButton}"/>
       <TextBlock x:Name="StatusText" Margin="12,0,0,0" VerticalAlignment="Center"
@@ -15,12 +14,12 @@
     </StackPanel>
     <!-- Filter aksi horizontal cermin Flutter FilterChip -->
     <ScrollViewer DockPanel.Dock="Top" HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Disabled" Margin="0,0,0,12">
+                  VerticalScrollBarVisibility="Disabled" Margin="0,0,0,6">
       <WrapPanel x:Name="AksiChips" Orientation="Horizontal"/>
     </ScrollViewer>
-    <ProgressBar x:Name="LoadingBar" DockPanel.Dock="Top" Height="4" Margin="0,0,0,8"
+    <ProgressBar x:Name="LoadingBar" DockPanel.Dock="Top" Height="4" Margin="0,0,0,6"
                  IsIndeterminate="True" Visibility="Collapsed"/>
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0"
                 VerticalAlignment="Center">
       <TextBlock x:Name="LogFooter" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}"/>
@@ -28,7 +27,7 @@
               Style="{DynamicResource OutlineButton}" Visibility="Collapsed"/>
     </StackPanel>
     <TextBlock x:Name="ErrText" DockPanel.Dock="Top" Foreground="{DynamicResource ErrorBrush}"
-               Visibility="Collapsed" Margin="0,0,0,8" TextWrapping="Wrap"/>
+               Visibility="Collapsed" Margin="0,0,0,6" TextWrapping="Wrap"/>
     <Grid x:Name="BodyHost">
       <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True">
         <DataGrid.Columns>

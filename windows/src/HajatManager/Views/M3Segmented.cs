@@ -42,7 +42,7 @@ public sealed class M3Segmented : Border
             var btn = new Button
             {
                 Margin = new Thickness(2),
-                Padding = new Thickness(14, 8, 14, 8),
+                Padding = new Thickness(12, 6, 12, 6),
                 FontWeight = FontWeights.SemiBold,
                 Cursor = System.Windows.Input.Cursors.Hand,
             };

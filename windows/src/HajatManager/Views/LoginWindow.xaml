@@ -5,23 +5,22 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="32" MaxWidth="400" VerticalAlignment="Center">
-      <!-- Ikon app cermin Flutter (72px) -->
-      <Image Source="/HajatManager;component/Assets/app.ico" Width="72" Height="72"
-             HorizontalAlignment="Center" Margin="0,0,0,12" Stretch="Uniform"/>
-      <TextBlock Text="Hajat Manager" Style="{DynamicResource M3Headline}" TextAlignment="Center"/>
+    <StackPanel Margin="24" MaxWidth="400" VerticalAlignment="Center">
+      <!-- Ikon app cermin Flutter (72px). Judul di title-bar chrome. -->
+      <Image Source="/HajatManager;component/Assets/app.ico" Width="64" Height="64"
+             HorizontalAlignment="Center" Margin="0,0,0,8" Stretch="Uniform"/>
       <TextBlock Text="Catat pemberian satset, online maupun offline."
                  Foreground="{DynamicResource OnVariantBrush}" TextAlignment="Center"
-                 Margin="0,4,0,24" TextWrapping="Wrap"/>
+                 Margin="0,0,0,12" TextWrapping="Wrap"/>
 
       <TextBlock Text="NAMA" Style="{DynamicResource M3SectionTitle}" x:Name="NameLabel" Visibility="Collapsed"/>
-      <TextBox x:Name="NameBox" Visibility="Collapsed" Margin="0,0,0,12"/>
+      <TextBox x:Name="NameBox" Visibility="Collapsed" Margin="0,0,0,8"/>
 
       <TextBlock Text="EMAIL" Style="{DynamicResource M3SectionTitle}"/>
-      <TextBox x:Name="EmailBox" Margin="0,0,0,12"/>
+      <TextBox x:Name="EmailBox" Margin="0,0,0,8"/>
 
       <TextBlock Text="PASSWORD (MIN 6)" Style="{DynamicResource M3SectionTitle}"/>
-      <PasswordBox x:Name="PassBox" Margin="0,0,0,16"/>
+      <PasswordBox x:Name="PassBox" Margin="0,0,0,12"/>
 
       <Button x:Name="SubmitBtn" Content="Masuk" Style="{DynamicResource PrimaryButton}"
               Click="OnSubmit" Margin="0,0,0,8"/>
@@ -51,7 +50,7 @@
       <TextBlock x:Name="ErrText" Foreground="{DynamicResource ErrorBrush}"
                  TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
 
-      <Separator Margin="0,16"/>
+      <Separator Margin="0,12"/>
       <TextBlock x:Name="ServerLabel" Text="Server (…)" Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,6"/>
       <DockPanel>
         <Button Content="Tes" Click="OnTestServer" DockPanel.Dock="Right"

@@ -56,7 +56,7 @@ public static class M3Snack
             BorderBrush = isError ? Res("ErrorBrush", Brushes.Red) : Res("OutlineBrush", Brushes.Gray),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(14, 10, 14, 10),
+            Padding = new Thickness(12, 8, 12, 8),
             MaxWidth = 440,
             Effect = new System.Windows.Media.Effects.DropShadowEffect
             {

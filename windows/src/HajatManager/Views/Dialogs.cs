@@ -22,8 +22,7 @@ public sealed class CreateEventDialog : Window
         Width = 520; Height = 520;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(20) };
-        p.Children.Add(M3Title("Acara baru"));
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(Field("Nama acara *", _n, "Pernikahan Budi & Ani"));
         p.Children.Add(Field("Tuan rumah *", _t, "H. Slamet"));
         p.Children.Add(Field("Tanggal * (wajib pilih)", _d, null));
@@ -64,14 +63,6 @@ public sealed class CreateEventDialog : Window
         p.Children.Add(row);
         Content = p;
         M3Chrome.Attach(this, dialog: true);
-    }
-
-    private static TextBlock M3Title(string t)
-    {
-        var tb = new TextBlock { Text = t, Margin = new Thickness(0, 0, 0, 8) };
-        if (Application.Current?.TryFindResource("M3Headline") is Style s) tb.Style = s;
-        else tb.FontWeight = FontWeights.Bold;
-        return tb;
     }
 
     private static StackPanel Field(string label, Control input, string? hint)

@@ -328,7 +328,7 @@ public partial class EventDetailWindow : Window
         _dupTimer?.Stop();
         if (!_ev.CanEdit)
         {
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 8) };
+            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 6) };
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
             InputPanel.Children.Add(_guestSearchBox);
             InputPanel.Children.Add(BuildFilterBar());
@@ -382,12 +382,12 @@ public partial class EventDetailWindow : Window
             _alamatBox.TextChanged += (_, _) => ScheduleDupCheck();
             var alamatStack = new StackPanel();
             alamatStack.Children.Add(_alamatBox);
-            _alamatChips = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            _alamatChips = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
             alamatStack.Children.Add(_alamatChips);
             grid.Children.Add(FieldCard("Alamat / Desa", alamatStack, null));
             InputPanel.Children.Add(grid);
 
-            var grid2 = new UniformGrid { Columns = 2, Margin = new Thickness(0, 8, 0, 0) };
+            var grid2 = new UniformGrid { Columns = 2, Margin = new Thickness(0, 6, 0, 0) };
             var nomStack = new StackPanel();
             _nominalPreview = new TextBlock { FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right };
             if (Application.Current?.TryFindResource("NumericFont") is System.Windows.Media.FontFamily nf)
@@ -402,12 +402,12 @@ public partial class EventDetailWindow : Window
                 RefreshChips();
             };
             nomStack.Children.Add(_nominalBox);
-            _nominalChips = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            _nominalChips = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
             nomStack.Children.Add(_nominalChips);
             grid2.Children.Add(FieldCard("Nominal (Rp)", nomStack, "100000"));
             // Metode = ChoiceChip cermin Flutter (AMPLOP/QRIS/TRANSFER + fallback
             // "(lama)" bila nilai tersimpan di luar ketiganya, cermin web).
-            _metodeChips = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            _metodeChips = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
             RefreshMetodeChips();
             _catatanBox = new TextBox();
             _catatanBox.TextChanged += (_, _) => RefreshDupBanner();
@@ -420,7 +420,7 @@ public partial class EventDetailWindow : Window
 
             _dupBanner = new Border
             {
-                Margin = new Thickness(0, 12, 0, 0),
+                Margin = new Thickness(0, 8, 0, 0),
                 Visibility = Visibility.Collapsed,
             };
             _dupBannerText = new TextBlock { TextWrapping = TextWrapping.Wrap };
@@ -435,7 +435,7 @@ public partial class EventDetailWindow : Window
             {
                 Content = "Simpan (offline-first)",
                 Style = M3("PrimaryButton") ?? (Style)FindResource("PrimaryButton"),
-                Margin = new Thickness(0, 12, 0, 0),
+                Margin = new Thickness(0, 8, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 MinWidth = 220,
             };
@@ -443,11 +443,11 @@ public partial class EventDetailWindow : Window
             InputPanel.Children.Add(_saveBtn);
 
             // Search + filter editor (cermin web + mobile).
-            var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 12, 0, 8) };
+            var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 8, 0, 6) };
             if (M3("M3SectionTitle") is Style sts) title0.Style = sts;
             else title0.FontWeight = FontWeights.SemiBold;
             InputPanel.Children.Add(title0);
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 8) };
+            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 6) };
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
             InputPanel.Children.Add(_guestSearchBox);
             InputPanel.Children.Add(BuildFilterBar());
@@ -457,7 +457,7 @@ public partial class EventDetailWindow : Window
         var title = new TextBlock
         {
             Text = "TERAKHIR DI PERANGKAT INI",
-            Margin = new Thickness(0, 12, 0, 8)
+            Margin = new Thickness(0, 8, 0, 6)
         };
         if (M3("M3SectionTitle") is Style m3st) title.Style = m3st;
         else title.FontWeight = FontWeights.SemiBold;
@@ -537,7 +537,7 @@ public partial class EventDetailWindow : Window
         sp.Children.Add(field);
         var card = new Border
         {
-            Margin = new Thickness(0, 0, 8, 8),
+            Margin = new Thickness(0, 0, 6, 6),
             Child = sp,
         };
         ApplyM3Card(card);
@@ -1066,14 +1066,14 @@ public partial class EventDetailWindow : Window
 
     private void EditGuestDialog(GuestModel g)
     {
-        var nb = new TextBox { Text = g.Nama, Margin = new Thickness(0, 0, 0, 8) };
-        var ab = new TextBox { Text = g.Alamat, Margin = new Thickness(0, 0, 0, 8) };
-        var nob = new TextBox { Text = g.Nominal.ToString(), Margin = new Thickness(0, 0, 0, 8) };
+        var nb = new TextBox { Text = g.Nama, Margin = new Thickness(0, 0, 0, 6) };
+        var ab = new TextBox { Text = g.Alamat, Margin = new Thickness(0, 0, 0, 6) };
+        var nob = new TextBox { Text = g.Nominal.ToString(), Margin = new Thickness(0, 0, 0, 6) };
         PreviewTextInputRegistrar.DigitsOnly(nob);
         var save = M3Primary("Simpan");
         var win = M3Dialog("Edit Pemberian", new StackPanel
         {
-            Margin = new Thickness(20),
+            Margin = new Thickness(16),
             Children = {
                     M3Label("Nama"), nb,
                     M3Label("Alamat"), ab,
@@ -1157,7 +1157,7 @@ public partial class EventDetailWindow : Window
         var save = M3Primary("Simpan");
         var win = M3Dialog("Buku tamu baru", new StackPanel
         {
-            Margin = new Thickness(20),
+            Margin = new Thickness(16),
             Children = {
                     M3Label("Nama"), n,
                     M3Label("Alamat", new Thickness(0,8,0,4)), a,
@@ -1248,12 +1248,12 @@ public partial class EventDetailWindow : Window
         GuestBookModel b;
         try { b = ResolveBook((sender as FrameworkElement)?.DataContext); }
         catch { return; }
-        var n = new TextBox { Text = b.Nama, Margin = new Thickness(0, 0, 0, 8) };
-        var a = new TextBox { Text = b.Alamat, Margin = new Thickness(0, 0, 0, 8) };
+        var n = new TextBox { Text = b.Nama, Margin = new Thickness(0, 0, 0, 6) };
+        var a = new TextBox { Text = b.Alamat, Margin = new Thickness(0, 0, 0, 6) };
         var save = M3Primary("Simpan");
         var win = M3Dialog("Edit buku tamu", new StackPanel
         {
-            Margin = new Thickness(20),
+            Margin = new Thickness(16),
             Children = { M3Label("Nama"), n,
                     M3Label("Alamat", new Thickness(0,8,0,4)), a,
                     save }

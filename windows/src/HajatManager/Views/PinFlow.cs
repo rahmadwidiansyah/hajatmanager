@@ -48,7 +48,7 @@ public sealed class PinDialog : Window
         Width = 360; Height = 300;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(24), HorizontalAlignment = HorizontalAlignment.Center };
+        var p = new StackPanel { Margin = new Thickness(16), HorizontalAlignment = HorizontalAlignment.Center };
         var iconText = new TextBlock
         {
             Text = "\uE72E",
@@ -97,7 +97,7 @@ public sealed class PinSetupWindow : Window
         Width = 420; Height = 300;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(24) };
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(new TextBlock
         {
             Text = "PIN 6 digit — dipakai buka aplikasi tanpa internet.",
@@ -154,7 +154,7 @@ public sealed class PinRestoreWindow : Window
         Width = 420; Height = 260;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(24) };
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(new TextBlock
         {
             Text = "PIN di perangkat ini terhapus, tapi server masih punya. Masukkan PIN lama.",

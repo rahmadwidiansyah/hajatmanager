@@ -4,7 +4,7 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <!-- Fase 5: page-shell cermin web (dulu 700, terlalu sempit di desktop) -->
     <StackPanel Margin="16" MaxWidth="1120">
-      <TextBlock Text="Akun" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
+      <TextBlock Text="Akun" Style="{DynamicResource M3Headline}" Margin="0,0,0,8"/>
       <!-- Kartu profil cermin Flutter (avatar + nama + email) -->
       <Border Style="{DynamicResource M3Card}">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -22,7 +22,7 @@
         </StackPanel>
       </Border>
       <!-- Pilihan Terang/Gelap/Sistem via Segmented cermin Flutter -->
-      <Border Margin="0,12,0,0" Style="{DynamicResource M3Card}">
+      <Border Margin="0,8,0,0" Style="{DynamicResource M3Card}">
         <StackPanel>
           <TextBlock Text="Tampilan" FontWeight="SemiBold"/>
           <TextBlock Text="Terang, gelap, atau ikut sistem" FontSize="12"
@@ -31,7 +31,7 @@
         </StackPanel>
       </Border>
       <!-- Tiles 2 kolom cermin Flutter (leading ikon + chevron) -->
-      <UniformGrid x:Name="TileGrid" Columns="2" Margin="0,12,0,0">
+      <UniformGrid x:Name="TileGrid" Columns="2" Margin="0,8,0,0">
         <Border x:Name="TileProfil" Style="{DynamicResource M3Card}" Margin="0,0,6,6"
                 Cursor="Hand" Focusable="True" ToolTip="Profil"
                 MouseLeftButtonUp="GoProfile" KeyDown="OnTileKey">
@@ -93,7 +93,7 @@
           </StackPanel>
         </Border>
       </UniformGrid>
-      <ContentControl x:Name="SubHost" Margin="0,12,0,0"/>
+      <ContentControl x:Name="SubHost" Margin="0,8,0,0"/>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

@@ -8,13 +8,20 @@
   <FontFamily x:Key="AppFont">/HajatManager;component/Assets/Fonts/#Plus Jakarta Sans, Plus Jakarta Sans, Segoe UI, Segoe UI Variable, Inter, sans-serif</FontFamily>
   <FontFamily x:Key="NumericFont">/HajatManager;component/Assets/Fonts/#Geist Mono, Geist Mono, JetBrains Mono, Consolas, Segoe UI, monospace</FontFamily>
 
-  <!-- Kartu M3: surface-container-lowest + outline-variant 1px + radius 16 -->
+  <!-- Token density compact cermin Linux (bukan global scale):
+       input setinggi teks+12, button setinggi teks+12, card padding 12. -->
+  <Thickness x:Key="M3BtnPadding">12,6</Thickness>
+  <Thickness x:Key="M3InputPadding">10,6</Thickness>
+  <Thickness x:Key="M3CardPadding">12</Thickness>
+  <Thickness x:Key="M3ChipPadding">8,2</Thickness>
+
+  <!-- Kartu M3: surface-container-lowest + outline-variant 1px + radius 12 -->
   <Style x:Key="M3Card" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="CornerRadius" Value="16"/>
-    <Setter Property="Padding" Value="16"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Padding" Value="{StaticResource M3CardPadding}"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
   </Style>
 
@@ -27,7 +34,7 @@
   </Style>
 
   <Style x:Key="M3Headline" TargetType="TextBlock">
-    <Setter Property="FontSize" Value="24"/>
+    <Setter Property="FontSize" Value="20"/>
     <Setter Property="FontWeight" Value="Bold"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
@@ -39,7 +46,8 @@
     <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnPrimaryBrush}"/>
     <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="Padding" Value="16,10"/>
+    <Setter Property="Padding" Value="{StaticResource M3BtnPadding}"/>
+    <Setter Property="FontSize" Value="13"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="Cursor" Value="Hand"/>
@@ -137,8 +145,9 @@
     <Setter Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontWeight" Value="Normal"/>
-    <Setter Property="Padding" Value="10,4"/>
-    <Setter Property="Margin" Value="0,0,6,6"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Padding" Value="{StaticResource M3ChipPadding}"/>
+    <Setter Property="Margin" Value="0,0,6,4"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
@@ -168,8 +177,9 @@
 
   <!-- Field M3: filled surface-lowest, border outline-variant, focus primary -->
   <Style TargetType="TextBox">
-    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Padding" Value="{StaticResource M3InputPadding}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+    <Setter Property="FontSize" Value="13"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
@@ -208,9 +218,9 @@
        Catatan: tombol reveal bawaan OS sengaja tidak dipakai — toggle
        lihat-sandi disediakan eksplisit per layar (cermin Flutter). -->
   <Style TargetType="PasswordBox">
-    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Padding" Value="{StaticResource M3InputPadding}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontSize" Value="13"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
@@ -259,15 +269,17 @@
     <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceLowBrush}"/>
     <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
-    <Setter Property="RowHeight" Value="34"/>
+    <Setter Property="RowHeight" Value="32"/>
+    <Setter Property="FontSize" Value="13"/>
   </Style>
 
   <Style TargetType="DataGridColumnHeader">
     <Setter Property="Background" Value="{DynamicResource SurfaceContainerBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontSize" Value="12"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="Padding" Value="8,8"/>
+    <Setter Property="Padding" Value="8,5"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="0,0,0,1"/>
   </Style>
@@ -312,7 +324,7 @@
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Padding" Value="12"/>
+    <Setter Property="Padding" Value="10"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="GroupBox">
@@ -367,7 +379,8 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
-    <Setter Property="Padding" Value="16,8"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Padding" Value="12,6"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
@@ -409,9 +422,10 @@
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+    <Setter Property="FontSize" Value="13"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Padding" Value="{StaticResource M3InputPadding}"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
@@ -433,9 +447,9 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="8" Padding="12,8"
+                          CornerRadius="8" Padding="10,6"
                           SnapsToDevicePixels="True">
-                    <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
+                      <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
                           Fill="{TemplateBinding Foreground}"
                           Width="10" Height="6" Stretch="Fill"
                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
@@ -458,7 +472,7 @@
                               Content="{TemplateBinding SelectionBoxItem}"
                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                              Margin="12,8,34,8" VerticalAlignment="Center" HorizontalAlignment="Left"
+                              Margin="10,6,30,6" VerticalAlignment="Center" HorizontalAlignment="Left"
                               IsHitTestVisible="False"/>
             <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden"
                      Background="Transparent" BorderThickness="0"
@@ -507,7 +521,8 @@
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Padding" Value="10,5"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
@@ -545,10 +560,10 @@
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontSize" Value="13"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Padding" Value="{StaticResource M3InputPadding}"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
@@ -570,13 +585,13 @@
                                  SelectionBrush="{DynamicResource PrimaryBrush}"
                                  FontFamily="{TemplateBinding FontFamily}"
                                  FontSize="{TemplateBinding FontSize}"
-                                 Padding="12,10,0,10"
+                                 Padding="10,6,0,6"
                                  VerticalAlignment="Center" Focusable="True"/>
               <Button x:Name="PART_Button" Grid.Column="1"
                       Background="Transparent" BorderThickness="0"
                       Foreground="{TemplateBinding Foreground}"
                       FontFamily="Segoe MDL2 Assets" Content="&#xE787;"
-                      FontSize="16" Padding="10,0,12,0"
+                      FontSize="14" Padding="8,0,10,0"
                       VerticalAlignment="Center" Focusable="False"/>
               <Popup x:Name="PART_Popup" AllowsTransparency="False"
                      Focusable="False" StaysOpen="False"
@@ -725,7 +740,8 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Padding" Value="10,5"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">

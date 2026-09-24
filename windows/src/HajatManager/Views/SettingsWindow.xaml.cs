@@ -109,8 +109,8 @@ public partial class SettingsWindow : Window
             {
                 var chip = new Border
                 {
-                    Margin = new Thickness(0, 0, 6, 6),
-                    Padding = new Thickness(12, 6, 6, 6),
+                    Margin = new Thickness(0, 0, 6, 4),
+                    Padding = new Thickness(10, 4, 4, 4),
                     CornerRadius = new CornerRadius(999),
                     BorderThickness = new Thickness(1),
                 };
@@ -321,7 +321,7 @@ public partial class SettingsWindow : Window
             ResizeMode = ResizeMode.NoResize,
         };
         win.SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(24) };
+        var p = new StackPanel { Margin = new Thickness(16) };
         p.Children.Add(new TextBlock
         {
             Text = "Hapus acara ini permanen beserta semua datanya? Tindakan tidak bisa dibatalkan.\n\nKetik HAPUS untuk melanjutkan.",
