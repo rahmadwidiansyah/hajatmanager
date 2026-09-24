@@ -58,9 +58,28 @@
       </GroupBox>
       <GroupBox x:Name="MemberBox" Header="Anggota (OWNER)" Margin="0,0,0,6">
         <StackPanel>
-          <TextBox x:Name="SearchBox" TextChanged="OnSearch"/>
+          <!-- Baris tambah cermin web/Flutter: cari user + pilih role + tombol plus -->
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="130"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Grid.Column="0" TextChanged="OnSearch"
+                     VerticalContentAlignment="Center"/>
+            <ComboBox x:Name="AddRoleBox" Grid.Column="1" Margin="8,0,0,0"
+                      SelectedIndex="1" VerticalContentAlignment="Center"
+                      ToolTip="Role untuk anggota baru">
+              <ComboBoxItem Content="VIEWER"/>
+              <ComboBoxItem Content="ADMIN"/>
+              <ComboBoxItem Content="OWNER"/>
+            </ComboBox>
+            <Button Grid.Column="2" Content="+ Tambah" Margin="8,0,0,0"
+                    Click="OnAddSelectedMember" Style="{DynamicResource PrimaryButton}"
+                    ToolTip="Tambah user terpilih dengan role di samping"/>
+          </Grid>
           <TextBlock FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
-                     Margin="0,2,0,0">Ketik min 2 huruf, double-click hasil untuk tambah (role ADMIN).</TextBlock>
+                     Margin="0,2,0,0">Ketik min 2 huruf, pilih hasil lalu + Tambah (atau double-click).</TextBlock>
           <ListBox x:Name="ResultList" Height="100" Margin="0,4,0,0"
                    MouseDoubleClick="OnAddMember"/>
           <DataGrid x:Name="MemberGrid" AutoGenerateColumns="False" IsReadOnly="True"
@@ -68,25 +87,17 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="Nama" Binding="{Binding Name}" Width="*"/>
               <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="*"/>
-              <!-- Role bisa diubah + anggota bisa dihapus cermin Flutter -->
-              <DataGridTemplateColumn Header="Role" Width="130">
+              <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="100"/>
+              <!-- Ubah role via dialog Edit (lebih jelas dari ComboBox inline) -->
+              <DataGridTemplateColumn Header="Aksi" Width="170">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <ComboBox SelectedValue="{Binding Role, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              SelectedValuePath="Content"
-                              SelectionChanged="OnRoleChanged" Tag="{Binding}"
-                              Width="115" Padding="8,4">
-                      <ComboBoxItem Content="OWNER"/>
-                      <ComboBoxItem Content="ADMIN"/>
-                      <ComboBoxItem Content="VIEWER"/>
-                    </ComboBox>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="Aksi" Width="90">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <Button Content="Hapus" Click="OnRemoveMember" Padding="8,2"/>
+                    <StackPanel Orientation="Horizontal">
+                      <Button Content="Edit" Click="OnEditMemberRole" Padding="10,2" Margin="0,0,6,0"
+                              Style="{DynamicResource TonalButton}" ToolTip="Ubah role anggota"/>
+                      <Button Content="Hapus" Click="OnRemoveMember" Padding="10,2"
+                              ToolTip="Keluarkan anggota"/>
+                    </StackPanel>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>

@@ -122,6 +122,9 @@ class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
       for (final id in ids) {
         await flush(id);
       }
+      // Refresh daftar acara dari server — event baru dari admin lain
+      // masuk DB lokal tanpa harus buka layar daftar. Gagal = lewati.
+      await _refreshEventList();
       lastSyncedAt = DateTime.now();
     } catch (e) {
       lastError = e.toString();
@@ -129,6 +132,19 @@ class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
       syncing = false;
       notifyListeners();
     }
+  }
+
+  /// Unduh daftar otoritatif + prune hantu. Best-effort, tak pernah throw.
+  Future<void> _refreshEventList() async {
+    try {
+      final dio = await ApiClient.instance.dio();
+      final r = await dio.get('/api/events');
+      final list = (r.data as List? ?? []).cast<Map<String, dynamic>>();
+      await LocalDb.instance.putEvents(list);
+      await LocalDb.instance.pruneEventsNotIn(
+        list.map((m) => '${m['id']}').toSet(),
+      );
+    } catch (_) {}
   }
 
   Future<int> pending(String eventId) async {
@@ -347,6 +363,9 @@ class SyncEngine extends ChangeNotifier with WidgetsBindingObserver {
       } on DioException catch (e) {
         // Pull balas 403/404: event mungkin dihapus/di-kick di server.
         await _handleGonePullEvent(dio, eventId, e);
+        // Catat error HTTP non-offline agar bisa didiagnosa (sebelumnya ditelan).
+        final s = e.response?.statusCode ?? 0;
+        if (s != 0) lastError = 'pull-HTTP $s';
       } catch (_) {
         // Pull gagal (offline / server error) — bukan masalah fatal,
         // data lokal tetap tersaji.

@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using HajatManager.Api;
 using HajatManager.Data;
 using HajatManager.Models;
+using HajatManager.Views;
 
 namespace HajatManager.Services;
 
@@ -293,6 +294,8 @@ public sealed class SyncEngine
 
     public async Task FlushAllAsync()
     {
+        // Refresh daftar otoritatif dulu (unduh) — cermin _syncAll Flutter.
+        await RefreshEventListAsync();
         var eventIds = await LocalDb.Instance.EventIdsAsync();
         foreach (var eventId in eventIds)
         {
@@ -301,6 +304,37 @@ public sealed class SyncEngine
             {
                 AppLogger.Warn($"Flush event {eventId} gagal: {ex.Message}");
             }
+        }
+    }
+
+    /// Unduh daftar acara + prune hantu. Best-effort, tak pernah throw.
+    private async Task RefreshEventListAsync()
+    {
+        try
+        {
+            var doc = await ApiClient.Instance.GetAsync("/api/events");
+            if (doc == null) return;
+            using (doc)
+            {
+                var myId = "";
+                try
+                {
+                    var u = AppConfig.Instance.GetCachedUser() ?? "{}";
+                    myId = System.Text.Json.JsonDocument.Parse(u).RootElement.GetProperty("id").GetString() ?? "";
+                }
+                catch { }
+                var items = new List<EventModel>();
+                foreach (var m in doc.RootElement.EnumerateArray())
+                {
+                    try { items.Add(Views.EventsView.ParseEvent(m, myId)); } catch { }
+                }
+                await LocalDb.Instance.PutEventsAsync(items);
+                await LocalDb.Instance.PruneEventsNotInAsync(items.Select(e => e.Id));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Refresh daftar acara gagal: {ex.Message}");
         }
     }
 

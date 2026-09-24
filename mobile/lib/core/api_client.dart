@@ -396,6 +396,12 @@ class ApiClient {
         // 404 = server lama → lanjut ke flow cookie legacy di bawah.
         if (e.response?.statusCode != 404) {
           final err = (e.response?.data as Map?)?['error'];
+          if (err == 'GOOGLE_NOT_CONFIGURED') {
+            return (
+              false,
+              'Google belum dikonfigurasi di server — hubungi admin atau pakai email'
+            );
+          }
           if (err == 'INVALID_GOOGLE_TOKEN' || err == 'AUD_MISMATCH') {
             return (false, 'Token Google ditolak server — coba lagi');
           }
@@ -434,6 +440,12 @@ class ApiClient {
         return (false, 'Tidak ada koneksi ke server');
       }
       final err = (e.response?.data as Map?)?['error'];
+      if (err == 'GOOGLE_NOT_CONFIGURED') {
+        return (
+          false,
+          'Google belum dikonfigurasi di server — hubungi admin atau pakai email'
+        );
+      }
       if (err == 'INVALID_GOOGLE_TOKEN' || err == 'AUD_MISMATCH') {
         return (false, 'Token Google ditolak server — coba lagi');
       }

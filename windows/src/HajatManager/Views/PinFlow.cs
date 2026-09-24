@@ -45,7 +45,11 @@ public sealed class PinDialog : Window
     public PinDialog(string title, string hint)
     {
         Title = title;
-        Width = 360; Height = 300;
+        Width = 360;
+        // Auto-fit: konten + title-bar kustom 36px melebihi fixed Height lama.
+        SizeToContent = SizeToContent.Height;
+        try { MaxHeight = Math.Min(420, SystemParameters.WorkArea.Height - 40); }
+        catch { MaxHeight = 420; }
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(16), HorizontalAlignment = HorizontalAlignment.Center };
@@ -72,10 +76,16 @@ public sealed class PinDialog : Window
         var help = new TextBlock { Text = "Wajib 6 digit angka.", Margin = new Thickness(0, 4, 0, 0) };
         help.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
         p.Children.Add(help);
-        var ok = new Button { Content = "OK", Margin = new Thickness(0, 12, 0, 0) };
+        var ok = new Button { Content = "OK", Margin = new Thickness(0, 12, 0, 0), MinWidth = 120, MinHeight = 40, IsDefault = true };
+        if (TryFindResource("PrimaryButton") is Style ps) ok.Style = ps;
         ok.Click += (_, _) => { DialogResult = _box.Password.Length == 6; };
         p.Children.Add(ok);
-        Content = p;
+        Content = new ScrollViewer
+        {
+            Content = p,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
         M3Chrome.Attach(this, dialog: true);
         _box.PasswordChanged += (_, _) =>
         {
@@ -94,7 +104,10 @@ public sealed class PinSetupWindow : Window
     {
         _email = email;
         Title = "Buat PIN Offline";
-        Width = 420; Height = 300;
+        Width = 420;
+        SizeToContent = SizeToContent.Height;
+        try { MaxHeight = Math.Min(480, SystemParameters.WorkArea.Height - 40); }
+        catch { MaxHeight = 480; }
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(16) };
@@ -108,7 +121,8 @@ public sealed class PinSetupWindow : Window
         var help = new TextBlock { Text = "Wajib 6 digit angka.", Margin = new Thickness(0, 4, 0, 0) };
         help.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
         var err = new TextBlock { Foreground = Ui.ErrorBrush, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "Simpan PIN", Margin = new Thickness(0, 12, 0, 0) };
+        var ok = new Button { Content = "Simpan PIN", Margin = new Thickness(0, 12, 0, 0), MinWidth = 160, MinHeight = 44, IsDefault = true };
+        if (TryFindResource("PrimaryButton") is Style ps0) ok.Style = ps0;
         ok.Click += async (_, _) =>
         {
             if (!ok.IsEnabled) return;
@@ -141,7 +155,12 @@ public sealed class PinSetupWindow : Window
         p.Children.Add(help);
         p.Children.Add(err);
         p.Children.Add(ok);
-        Content = p;
+        Content = new ScrollViewer
+        {
+            Content = p,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
         M3Chrome.Attach(this, dialog: true);
     }
 }
@@ -151,7 +170,10 @@ public sealed class PinRestoreWindow : Window
     public PinRestoreWindow(string email)
     {
         Title = "Verifikasi PIN Lama";
-        Width = 420; Height = 260;
+        Width = 420;
+        SizeToContent = SizeToContent.Height;
+        try { MaxHeight = Math.Min(440, SystemParameters.WorkArea.Height - 40); }
+        catch { MaxHeight = 440; }
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(16) };
@@ -162,7 +184,8 @@ public sealed class PinRestoreWindow : Window
         });
         var b = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 12, 0, 0) };
         var err = new TextBlock { Foreground = Ui.ErrorBrush, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "Verifikasi", Margin = new Thickness(0, 12, 0, 0) };
+        var ok = new Button { Content = "Verifikasi", Margin = new Thickness(0, 12, 0, 0), MinWidth = 160, MinHeight = 44, IsDefault = true };
+        if (TryFindResource("PrimaryButton") is Style ps1) ok.Style = ps1;
         ok.Click += async (_, _) =>
         {
             if (!ok.IsEnabled) return;
@@ -192,7 +215,12 @@ public sealed class PinRestoreWindow : Window
         p.Children.Add(err);
         p.Children.Add(ok);
         p.Children.Add(lupa);
-        Content = p;
+        Content = new ScrollViewer
+        {
+            Content = p,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
         M3Chrome.Attach(this, dialog: true);
     }
 }

@@ -8,11 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { roleChipClass, methodChipClass, methodDotClass } from "@/components/ui/color";
 import { AlertTriangle, CheckCircle, Trash2, Pencil, Search, FileSpreadsheet, RectangleVertical, RectangleHorizontal, X, WifiOff } from "lucide-react";
 // Performa: jsPDF + autotable hanya di-load saat Export (dynamic import), bukan di bundle utama.
-import { enqueueGuest, enqueueOp, flushOfflineQueue, getConflictOps, getPendingCount, getQueue, getTotalPendingAsync, isOnline, pullDelta, refreshPendingCount, startBackgroundSync, subscribeNetworkStatus, LAST_SYNC_KEY, type QueuedGuest } from "@/lib/offline-sync";
-import { getCachedBooks, getCachedEvent, getCachedGuests, kvGet, kvSet, putCachedBooks, putCachedEvent, putCachedGuests } from "@/lib/db";
-import { OfflineLock } from "@/components/OfflineLock";
-import { ConflictResolver } from "@/components/ConflictResolver";
-import { hasOfflinePin, isEventUnlocked, setEventUnlocked } from "@/lib/offline-pin";
+import { isOnline, subscribeNetworkStatus, LAST_SYNC_KEY } from "@/lib/offline-sync";
 
 type Member = { id: string; role: string; user: { id: string; name: string; username?: string | null; email: string; image?: string | null; avatar?: string | null; profilePicture?: string | null } };
 type GuestBook = { id: string; nama: string; alamat: string };
@@ -140,23 +136,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   const [mejaLabel, setMejaLabel] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
-  // Status jaringan browser: semua acara online, offline hanya kondisi jaringan sementara.
-  // Hydration-safe: server selalu render "online". Status asli disinkron di useEffect (subscribeNetworkStatus).
   const [isBrowserOffline, setIsBrowserOffline] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  // Fase 4: kunci PIN saat offline (buka per tab via PIN yang di-cache).
-  const [locked, setLocked] = useState(false);
-  // Fase 5: konflik duplikat yang butuh catatan.
-  const [conflictCount, setConflictCount] = useState(0);
-  const [conflictOpen, setConflictOpen] = useState(false);
-
-  async function reloadConflicts() {
-    try {
-      const ops = await getConflictOps(eventId);
-      setConflictCount(ops.length);
-    } catch {}
-  }
   // Hydration-safe: server selalu render nominal terlihat. Preferensi asli dibaca di useEffect.
   const [hideNominal, setHideNominal] = useState(false);
 
@@ -273,20 +254,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         setEditTanggal(new Date(j.tanggal).toISOString().slice(0, 10));
         setEditLokasi(j.lokasi || "");
         setEditCatatan(j.catatan || "");
-        // Fase 2: tulis read-cache (best-effort).
-        try { await putCachedEvent({ ...j, id: eventId }); } catch {}
         return;
-      }
-    } catch {
-      // Fase 1: offline — jangan throw, biarkan UI pakai data lama + banner offline.
-      // Penyebab "kadang ngga": fetch reject (TypeError) bikin loading macet.
-    }
-    // Fallback cache saat fetch gagal/offline.
-    try {
-      const c = await getCachedEvent(eventId);
-      if (c && typeof c.namaAcara === "string") {
-        const j = c as unknown as { namaAcara: string; namaTuanRumah?: string | null; tanggal: string; lokasi?: string | null; catatan?: string | null; mejaList?: string[]; myRole: string };
-        setEvent({ id: eventId, namaAcara: j.namaAcara, namaTuanRumah: j.namaTuanRumah ?? null, tanggal: j.tanggal, lokasi: j.lokasi ?? null, catatan: j.catatan ?? null, mejaList: j.mejaList, myRole: j.myRole || "VIEWER" });
       }
     } catch {}
   }
@@ -298,24 +266,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       const res = await fetch(`/api/events/${eventId}/guests?${qs}`);
       if (res.ok) {
         const j = await res.json();
-        setGuests(mergeWithQueue(j.data));
+        setGuests(j.data);
         setGuestTotal(j.total);
         setTotalPages(j.totalPages || 1);
-        try {
-          // Cache hanya halaman pertama tanpa filter agar offline tetap ada isi.
-          if (page === 1 && !search && !mejaFilter && !kasirFilter && Array.isArray(j.data)) {
-            await putCachedGuests(eventId, j.data);
-          }
-        } catch {}
         return;
-      }
-    } catch { /* offline: pertahankan list lama + queue */ }
-    // Fase 2: fallback cache.
-    try {
-      const cached = await getCachedGuests(eventId);
-      if (cached.length && guests.length === 0) {
-        setGuests(mergeWithQueue(cached as unknown as Guest[]));
-        setGuestTotal(cached.length);
       }
     } catch {}
   }
@@ -328,20 +282,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         const j = await res.json();
         if (Array.isArray(j)) {
           setBooks(j); setBookTotal(j.length); setBookTotalPages(1);
-          try { if (bookPage === 1 && !bookSearch) await putCachedBooks(eventId, j); } catch {}
-        }
-        else {
+        } else {
           setBooks(j.data); setBookTotal(j.total); setBookTotalPages(j.totalPages);
-          try { if (bookPage === 1 && !bookSearch && Array.isArray(j.data)) await putCachedBooks(eventId, j.data); } catch {}
         }
         return;
-      }
-    } catch {}
-    try {
-      const cached = await getCachedBooks(eventId);
-      if (cached.length && books.length === 0) {
-        setBooks(cached as unknown as GuestBook[]);
-        setBookTotal(cached.length);
       }
     } catch {}
   }
@@ -352,13 +296,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (res.ok) {
         const j = await res.json();
         setRekap(j);
-        try { await kvSet(`rekap:${eventId}`, JSON.stringify(j)); } catch {}
         return;
       }
-    } catch {}
-    try {
-      const raw = await kvGet(`rekap:${eventId}`);
-      if (raw && !rekap) setRekap(JSON.parse(raw) as Rekap);
     } catch {}
   }
   function updateTab(next: Tab) {
@@ -370,257 +309,37 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   async function loadAudit(q?: string) { try { const qs = q !== undefined ? `?limit=30&q=${encodeURIComponent(q)}` : `?limit=30${logSearch ? `&q=${encodeURIComponent(logSearch)}` : ""}`; const res = await fetch(`/api/events/${eventId}/audit-logs${qs}`); if (res.ok) { const j = await res.json(); setAuditLogs(j.logs); } } catch {} }
 
-  // Fase 1.3: gabungkan queue lokal ke atas list agar reload offline tidak terlihat hilang.
-  // Catatan Fase 2: LS hanya untuk CREATE_GUEST lama (belum migrasi). Outbox Dexie dihidrasi
-  // via hydratePendingToLists() (async) agar semua aksi (create/update/delete) tampil setelah reload.
-  function mergeWithQueue(server: Guest[]) {
-    try {
-      const q = getQueue(eventId);
-      if (!q.length) return server;
-      const ids = new Set(server.map((g) => g.id));
-      const pending: Guest[] = q
-        .filter((x) => !ids.has(x.id))
-        .map((x) => ({
-          id: x.id,
-          nama: x.nama,
-          alamat: x.alamat,
-          nominal: x.nominal,
-          metode: x.metode,
-          catatan: x.catatan || undefined,
-          createdAt: x.createdAt,
-          petugasId: "local",
-          mejaLabel: x.mejaLabel,
-          kodeInput: x.kodeInput,
-        }));
-      return [...pending, ...server];
-    } catch {
-      return server;
-    }
-  }
-
-  // Fase 2: terapkan outbox (Dexie) ke list agar reload offline tetap akurat.
-  async function hydratePendingToLists() {
-    try {
-      const { outboxList } = await import("@/lib/db");
-      const ops = await outboxList(eventId);
-      if (!ops.length) return;
-      const guestCreates = ops.filter((o) => o.action === "CREATE_GUEST");
-      const guestUpdates = ops.filter((o) => o.action === "UPDATE_GUEST");
-      const guestDeletes = new Set(ops.filter((o) => o.action === "DELETE_GUEST").map((o) => String((o.payload as { id?: unknown }).id || o.id)));
-      const bookCreates = ops.filter((o) => o.action === "CREATE_BOOK");
-      const bookUpdates = ops.filter((o) => o.action === "UPDATE_BOOK");
-      const bookDeletes = new Set(ops.filter((o) => o.action === "DELETE_BOOK").map((o) => String((o.payload as { id?: unknown }).id || o.id)));
-
-      if (guestCreates.length || guestUpdates.length || guestDeletes.size) {
-        setGuests((prev) => {
-          const byId = new Map(prev.map((g) => [g.id, g]));
-          for (const id of guestDeletes) byId.delete(id);
-          for (const o of guestUpdates) {
-            const p = o.payload as { id: string; fields?: Partial<Guest> };
-            const cur = byId.get(p.id);
-            if (cur && p.fields) byId.set(p.id, { ...cur, ...p.fields });
-          }
-          const fresh: Guest[] = [];
-          for (const o of guestCreates) {
-            const p = o.payload as unknown as Guest & { eventId?: string };
-            if (!byId.has(o.id)) {
-              fresh.push({ id: o.id, nama: String(p.nama || ""), alamat: String(p.alamat || ""), nominal: Number(p.nominal || 0), metode: String(p.metode || "AMPLOP"), catatan: (p.catatan as string) || undefined, createdAt: String(p.createdAt || new Date().toISOString()), petugasId: "local", mejaLabel: (p.mejaLabel as string) || null, kodeInput: (p.kodeInput as string) || null });
-            }
-          }
-          return [...fresh, ...[...byId.values()]];
-        });
-      }
-      if (bookCreates.length || bookUpdates.length || bookDeletes.size) {
-        setBooks((prev) => {
-          const byId = new Map(prev.map((b) => [b.id, b]));
-          for (const id of bookDeletes) byId.delete(id);
-          for (const o of bookUpdates) {
-            const p = o.payload as { id: string; fields?: Partial<GuestBook> };
-            const cur = byId.get(p.id);
-            if (cur && p.fields) byId.set(p.id, { ...cur, ...p.fields });
-          }
-          const fresh: GuestBook[] = [];
-          for (const o of bookCreates) {
-            const p = o.payload as unknown as GuestBook;
-            if (!byId.has(o.id)) fresh.push({ id: o.id, nama: String(p.nama || ""), alamat: String(p.alamat || "") });
-          }
-          return [...fresh, ...[...byId.values()]];
-        });
-      }
-    } catch {}
-  }
-
-  // Fase 1.2: satu pintu queue + optimistic — dipakai semua jalur gagal jaringan.
-  function queueGuestOffline(input: { nama: string; alamat: string; nominal: number; metode: string; catatan: string; meja: string; kodeInput: string; deviceId: string }) {
-    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const item: QueuedGuest = {
-      id: localId,
-      eventId,
-      nama: toTitleCasePerKata(input.nama),
-      alamat: toTitleCasePerKata(input.alamat),
-      nominal: input.nominal,
-      metode: input.metode,
-      catatan: input.catatan || null,
-      mejaLabel: input.meja,
-      kodeInput: input.kodeInput,
-      deviceId: input.deviceId,
-      createdAt: new Date().toISOString(),
-    };
-    enqueueGuest(eventId, item);
-    // Fase 2: hitung total async (LS + outbox) agar badge akurat.
-    refreshPendingCount(eventId).then(setPendingCount).catch(() => setPendingCount(getPendingCount(eventId)));
-    setGuests((prev) =>
-      prev.some((g) => g.id === localId)
-        ? prev
-        : [{ id: localId, nama: item.nama, alamat: item.alamat, nominal: item.nominal, metode: item.metode, catatan: input.catatan || undefined, createdAt: item.createdAt, petugasId: "local", mejaLabel: item.mejaLabel, kodeInput: item.kodeInput }, ...prev]
-    );
-    setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
-    console.debug("[offline] queued", { eventId, localId });
-  }
-
-  // Fase 2: helper generik — coba online dulu, gagal jaringan → masuk outbox + optimistic.
-  async function queueOpOffline(
-    action: Parameters<typeof enqueueOp>[1],
-    table: Parameters<typeof enqueueOp>[2],
-    payload: Record<string, unknown>,
-    applyOptimistic?: () => void
-  ) {
-    try {
-      await enqueueOp(eventId, action, table, payload, typeof payload.id === "string" ? (payload.id as string) : undefined);
-    } catch {}
-    try {
-      const total = await refreshPendingCount(eventId);
-      setPendingCount(total);
-    } catch {}
-    applyOptimistic?.();
-  }
-
-  function isNetworkError(e: unknown): boolean {
-    // fetch throw (offline/timeout/abort) — bukan 4xx validasi.
-    return e instanceof TypeError || (e instanceof DOMException && (e.name === "AbortError" || e.name === "TimeoutError"));
-  }
-
-  // Satu pintu sync: flush antrean + pull delta + refresh. Dipanggil tombol sync TopBar.
   const handleSyncNow = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     setSyncError(null);
     try {
-      if (!isOnline()) {
-        try {
-          setPendingCount(await getTotalPendingAsync(eventId));
-        } catch {}
-        setSyncError("Kamu sedang offline — data tersimpan di perangkat dan akan terkirim otomatis saat online.");
+      if (!navigator.onLine) {
+        setSyncError("Kamu sedang offline. Koneksi internet diperlukan.");
         return;
       }
-      const qRes = await flushOfflineQueue(eventId).catch(() => ({ flushed: 0, conflicts: 0, error: "offline" as const }));
-      try {
-        setPendingCount(await getTotalPendingAsync(eventId));
-      } catch {
-        setPendingCount(getPendingCount(eventId));
-      }
-      if (qRes.error === "offline" || qRes.error === "timeout") {
-        setSyncError("Koneksi terputus — data aman di antrean, akan terkirim otomatis.");
-      } else if (qRes.error) {
-        setSyncError(`Sync gagal: ${qRes.error} — coba lagi via tombol sync.`);
-      } else if (qRes.conflicts > 0) {
-        setSyncError(`${qRes.conflicts} data butuh catatan (duplikat). Klik Selesaikan.`);
-      } else {
-        try { await pullDelta(eventId); } catch {}
-      }
-      reloadConflicts().catch(() => {});
-      await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts()]);
+      await Promise.all([loadGuests(), loadRekap(), loadBooks(), loadShortcuts(), loadEvent()]);
       setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-      try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
     } catch (e) {
-      setSyncError(e instanceof Error ? e.message : "Sync gagal — coba lagi.");
+      setSyncError(e instanceof Error ? e.message : "Refresh gagal — coba lagi.");
     } finally { setIsSyncing(false); }
   };
 
   useEffect(() => {
-    // Performa: hanya fetch yang dibutuhkan tab awal. Sisanya lazy saat tab dibuka.
-    // Fase 1: jangan biarkan fetch reject bikin loading macet (penyebab blank saat offline).
     loadEvent().catch(() => {}).finally(() => setLoading(false));
     loadGuests().catch(() => {});
     loadShortcuts().catch(() => {});
     loadRekap().catch(() => {});
-    try {
-      setPendingCount(getPendingCount(eventId));
-      // Fase 1.3: rehidrasi instan agar queue terlihat walau fetch gagal.
-      const q = getQueue(eventId);
-      if (q.length) setGuests((prev) => mergeWithQueue(prev));
-      const ls = localStorage.getItem(LAST_SYNC_KEY(eventId)); if (ls) setLastSyncAt(new Date(ls).toLocaleTimeString("id-ID"));
-    } catch {}
-    // Fase 2: hitung total async (LS + outbox) + pull delta best-effort saat online.
-    getTotalPendingAsync(eventId).then(setPendingCount).catch(() => {});
-    // Fase 2: hidrasi outbox ke list (agar update/delete offline tampil setelah reload).
-    hydratePendingToLists().catch(() => {});
-    // Fase 5: muat konflik yang butuh catatan.
-    reloadConflicts().catch(() => {});
-    if (isOnline()) {
-      pullDelta(eventId).then((r) => {
-        if (r.pulled > 0) {
-          loadGuests().catch(() => {});
-          loadBooks().catch(() => {});
-          loadEvent().catch(() => {});
-        }
-      }).catch(() => {});
-    }
     if (initialTab === "buku") loadBooks().catch(() => {});
     if (initialTab === "setting") { loadMembers().catch(() => {}); loadAudit().catch(() => {}); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   useEffect(() => {
-    const off = startBackgroundSync(eventId, (r) => {
-      // Fase 2: pending selalu dari total async agar mencakup outbox Dexie.
-      getTotalPendingAsync(eventId).then(setPendingCount).catch(() => setPendingCount(getPendingCount(eventId)));
-      if (r.error && r.error !== "offline") {
-        setSyncError(r.error);
-        return;
-      }
-      if (r.flushed) {
-        setSyncError(null);
-        setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-        loadGuests(); loadRekap(); loadBooks();
-      } else if (r.conflicts > 0) {
-        setSyncError(`${r.conflicts} data butuh catatan (duplikat).`);
-      }
-      reloadConflicts().catch(() => {});
-    });
-    const handler = (e: Event) => {
-      const ce = e as CustomEvent;
-      if (ce.detail?.eventId === eventId) setPendingCount(ce.detail.count);
-    };
-    // Fase 1.4: status jaringan real untuk banner (bukan cuma mode server).
     const unsubNet = subscribeNetworkStatus((online) => setIsBrowserOffline(!online));
     setIsBrowserOffline(!isOnline());
-    window.addEventListener("offline-queue-changed", handler as EventListener);
-    return () => { off(); unsubNet(); window.removeEventListener("offline-queue-changed", handler as EventListener); };
+    return () => { unsubNet(); };
   }, [eventId]);
-  useEffect(() => {
-    // Fase 4: kunci tampilan saat offline bila ada PIN di perangkat & belum dibuka sesi ini.
-    // Online → selalu terbuka (otorisasi ikut sesi server).
-    if (loading) return;
-    if (!isBrowserOffline) {
-      setLocked(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        if (isEventUnlocked(eventId)) {
-          if (!cancelled) setLocked(false);
-          return;
-        }
-        if (!cancelled) setLocked(await hasOfflinePin());
-      } catch {
-        if (!cancelled) setLocked(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isBrowserOffline, loading, eventId]);
   useEffect(() => {
     // Debounce search tabel agar tak tembak API tiap keystroke (satset tapi hemat)
     const t = setTimeout(() => { loadGuests(); }, search ? 300 : 0);
@@ -756,19 +475,12 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
   async function handleSubmitPemberian(e: React.FormEvent) {
     e.preventDefault();
     if (denyViewer()) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
     if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId") || (localStorage.setItem("deviceId", Math.random().toString(36).slice(2)), localStorage.getItem("deviceId")!);
     const kodeInput = `${effectiveMeja}-${Date.now().toString().slice(-6)}`;
-    const payload = { nama, alamat, nominal, metode, catatan, meja: effectiveMeja, kodeInput, deviceId };
-    // Fase 1.2: jika browser sudah jelas offline, langsung queue (tanpa coba fetch).
-    if (!isOnline()) {
-      queueGuestOffline(payload);
-      return;
-    }
-    // Fase 1.2: captive-portal / sinyal setengah mati sering bikin fetch THROW
-    // padahal navigator.onLine=true. Dulu ini unhandled → data hilang. Sekarang queue.
     let res: Response;
     try {
       res = await fetch(`/api/events/${eventId}/guests`, {
@@ -776,43 +488,31 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         body: JSON.stringify({ nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan, mejaLabel: effectiveMeja, kodeInput, deviceId }),
       });
     } catch {
-      queueGuestOffline(payload);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
       return;
     }
     let data: Record<string, unknown> = {};
     try { data = await res.json(); } catch { data = {}; }
     if (res.status === 409 && (data as { error?: string }).error === "DUPLICATE_NEED_NOTE") { setDupNote(catatan); setDupModal({ existing: (data as { existing: { nama: string; alamat: string; nominalFormatted: string; nominal: number; metode: string; createdAt: string } }).existing, message: (data as { message: string }).message }); return; }
     if (!res.ok) {
-      // network/server error -> fallback to queue jika offline-like ATAU fetch gagal total.
-      // 5xx / fetch abort / onLine false = aman di-queue + optimistic.
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        queueGuestOffline(payload);
-        setSyncError("Koneksi bermasalah — data disimpan lokal dan akan terkirim otomatis.");
-        return;
-      }
-      setSyncError((data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Gagal (${res.status}) — data tidak hilang, coba lagi.`);
+      setSyncError((data as { error?: string; message?: string }).error || (data as { message?: string }).message || `Gagal (${res.status})`);
       return;
     }
     setNama(""); setAlamat(""); setNominalStr(""); setCatatan(""); setSuggest([]); setLiveDup(null);
     loadGuests(); loadShortcuts(); loadRekap();
     setLastSyncAt(new Date().toLocaleTimeString("id-ID"));
-    try { localStorage.setItem(LAST_SYNC_KEY(eventId), new Date().toISOString()); } catch {}
   }
 
   async function handleSubmitDuplicate() {
     if (!dupModal) return;
     if (denyViewer()) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     if (!dupNote.trim()) { setSyncError("Catatan wajib untuk bedakan duplikat."); return; }
     const nominal = parseInt(nominalStr.replace(/\D/g, ""), 10);
     const effectiveMeja = mejaLabel || event?.mejaList?.[0] || "MEJA-1";
     const deviceId = localStorage.getItem("deviceId")!;
     const kodeInput = `${effectiveMeja}-${Date.now().toString().slice(-6)}`;
     const body = { nama: toTitleCasePerKata(nama), alamat: toTitleCasePerKata(alamat), nominal, metode, catatan: dupNote, mejaLabel: effectiveMeja, kodeInput, deviceId };
-    if (!isOnline()) {
-      queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
-      setDupModal(null); setDupNote("");
-      return;
-    }
     try {
       const res = await fetch(`/api/events/${eventId}/guests`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -821,18 +521,11 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       let data: Record<string, unknown> = {};
       try { data = await res.json(); } catch { data = {}; }
       if (!res.ok) {
-        if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-          queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
-          setSyncError("Koneksi bermasalah — duplikat disimpan lokal dan akan terkirim otomatis.");
-          setDupModal(null); setDupNote("");
-          return;
-        }
         setSyncError((data as { error?: string }).error || "Gagal menyimpan duplikat — coba lagi.");
         return;
       }
     } catch {
-      queueGuestOffline({ nama, alamat, nominal, metode, catatan: dupNote, meja: effectiveMeja, kodeInput, deviceId });
-      setDupModal(null); setDupNote("");
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
       return;
     }
     setDupModal(null); setDupNote("");
@@ -845,42 +538,16 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     e.preventDefault();
     if (denyViewer()) return;
     if (isAddingBook) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const namaB = toTitleCasePerKata(bookNama);
     const alamatB = toTitleCasePerKata(bookAlamat);
     if (namaB.trim().length < 2 || alamatB.trim().length < 2) return;
     setIsAddingBook(true);
     try {
-      if (!isOnline()) {
-        const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
-          setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
-          setBookTotal((t) => t + 1);
-        });
-        setBookNama(""); setBookAlamat("");
-        return;
-      }
-      try {
-        const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: namaB, alamat: alamatB }) });
-        if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); return; }
-        if (res.status === 409) return;
-        if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-          const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-          await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
-            setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
-            setBookTotal((t) => t + 1);
-          });
-          setBookNama(""); setBookAlamat("");
-          return;
-        }
-      } catch {
-        const id = `local-book-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        await queueOpOffline("CREATE_BOOK", "guestBooks", { id, eventId, nama: namaB, alamat: alamatB }, () => {
-          setBooks((prev) => [{ id, nama: namaB, alamat: alamatB }, ...prev]);
-          setBookTotal((t) => t + 1);
-        });
-        setBookNama(""); setBookAlamat("");
-        return;
-      }
+      const res = await fetch(`/api/events/${eventId}/guestbooks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nama: namaB, alamat: alamatB }) });
+      if (res.ok) { setBookNama(""); setBookAlamat(""); loadBooks(); return; }
+    } catch {
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     } finally {
       setIsAddingBook(false);
     }
@@ -890,9 +557,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     e.preventDefault();
     if (!editBook) return;
     if (denyViewer()) { setEditBook(null); return; }
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const fields = { nama: toTitleCasePerKata(editBookData.nama), alamat: toTitleCasePerKata(editBookData.alamat) };
     const prev = books;
-    // Optimistic dulu agar satset.
     setBooks((list) => list.map((b) => (b.id === editBook.id ? { ...b, ...fields } : b)));
     setEditBook(null);
     try {
@@ -900,131 +567,71 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       let data: Record<string, unknown> = {};
       try { data = await res.json(); } catch { data = {}; }
       if (res.ok) { loadBooks(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("UPDATE_BOOK", "guestBooks", { id: editBook.id, fields });
-        setSyncError("Koneksi bermasalah — perubahan disimpan lokal.");
-        return;
-      }
       setBooks(prev);
       setSyncError((data as { error?: string }).error || "Gagal update — coba lagi.");
-      return;
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("UPDATE_BOOK", "guestBooks", { id: editBook.id, fields });
-        return;
-      }
+    } catch {
       setBooks(prev);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
   async function handleDeleteBook(id: string) {
     if (denyViewer()) return;
     if (!confirm("Hapus buku tamu ini?")) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const prev = books;
     setBooks((list) => list.filter((b) => b.id !== id));
     try {
       const res = await fetch(`/api/guestbooks/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 404) { loadBooks(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("DELETE_BOOK", "guestBooks", { id });
-        return;
-      }
       setBooks(prev);
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("DELETE_BOOK", "guestBooks", { id });
-        return;
-      }
+    } catch {
       setBooks(prev);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
   async function handleAddMember(userId: string) {
     if (event?.myRole !== "OWNER") { setSyncError("Hanya OWNER bisa kelola anggota."); return; }
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const fields = { userId, role: addRole };
-    if (!isOnline()) {
-      await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
-      setSearchUser(""); setSearchResults([]);
-      setSyncError("Kamu sedang offline — undangan anggota diantrekan dan terkirim otomatis saat online.");
-      return;
-    }
     try {
       const res = await fetch(`/api/events/${eventId}/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
       let data: Record<string, unknown> = {};
       try { data = await res.json(); } catch { data = {}; }
       if (res.ok) { setSearchUser(""); setSearchResults([]); loadMembers(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
-        setSearchUser(""); setSearchResults([]);
-        setSyncError("Koneksi bermasalah — undangan diantrekan, terkirim otomatis.");
-        return;
-      }
       setSyncError((data as { error?: string }).error || "Gagal tambah anggota — coba lagi.");
-      return;
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("ADD_MEMBER", "members", { userId, fields });
-        setSearchUser(""); setSearchResults([]);
-        setSyncError("Kamu sedang offline — undangan diantrekan.");
-        return;
-      }
-      setSyncError("Gagal tambah anggota — coba lagi.");
+    } catch {
+      setSyncError("Gagal tambah anggota. Koneksi internet diperlukan.");
     }
   }
   async function handleRemoveMember(userId: string) {
     if (event?.myRole !== "OWNER") { setSyncError("Hanya OWNER bisa kelola anggota."); return; }
     if (!confirm("Hapus anggota?")) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const prev = members;
     setMembers((list) => list.filter((m) => m.user.id !== userId));
     try {
       const res = await fetch(`/api/events/${eventId}/members?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
       if (res.ok || res.status === 404) { loadMembers(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("REMOVE_MEMBER", "members", { userId });
-        return;
-      }
       setMembers(prev);
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("REMOVE_MEMBER", "members", { userId });
-        return;
-      }
+    } catch {
       setMembers(prev);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
   async function handleDeleteGuest(id: string) {
     if (denyViewer()) return;
     if (!confirm("Hapus data ini?")) return;
-    // Jika masih antrean lokal (belum pernah ke server), hapus dari antrean saja.
-    if (id.startsWith("local-")) {
-      try {
-        const { outboxRemove } = await import("@/lib/db");
-        await outboxRemove([id]).catch(() => {});
-      } catch {}
-      try {
-        const q = getQueue(eventId).filter((x) => x.id !== id);
-        const { setQueue } = await import("@/lib/offline-sync");
-        setQueue(eventId, q);
-      } catch {}
-      setGuests((list) => list.filter((g) => g.id !== id));
-      refreshPendingCount(eventId).then(setPendingCount).catch(() => {});
-      return;
-    }
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const prev = guests;
     setGuests((list) => list.filter((g) => g.id !== id));
     try {
       const res = await fetch(`/api/guests/${id}`, { method: "DELETE" });
       if (res.ok || res.status === 404) { loadGuests(); loadShortcuts(); loadRekap(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("DELETE_GUEST", "guests", { id });
-        loadShortcuts(); loadRekap();
-        return;
-      }
       setGuests(prev);
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("DELETE_GUEST", "guests", { id });
-        return;
-      }
+      setSyncError("Gagal menghapus data.");
+    } catch {
       setGuests(prev);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
   function openEditGuest(g: Guest) { setEditGuest(g); setEditGuestData({ nama: g.nama, alamat: g.alamat, nominal: String(g.nominal), metode: g.metode, catatan: g.catatan || "" }); }
@@ -1032,24 +639,9 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
     e.preventDefault();
     if (!editGuest) return;
     if (denyViewer()) { setEditGuest(null); return; }
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     const nominal = parseInt(editGuestData.nominal.replace(/\D/g, ""), 10);
     if (!nominal || nominal <= 0) { setSyncError("Nominal harus lebih dari 0."); return; }
-    // Jika edit item yang masih pending lokal → update antrean LS langsung.
-    if (editGuest.id.startsWith("local-")) {
-      try {
-        const q = getQueue(eventId).map((x) =>
-          x.id === editGuest.id
-            ? { ...x, nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan || null }
-            : x
-        );
-        const { setQueue } = await import("@/lib/offline-sync");
-        setQueue(eventId, q);
-      } catch {}
-      setGuests((list) => list.map((g) => (g.id === editGuest.id ? { ...g, nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan } : g)));
-      setEditGuest(null);
-      refreshPendingCount(eventId).then(setPendingCount).catch(() => {});
-      return;
-    }
     const fields = { nama: toTitleCasePerKata(editGuestData.nama), alamat: toTitleCasePerKata(editGuestData.alamat), nominal, metode: editGuestData.metode, catatan: editGuestData.catatan };
     const prev = guests;
     setGuests((list) => list.map((g) => (g.id === editGuest.id ? { ...g, ...fields } : g)));
@@ -1059,44 +651,26 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       let data: Record<string, unknown> = {};
       try { data = await res.json(); } catch { data = {}; }
       if (res.ok) { loadGuests(); loadShortcuts(); loadRekap(); loadAudit(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("UPDATE_GUEST", "guests", { id: editGuest.id, fields });
-        setSyncError("Koneksi bermasalah — perubahan disimpan lokal.");
-        loadShortcuts(); loadRekap();
-        return;
-      }
       setGuests(prev);
       setSyncError((data as { error?: string }).error || "Gagal update — coba lagi.");
-      return;
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("UPDATE_GUEST", "guests", { id: editGuest.id, fields });
-        return;
-      }
+    } catch {
       setGuests(prev);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
   async function updateMejaListOffline(next: string[]) {
     if (denyViewer()) return;
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     if (event) setEvent({ ...event, mejaList: next });
     try {
       const res = await fetch(`/api/events/${eventId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mejaList: next }) });
       if (res.ok) { loadEvent(); return; }
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields: { mejaList: next } });
-        try { if (event) await putCachedEvent({ ...event, mejaList: next, id: eventId }); } catch {}
-        return;
-      }
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields: { mejaList: next } });
-        return;
-      }
-    }
+    } catch {}
   }
   async function handleUpdateEvent(e: React.FormEvent) {
     e.preventDefault();
     if (denyViewer()) { setEditMode(false); return; }
+    if (!navigator.onLine) { setSyncError("Kamu sedang offline. Koneksi internet diperlukan."); return; }
     if (!editNamaTuanRumah.trim() || editNamaTuanRumah.trim().length < 2) { setSyncError("Nama tuan rumah wajib minimal 2 huruf."); return; }
     const fields = { namaAcara: editNama, namaTuanRumah: toTitleCasePerKata(editNamaTuanRumah), tanggal: editTanggal, lokasi: editLokasi, catatan: editCatatan };
     const prevEvent = event;
@@ -1107,22 +681,11 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (res.ok) { loadEvent(); loadAudit(); return; }
       let j: { error?: string } = {};
       try { j = await res.json(); } catch {}
-      if (!isOnline() || res.status >= 500 || res.status === 408 || res.status === 429) {
-        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields });
-        setSyncError("Koneksi bermasalah — perubahan acara disimpan lokal.");
-        try { if (event) await putCachedEvent({ ...event, ...fields, id: eventId }); } catch {}
-        return;
-      }
       if (prevEvent) setEvent(prevEvent);
       setSyncError(j.error || "Gagal update — coba lagi.");
-      return;
-    } catch (err) {
-      if (isNetworkError(err) || !isOnline()) {
-        await queueOpOffline("UPDATE_EVENT", "events", { id: eventId, fields });
-        try { if (event) await putCachedEvent({ ...event, ...fields, id: eventId }); } catch {}
-        return;
-      }
+    } catch {
       if (prevEvent) setEvent(prevEvent);
+      setSyncError("Koneksi bermasalah. Koneksi internet diperlukan.");
     }
   }
 
@@ -1348,16 +911,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       <div className="w-6 h-6 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
     </div>
   );
-  // Fase 4: kunci PIN offline — sebelum konten apapun dirender.
-  if (locked) return (
-    <OfflineLock
-      eventName={event?.namaAcara}
-      onUnlock={() => {
-        setEventUnlocked(eventId);
-        setLocked(false);
-      }}
-    />
-  );
+
   if (!event) return (
     <div className="min-h-dvh bg-[var(--background)] flex items-center justify-center">
       <div className="text-center">
@@ -1401,14 +955,10 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
           }}
           onSearch={setSearch}
           onExportClick={() => {
-            if (isBrowserOffline && pendingCount > 0) {
-              setSyncError("Kamu sedang offline — export memakai data lokal terakhir. Sync dulu untuk data terbaru.");
-            }
             setExportModal(true);
           }}
           isSyncing={isSyncing}
           lastSyncAt={lastSyncAt}
-          pendingCount={pendingCount}
           isOnline={!isBrowserOffline}
           onSyncNow={handleSyncNow}
           hideNominal={hideNominal}
@@ -1419,10 +969,8 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         {isBrowserOffline && (
           <div role="alert" className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--error-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
             <div className="flex items-center gap-1.5 text-[var(--on-error-container)] truncate">
-              <WifiOff size={14} className="shrink-0" /> <span className="truncate">{isInputTab ? `Offline — input tetap tersimpan di perangkat (${pendingCount})` : "Kamu sedang offline — input tetap tersimpan lokal, fitur cari anggota & audit butuh internet."}</span>
-              {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-full bg-[var(--warning)] text-white text-xs shrink-0">{pendingCount}</span>}
+              <WifiOff size={14} className="shrink-0" /> <span className="truncate">Kamu sedang offline. Aplikasi web memerlukan koneksi internet aktif.</span>
             </div>
-            <span className="text-xs opacity-70 shrink-0">sync otomatis 1 mnt</span>
           </div>
         )}
         {syncError && (
@@ -1431,26 +979,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
             <button onClick={() => setSyncError(null)} aria-label="Tutup" className="shrink-0 opacity-70 hover:opacity-100">✕</button>
           </div>
         )}
-        {/* Konflik duplikat yang butuh catatan — bisa dibuka kapan saja. */}
-        {conflictCount > 0 && (
-          <div className={`${isInputTab ? "mb-2 p-2 rounded-lg text-xs" : "mb-3 p-2.5 rounded-xl text-sm"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <span className="text-[var(--on-warning-container)] truncate">
-              {conflictCount} data duplikat butuh catatan
-            </span>
-            <button
-              onClick={() => setConflictOpen(true)}
-              className={`${isInputTab ? "h-7 px-2.5 text-xs" : "h-7 px-3 text-xs"} rounded-full bg-[var(--warning)] text-white font-medium shrink-0`}
-            >
-              Selesaikan
-            </button>
-          </div>
-        )}
-        {!isBrowserOffline && pendingCount > 0 && (
-          <div className={`${isInputTab ? "mb-2 p-1.5 rounded-lg" : "mb-3 p-2.5 rounded-xl"} bg-[var(--warning-container)] border border-[var(--outline-variant)] flex items-center justify-between gap-2`}>
-            <span className={`${isInputTab ? "text-xs" : "text-xs"} text-[var(--on-warning-container)] truncate`}>{isInputTab ? `${pendingCount} belum sync — tap ikon awan di atas untuk sync` : `${pendingCount} data menunggu sync · tap ikon awan di atas / otomatis 1 mnt`}</span>
-            <button onClick={handleSyncNow} disabled={isSyncing} className="h-6 px-2.5 rounded-full bg-[var(--warning)] text-white text-xs font-medium shrink-0 disabled:opacity-50">{isSyncing ? "…" : "Sync"}</button>
-          </div>
-        )}
+
         {/* Tabs — offset ikuti tinggi header 2-baris mobile (~76px) agar tak tertutup */}
         <div className="sticky z-20 bg-[var(--background)]/90 backdrop-blur py-1 mb-2 sm:mb-4 top-[76px] sm:top-[64px]">
           <div className="overflow-x-auto">
@@ -2190,18 +1719,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
         </Modal>
       )}
 
-      {/* Fase 5: selesaikan konflik duplikat dari antrean sync */}
-      {conflictOpen && (
-        <ConflictResolver
-          eventId={eventId}
-          onClose={() => setConflictOpen(false)}
-          onChanged={() => {
-            reloadConflicts().catch(() => {});
-            loadGuests();
-            loadRekap();
-          }}
-        />
-      )}
+
 
       {/* Detail Log */}
       {selectedLog && (

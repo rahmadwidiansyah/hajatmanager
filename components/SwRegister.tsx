@@ -2,17 +2,29 @@
 
 import { useEffect } from "react";
 
-// Fase 3: daftarkan Service Worker hanya di production web.
-// - Nonaktif di dev (hindari loop Fast Refresh).
-// - Butuh secure context (HTTPS / localhost); di HTTP LAN gagal diam-diam,
-//   tapi outbox Dexie tetap jalan selama halaman sudah terbuka.
+// Web 100% Online-Only: unregister seluruh Service Worker & hapus CacheStorage
 export function SwRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
     if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator)) return;
-    if (!window.isSecureContext) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+
+    // 1. Unregister Service Workers yang pernah terpasang
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister().catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
+    // 2. Bersihkan CacheStorage di browser
+    if ("caches" in window) {
+      caches.keys().then((names) => {
+        for (const name of names) {
+          caches.delete(name).catch(() => {});
+        }
+      }).catch(() => {});
+    }
   }, []);
+
   return null;
 }

@@ -181,6 +181,25 @@ Akun demo setelah seed (jika ada):
 - **Tailscale Funnel**
 - **ngrok** untuk tes
 
+## 7b. Login Google di APK Android (native)
+
+APK memakai `serverClientId` = **Web client ID yang sama** (`GOOGLE_CLIENT_ID`, fallback `ANDROID_GOOGLE_CLIENT_ID` bila yang pertama kosong — lihat `/api/auth/mobile/config`). Selain itu wajib daftar **Android OAuth client** agar SHA-1 cocok:
+
+1. Google Cloud Console → Credentials → Create Credentials → OAuth Client ID → **Android**.
+2. Package name: `com.hajatmanager.hajat_manager` (lihat `mobile/android/app/build.gradle.kts`).
+3. SHA-1 certificate fingerprint — daftarkan **dua-duanya**:
+   ```bash
+   # SHA-1 debug (dev)
+   keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android
+   # SHA-1 release (APK rilis — dari keystore yang dipakai build)
+   keytool -list -v -keystore <release.keystore> -alias <key-alias>
+   ```
+4. Gejala bila belum lengkap:
+   - Tombol Google tidak muncul / "Login Google belum tersedia" → `GOOGLE_CLIENT_ID` & `ANDROID_GOOGLE_CLIENT_ID` kosong di server, atau HP offline.
+   - "Token Google kosong" → `serverClientId` null saat init (cek `/api/auth/mobile/config`).
+   - "Token Google ditolak server" → `aud` token tidak cocok dengan env (isi `GOOGLE_CLIENT_ID` dengan Web client ID yang sama).
+   - Popup langsung tertutup / `clientConfigurationError` → SHA-1 release belum didaftarkan, atau package name beda.
+
 ## 8. Deploy di Homelab
 
 ```bash

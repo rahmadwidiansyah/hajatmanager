@@ -14,9 +14,7 @@ export default function CreateEvent() {
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [info, setInfo] = useState("");
 
-  // P0: body scroll-lock saat dialog terbuka + Escape untuk tutup
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -29,96 +27,38 @@ export default function CreateEvent() {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open ]);
-
-  function newLocalId() {
-    try {
-      if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-    } catch {}
-    return `evt-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  async function saveOfflineQueue(reason: string) {
-    const { enqueueOp, isOnline } = await import("@/lib/offline-sync");
-    const { putCachedEvent } = await import("@/lib/db");
-    const id = newLocalId();
-    const payload = {
-      id,
-      namaAcara: namaAcara.trim(),
-      namaTuanRumah: namaTuanRumah.trim() || null,
-      tanggal: new Date(tanggal).toISOString(),
-      lokasi: lokasi.trim() || null,
-      catatan: catatan.trim() || null,
-      mejaList: ["MEJA-1", "MEJA-2"],
-    };
-    // Offline-first: simpan ke outbox + read-cache agar langsung tampil di dashboard.
-    await enqueueOp(id, "CREATE_EVENT", "events", payload, id).catch(() => {});
-    try {
-      await putCachedEvent({ ...payload, myRole: "OWNER", pendingLocal: true });
-    } catch {}
-    try {
-      window.dispatchEvent(new CustomEvent("dashboard-events-changed", { detail: { id } }));
-    } catch {}
-    void isOnline;
-    setInfo(
-      reason === "offline"
-        ? "Kamu sedang offline — acara disimpan di perangkat dan akan terkirim otomatis saat online (tombol sync kuning)."
-        : "Server tidak terjangkau — acara disimpan lokal dulu dan akan terkirim otomatis."
-    );
-    setOpen(false);
-    setNamaAcara(""); setNamaTuanRumah(""); setTanggal(""); setLokasi(""); setCatatan("");
-    router.refresh();
-  }
+  }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    setInfo("");
     if (!namaAcara.trim() || namaAcara.trim().length < 2) { setErr("Nama acara minimal 2 huruf"); return; }
     if (!namaTuanRumah.trim() || namaTuanRumah.trim().length < 2) { setErr("Nama tuan rumah minimal 2 huruf"); return; }
     if (!tanggal) { setErr("Tanggal wajib diisi"); return; }
+    if (!navigator.onLine) { setErr("Kamu sedang offline. Koneksi internet diperlukan."); return; }
+
     setLoading(true);
     try {
-      const { isOnline } = await import("@/lib/offline-sync");
-      if (!isOnline()) {
-        await saveOfflineQueue("offline");
-        return;
-      }
-      let res: Response;
-      try {
-        res = await fetch("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ namaAcara, namaTuanRumah, tanggal, lokasi, catatan }),
-        });
-      } catch {
-        await saveOfflineQueue("offline");
-        return;
-      }
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ namaAcara, namaTuanRumah, tanggal, lokasi, catatan }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (!navigator.onLine || res.status >= 500 || res.status === 408 || res.status === 429) {
-          await saveOfflineQueue("server");
-          return;
-        }
-        // Tampilkan field mana yang gagal jika VALIDATION_ERROR
         if ((data as { error?: string }).error === "VALIDATION_ERROR" && (data as { details?: { fieldErrors?: Record<string, string[]> } }).details?.fieldErrors) {
           const msgs = Object.entries((data as { details: { fieldErrors: Record<string, string[]> } }).details.fieldErrors)
             .map(([f, errs]) => `${f}: ${errs.join(", ")}`)
             .join(" | ");
           throw new Error(msgs || "Data tidak valid");
         }
-        throw new Error((data as { error?: string }).error || JSON.stringify((data as { details?: unknown }).details) || "Gagal");
+        throw new Error((data as { error?: string }).error || "Gagal membuat acara");
       }
-      try {
-        const { putCachedEvent } = await import("@/lib/db");
-        await putCachedEvent({ ...(data as Record<string, unknown>), id: (data as { id: string }).id });
-      } catch {}
       setOpen(false);
       setNamaAcara(""); setNamaTuanRumah(""); setTanggal(""); setLokasi(""); setCatatan("");
       router.refresh();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Gagal");
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan ke server");
     } finally { setLoading(false); }
   }
 
@@ -188,12 +128,7 @@ export default function CreateEvent() {
                   className="mt-1.5 w-full px-4 py-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-shadow resize-none placeholder:text-[var(--on-surface-variant)]"
                 />
               </div>
-              <p className="text-xs text-[var(--on-surface-variant)]">Selalu tersambung saat ada internet. Kalau offline, acara disimpan di perangkat lalu terkirim otomatis (tombol sync kuning).</p>
-              {info && (
-                <p role="status" className="text-sm text-[var(--on-primary-container)] bg-[var(--primary-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
-                  {info}
-                </p>
-              )}
+              <p className="text-xs text-[var(--on-surface-variant)]">Aplikasi web membutuhkan koneksi internet aktif untuk membuat acara.</p>
               {err && (
                 <p role="alert" className="text-sm text-[var(--on-error-container)] bg-[var(--error-container)] p-3 rounded-xl border border-[var(--outline-variant)]">
                   {err}

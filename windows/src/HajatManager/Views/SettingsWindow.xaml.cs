@@ -228,36 +228,88 @@ public partial class SettingsWindow : Window
     }
 
     private bool _addingMember;
-    private bool _changingRole;
 
-    // Ubah role anggota cermin Flutter (Dropdown OWNER/ADMIN/VIEWER).
-    private async void OnRoleChanged(object sender, SelectionChangedEventArgs e)
+    /// Role terpilih di ComboBox baris tambah (default ADMIN cermin web/Flutter).
+    private string SelectedAddRole()
     {
-        if (_membersLoading || _changingRole) return;
-        if (sender is not ComboBox box) return;
-        if (box.Tag is not MemberModel m) return;
-        if (box.SelectedValue is not string role || role == m.Role) return;
-        _changingRole = true;
         try
         {
-            using var r = await ApiClient.Instance.PatchJsonAsync(
-                $"/api/events/{_ev.Id}/members",
-                new { userId = m.UserId, role });
-            if (r.IsSuccessStatusCode)
-            {
-                m.Role = role;
-                M3Snack.Show(this, $"Role {m.Name} → {role}");
-            }
-            else
-            {
-                M3Snack.Show(this,
-                    await ApiClient.Instance.TryErrAsync(r, "Gagal ubah role") ?? "Gagal",
-                    isError: true);
-                await LoadAsync();
-            }
+            if (AddRoleBox.SelectedItem is ComboBoxItem it &&
+                it.Content is string s && (s == "OWNER" || s == "ADMIN" || s == "VIEWER"))
+                return s;
         }
-        catch { M3Snack.Show(this, "Butuh online.", isError: true); await LoadAsync(); }
-        finally { _changingRole = false; }
+        catch { }
+        return "ADMIN";
+    }
+
+    // Ubah role via dialog Edit di kolom Aksi (jelas + eksplisit).
+    private async void OnEditMemberRole(object sender, RoutedEventArgs e)
+    {
+        MemberModel m;
+        try { m = (MemberModel)((FrameworkElement)sender).DataContext; }
+        catch { return; }
+        var roles = new[] { "VIEWER", "ADMIN", "OWNER" };
+        var box = new ComboBox { Margin = new Thickness(0, 8, 0, 0), MinWidth = 200 };
+        foreach (var r in roles) box.Items.Add(new ComboBoxItem { Content = r });
+        box.SelectedIndex = Math.Max(0, Array.IndexOf(roles, m.Role));
+        var err = new TextBlock { Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        err.SetResourceReference(TextBlock.ForegroundProperty, "ErrorBrush");
+        var simpan = new Button { Content = "Simpan", MinWidth = 96 };
+        if (TryFindResource("PrimaryButton") is Style ps) simpan.Style = ps;
+        var batal = new Button { Content = "Batal", Margin = new Thickness(8, 0, 0, 0) };
+        if (TryFindResource("TextButton") is Style ts) batal.Style = ts;
+        var win = new Window
+        {
+            Title = $"Ubah role — {m.Name}",
+            Width = 380,
+            SizeToContent = SizeToContent.Height,
+            MaxHeight = 300,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            ResizeMode = ResizeMode.NoResize,
+        };
+        win.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        var p = new StackPanel { Margin = new Thickness(16) };
+        p.Children.Add(new TextBlock { Text = $"Role baru untuk {m.Email}:", TextWrapping = TextWrapping.Wrap });
+        p.Children.Add(box);
+        p.Children.Add(err);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        row.Children.Add(simpan);
+        row.Children.Add(batal);
+        p.Children.Add(row);
+        win.Content = p;
+        M3Chrome.Attach(win, dialog: true);
+        batal.Click += (_, _) => win.Close();
+        simpan.Click += async (_, _) =>
+        {
+            var role = (box.SelectedItem as ComboBoxItem)?.Content as string ?? m.Role;
+            if (role == m.Role) { win.Close(); return; }
+            simpan.IsEnabled = false;
+            try
+            {
+                using var r = await ApiClient.Instance.PatchJsonAsync(
+                    $"/api/events/{_ev.Id}/members",
+                    new { userId = m.UserId, role });
+                if (r.IsSuccessStatusCode)
+                {
+                    win.Close();
+                    M3Snack.Show(this, $"Role {m.Name} → {role}");
+                    await LoadAsync();
+                }
+                else
+                {
+                    err.Text = await ApiClient.Instance.TryErrAsync(r, "Gagal ubah role") ?? "Gagal";
+                }
+            }
+            catch { err.Text = "Butuh online."; }
+            finally { try { simpan.IsEnabled = true; } catch { } }
+        };
+        win.ShowDialog();
     }
 
     private async void OnRemoveMember(object sender, RoutedEventArgs e)
@@ -280,6 +332,16 @@ public partial class SettingsWindow : Window
 
     private async void OnAddMember(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        await AddSelectedMemberAsync();
+    }
+
+    private async void OnAddSelectedMember(object sender, RoutedEventArgs e)
+    {
+        await AddSelectedMemberAsync();
+    }
+
+    private async Task AddSelectedMemberAsync()
+    {
         if (_addingMember) return;
         if (ResultList.SelectedItem is not string s) return;
         var id = s.Contains('|') ? s.Split('|')[^1] : "";
@@ -289,7 +351,7 @@ public partial class SettingsWindow : Window
         {
             using var r = await ApiClient.Instance.PostJsonAsync(
                 $"/api/events/{_ev.Id}/members",
-                new { userId = id, role = "ADMIN" });
+                new { userId = id, role = SelectedAddRole() });
             if (r.IsSuccessStatusCode)
             {
                 SearchBox.Text = "";

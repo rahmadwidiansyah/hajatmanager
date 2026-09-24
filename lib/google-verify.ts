@@ -15,10 +15,17 @@ export type GoogleInfo = {
 
 export type GoogleVerifyResult =
   | { ok: true; info: { sub: string; email: string; name: string; picture?: string } }
-  | { ok: false; error: "VALIDATION_ERROR" | "INVALID_GOOGLE_TOKEN" | "AUD_MISMATCH" | "GOOGLE_UNREACHABLE" };
+  | { ok: false; error: "VALIDATION_ERROR" | "INVALID_GOOGLE_TOKEN" | "AUD_MISMATCH" | "GOOGLE_UNREACHABLE" | "GOOGLE_NOT_CONFIGURED" };
 
 export async function verifyGoogleIdToken(idToken: string): Promise<GoogleVerifyResult> {
   if (!idToken) return { ok: false, error: "VALIDATION_ERROR" };
+
+  const allowedAud = [process.env.GOOGLE_CLIENT_ID, process.env.ANDROID_GOOGLE_CLIENT_ID].filter(
+    (s): s is string => !!s && s.length > 0
+  );
+  // Kedua env kosong = server belum dikonfigurasi — bedakan dari token jelek
+  // agar client bisa tampilkan pesan yang tepat (isi env, bukan retry).
+  if (allowedAud.length === 0) return { ok: false, error: "GOOGLE_NOT_CONFIGURED" };
 
   let info: GoogleInfo;
   try {
@@ -32,14 +39,11 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleVerify
     return { ok: false, error: "GOOGLE_UNREACHABLE" };
   }
 
-  const allowedAud = [process.env.GOOGLE_CLIENT_ID, process.env.ANDROID_GOOGLE_CLIENT_ID].filter(
-    (s): s is string => !!s && s.length > 0
-  );
   const verified = info.email_verified === true || info.email_verified === "true";
   if (!info.sub || !info.email || !verified) {
     return { ok: false, error: "INVALID_GOOGLE_TOKEN" };
   }
-  if (allowedAud.length > 0 && (!info.aud || !allowedAud.includes(info.aud))) {
+  if (!info.aud || !allowedAud.includes(info.aud)) {
     return { ok: false, error: "AUD_MISMATCH" };
   }
 

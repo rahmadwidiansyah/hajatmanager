@@ -39,7 +39,13 @@ export async function POST(req: Request) {
   const verified = await verifyGoogleIdToken(idToken);
   if (!verified.ok) {
     const status =
-      verified.error === "GOOGLE_UNREACHABLE" ? 502 : verified.error === "VALIDATION_ERROR" ? 400 : 401;
+      verified.error === "GOOGLE_UNREACHABLE"
+        ? 502
+        : verified.error === "VALIDATION_ERROR"
+          ? 400
+          : verified.error === "GOOGLE_NOT_CONFIGURED"
+            ? 500
+            : 401;
     return NextResponse.json({ error: verified.error }, { status });
   }
   const info = verified.info;

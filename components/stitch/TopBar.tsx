@@ -94,49 +94,26 @@ export function TopBar({
     </select>
   );
 
-  // Satu tombol sync: hijau = sudah tersinkron, kuning = ada pending, abu-abu = offline.
-  const syncState: "synced" | "pending" | "offline" = !online ? "offline" : pending > 0 ? "pending" : "synced";
-  const syncTitle =
-    syncState === "offline"
-      ? `Offline — data tersimpan di perangkat${pending > 0 ? ` (${pending} menunggu sync)` : ""}. Klik untuk coba sync.`
-      : syncState === "pending"
-        ? `${pending} data belum tersync — klik untuk sync sekarang${lastSyncAt ? ` · terakhir ${lastSyncAt}` : ""}`
-        : `Sudah tersinkron${lastSyncAt ? ` · terakhir ${lastSyncAt}` : ""} — klik untuk refresh`;
+  const syncTitle = !online ? "Offline — Koneksi internet diperlukan" : "Terhubung ke server — Klik untuk refresh";
   const syncBtn = (
     <button
       onClick={handleSync}
       disabled={isSyncing}
-      aria-label={syncState === "synced" ? "Sudah tersinkron, klik untuk refresh" : syncState === "pending" ? `${pending} data belum sync, klik untuk sync` : "Offline, klik untuk coba sync"}
+      aria-label="Refresh data"
       title={syncTitle}
       className={`relative shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center disabled:opacity-50 transition-colors ${
-        syncState === "synced"
+        online
           ? "bg-emerald-600 border-emerald-600 text-white"
-          : syncState === "pending"
-            ? "bg-amber-500 border-amber-500 text-white"
-            : "bg-[var(--surface-container)] border-[var(--outline-variant)] text-[var(--on-surface-variant)]"
+          : "bg-red-600 border-red-600 text-white"
       }`}
     >
       {isSyncing ? (
         <CloudUpload size={14} className="animate-pulse" />
-      ) : syncState === "offline" ? (
+      ) : !online ? (
         <WifiOff size={14} />
-      ) : syncState === "pending" ? (
-        <CloudUpload size={14} />
       ) : (
         <CloudCheck size={14} />
       )}
-      {pending > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-[var(--surface-container-lowest)] text-[var(--on-surface)] border border-[var(--outline-variant)] text-[10px] leading-4 text-center font-semibold">
-          {pending > 9 ? "9+" : pending}
-        </span>
-      )}
-      {/* titik status kecil: hijau/kuning/abu agar terbaca tanpa warna tombol saja */}
-      <span
-        aria-hidden
-        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-          syncState === "synced" ? "bg-emerald-300" : syncState === "pending" ? "bg-yellow-200" : "bg-gray-400"
-        }`}
-      />
     </button>
   );
 
