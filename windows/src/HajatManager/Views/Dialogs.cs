@@ -19,7 +19,13 @@ public sealed class CreateEventDialog : Window
     public CreateEventDialog()
     {
         Title = "Acara baru";
-        Width = 520; Height = 520;
+        Width = 520;
+        // Jangan fixed Height: konten (~475px) + title-bar kustom M3Chrome
+        // (36px) mepet ke batas 520 sehingga baris tombol kepotong di
+        // sebagian tema/skala font. Auto-fit + scroll cadangan.
+        SizeToContent = SizeToContent.Height;
+        try { MaxHeight = Math.Min(680, SystemParameters.WorkArea.Height - 40); }
+        catch { MaxHeight = 680; }
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(16) };
@@ -44,10 +50,10 @@ public sealed class CreateEventDialog : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 12, 0, 0)
         };
-        var batal = new Button { Content = "Batal", Margin = new Thickness(0, 0, 8, 0) };
+        var batal = new Button { Content = "Batal", Margin = new Thickness(0, 0, 8, 0), MinWidth = 96, IsCancel = true };
         if (TryFindResource("TextButton") is Style tbs) batal.Style = tbs;
         batal.Click += (_, _) => DialogResult = false;
-        var simpan = new Button { Content = "Simpan" };
+        var simpan = new Button { Content = "Simpan", MinWidth = 96, IsDefault = true };
         if (TryFindResource("PrimaryButton") is Style ps) simpan.Style = ps;
         simpan.Click += (_, _) =>
         {
@@ -61,7 +67,14 @@ public sealed class CreateEventDialog : Window
         row.Children.Add(batal);
         row.Children.Add(simpan);
         p.Children.Add(row);
-        Content = p;
+        // ScrollViewer cadangan: bila konten melebihi MaxHeight (layar kecil),
+        // tombol tetap bisa dicapai via scroll alih-alih kepotong.
+        Content = new ScrollViewer
+        {
+            Content = p,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
         M3Chrome.Attach(this, dialog: true);
     }
 
