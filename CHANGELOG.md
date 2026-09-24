@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.11.1...v1.12.0) (2026-09-24)
+
+
+### Features
+
+* **windows:** fase 1-7 parity linux — chrome kustom, eventdetail, log, settings, account, auth, snack ([5d88142](https://github.com/rahmadwidiansyah/hajatmanager/commit/5d88142ab77c347cc47840a0d8a3221c29a291a3))
+
 ## [1.11.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.11.0...v1.11.1) (2026-09-24)
 
 
