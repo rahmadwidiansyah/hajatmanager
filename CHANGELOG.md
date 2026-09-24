@@ -1,3 +1,15 @@
+# [1.15.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.14.0...v1.15.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** dialog buat acara auto-fit + scroll agar tombol Simpan/Batal tak kepotong ([c78f80b](https://github.com/rahmadwidiansyah/hajatmanager/commit/c78f80be283013a97559f21d94cc64905de7d0d1))
+
+
+### Features
+
+* **native:** hapus event lokal yang sudah hilang di server (prune + guard outbox) ([a53beec](https://github.com/rahmadwidiansyah/hajatmanager/commit/a53beec94490395695d809cdb643bee881f4c38f))
+
 # [1.14.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.13.1...v1.14.0) (2026-09-24)
 
 

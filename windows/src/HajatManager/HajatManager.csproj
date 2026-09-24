@@ -9,7 +9,7 @@
     <ApplicationIcon>..\..\Assets\app.ico</ApplicationIcon>
     <AssemblyName>HajatManager</AssemblyName>
     <RootNamespace>HajatManager</RootNamespace>
-    <Version>1.14.0</Version>
+    <Version>1.15.0</Version>
     <Company>Rahmad Widiansyah</Company>
     <Product>Hajat Manager</Product>
     <Description>Hajat Manager — buku tamu &amp; catat pemberian hajatan (Windows)</Description>
