@@ -11,6 +11,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        M3Chrome.Attach(this);
         // Pasang SelectedIndex setelah InitializeComponent agar OnNavSelect tidak
         // dipicu saat XAML di-parse (Host & AcaraItem belum siap → NullReferenceException).
         NavRail.SelectedIndex = 0;

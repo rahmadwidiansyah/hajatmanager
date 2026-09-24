@@ -16,6 +16,7 @@ public partial class LoginWindow : Window
     public LoginWindow()
     {
         InitializeComponent();
+        M3Chrome.Attach(this);
         Loaded += async (_, _) =>
         {
             try { await LoadServerAsync(); }
@@ -131,18 +132,17 @@ public partial class LoginWindow : Window
             if (!ApiClient.TryNormalizeBaseUrl(raw, out var normalized, out var normErr))
             {
                 ServerLabel.Text = "Server (URL tidak valid ✗)";
-                MessageBox.Show(this, normErr ?? "URL tidak valid",
-                    "Tes Server", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Fail(normErr ?? "URL tidak valid — periksa lalu Tes lagi");
                 return;
             }
             AppConfig.Instance.SetBaseUrl(normalized);
             ServerBox.Text = normalized; // tampilkan hasil normalisasi (tambah https:// dll)
             var ok = await RefreshServerStatusAsync();
             await RefreshGoogleVisibilityAsync();
-            MessageBox.Show(this,
+            // Hasil tes tampil via ServerLabel + snack (cermin Flutter, tanpa popup).
+            M3Snack.Show(this,
                 ok ? "Server tersambung ✓" : "Masih tak terjangkau — cek URL / koneksi internet",
-                "Tes Server", MessageBoxButton.OK,
-                ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                isError: !ok);
         }
         catch (Exception ex)
         {
@@ -193,6 +193,8 @@ public partial class LoginWindow : Window
             }
         }
         SubmitBtn.IsEnabled = false;
+        var oldContent = SubmitBtn.Content;
+        SubmitBtn.Content = _reg ? "Mendaftar…" : "Masuk…";
         try
         {
             // Fase 2: daftar dulu (tanpa login), lalu login SEKALI untuk kedua jalur.
@@ -233,7 +235,7 @@ public partial class LoginWindow : Window
             AppLogger.LogException("Login submit gagal", ex);
             Fail($"Gagal masuk: {ex.Message}");
         }
-        finally { SubmitBtn.IsEnabled = true; }
+        finally { SubmitBtn.IsEnabled = true; try { SubmitBtn.Content = oldContent; } catch { } }
     }
 
     /// Ekor login bersama (email / Google / kode manual): simpan user → alur PIN.

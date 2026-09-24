@@ -31,10 +31,11 @@ public partial class EventDetailWindow : Window
     private TextBlock? _nominalPreview, _dupBannerText, _guestFooter;
     private Border? _dupBanner;
     private Button? _saveBtn, _guestMoreBtn;
-    private ComboBox? _metodeBox, _mejaBox, _mejaFilterBox, _kasirFilterBox, _sortBox, _orderBox;
-    private WrapPanel? _alamatChips, _nominalChips;
+    private ComboBox? _mejaBox, _mejaFilterBox, _kasirFilterBox, _sortBox, _orderBox;
+    private WrapPanel? _alamatChips, _nominalChips, _metodeChips;
     private Popup? _suggestPopup;
     private ListBox? _suggestList;
+    private TextBlock? _suggestHeader;
     private List<GuestBookModel> _suggestItems = new();
     private int _suggestHi = -1;
     private System.Windows.Threading.DispatcherTimer? _suggestTimer, _dupTimer;
@@ -65,12 +66,28 @@ public partial class EventDetailWindow : Window
         Title = ev.NamaAcara;
         TitleText.Text = ev.NamaAcara;
         RoleText.Text = ev.MyRole;
+        M3Chrome.Attach(this);
         SizeChanged += (_, e) =>
         {
             if (RekapGrid != null)
                 RekapGrid.Columns = e.NewSize.Width < 900 ? 1 : 2;
         };
         Loaded += async (_, _) => await RefreshAsync();
+        // Ctrl+S simpan dari tab Input cermin mobile CallbackShortcuts.
+        KeyDown += (_, e) =>
+        {
+            try
+            {
+                if (e.Key == System.Windows.Input.Key.S &&
+                    (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0 &&
+                    Tabs.SelectedIndex == 0 && _ev.CanEdit && !_guestSaving)
+                {
+                    e.Handled = true;
+                    _ = SaveGuestAsync();
+                }
+            }
+            catch { }
+        };
         // Auto-refresh saat background sync selesai / online berubah.
         SyncEngine.Instance.Changed += OnSyncChanged;
         System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += OnNetChanged;
@@ -339,10 +356,16 @@ public partial class EventDetailWindow : Window
             _suggestList = new ListBox { MaxHeight = 220, MinWidth = 260 };
             _suggestList.MouseDoubleClick += (_, _) => SelectSuggestHi();
             _suggestList.PreviewKeyDown += OnNamaPreviewKey;
+            _suggestHeader = new TextBlock { Margin = new Thickness(8, 4, 8, 4) };
+            _suggestHeader.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+            _suggestHeader.FontSize = 11;
+            var suggestStack = new StackPanel();
+            suggestStack.Children.Add(_suggestHeader);
+            suggestStack.Children.Add(_suggestList);
             var suggestBorder = new Border
             {
                 Padding = new Thickness(4),
-                Child = _suggestList,
+                Child = suggestStack,
             };
             ApplyM3Card(suggestBorder);
             _suggestPopup = new Popup
@@ -382,11 +405,13 @@ public partial class EventDetailWindow : Window
             _nominalChips = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
             nomStack.Children.Add(_nominalChips);
             grid2.Children.Add(FieldCard("Nominal (Rp)", nomStack, "100000"));
-            _metodeBox = new ComboBox { ItemsSource = Methodes, SelectedItem = _metode, Margin = new Thickness(0, 0, 0, 8) };
-            _metodeBox.SelectionChanged += (_, _) => { _metode = _metodeBox.SelectedItem as string ?? _metode; };
+            // Metode = ChoiceChip cermin Flutter (AMPLOP/QRIS/TRANSFER + fallback
+            // "(lama)" bila nilai tersimpan di luar ketiganya, cermin web).
+            _metodeChips = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            RefreshMetodeChips();
             _catatanBox = new TextBox();
             _catatanBox.TextChanged += (_, _) => RefreshDupBanner();
-            var mc = FieldCard("Metode & Catatan", _metodeBox, null);
+            var mc = FieldCard("Metode & Catatan", _metodeChips, null);
             var sp = new StackPanel();
             sp.Children.Add(mc);
             sp.Children.Add(FieldCard(null, _catatanBox, "Catatan (wajib jika duplikat)"));
@@ -401,8 +426,9 @@ public partial class EventDetailWindow : Window
             _dupBannerText = new TextBlock { TextWrapping = TextWrapping.Wrap };
             _dupBanner.Child = _dupBannerText;
             ApplyM3Card(_dupBanner);
-            _dupBanner.SetResourceReference(Border.BackgroundProperty, "WarningContainerBrush");
-            _dupBannerText.SetResourceReference(TextBlock.ForegroundProperty, "OnWarningContainerBrush");
+            // Banner duplikat memakai errorContainer cermin Flutter.
+            _dupBanner.SetResourceReference(Border.BackgroundProperty, "ErrorContainerBrush");
+            _dupBannerText.SetResourceReference(TextBlock.ForegroundProperty, "OnErrorContainerBrush");
             InputPanel.Children.Add(_dupBanner);
 
             _saveBtn = new Button
@@ -675,6 +701,9 @@ public partial class EventDetailWindow : Window
         if (_suggestList == null || _suggestPopup == null) return;
         _suggestHi = -1;
         _suggestList.ItemsSource = _suggestItems.Select(b => $"{b.Nama} — {b.Alamat}").ToList();
+        // Header cermin Flutter: "Buku Tamu (n)".
+        if (_suggestHeader != null)
+            _suggestHeader.Text = $"Buku Tamu ({_suggestItems.Count}) — klik / Enter untuk isi";
         _suggestPopup.IsOpen = _suggestItems.Count > 0;
     }
 
@@ -778,6 +807,38 @@ public partial class EventDetailWindow : Window
                 };
                 _nominalChips.Children.Add(b);
             }
+        }
+    }
+
+    // ChoiceChip metode cermin Flutter (AMPLOP/QRIS/TRANSFER). Nilai lama
+    // (CASH/BARANG) tetap bisa dipilih via chip "(lama)" cermin web.
+    private static readonly string[] MetodeChips = { "AMPLOP", "QRIS", "TRANSFER" };
+
+    private void RefreshMetodeChips()
+    {
+        if (_metodeChips == null) return;
+        _metodeChips.Children.Clear();
+        var opts = MetodeChips.Contains(_metode)
+            ? MetodeChips.AsEnumerable()
+            : MetodeChips.Concat(new[] { _metode });
+        foreach (var m in opts)
+        {
+            var legacy = !MetodeChips.Contains(m);
+            var b = new Button
+            {
+                Content = legacy ? $"{m} (lama)" : m,
+                Tag = m,
+            };
+            ApplyChip(b, _metode == m);
+            b.Click += (s, _) =>
+            {
+                if (s is Button btn && btn.Tag is string tag)
+                {
+                    _metode = tag;
+                    RefreshMetodeChips();
+                }
+            };
+            _metodeChips.Children.Add(b);
         }
     }
 
@@ -892,11 +953,10 @@ public partial class EventDetailWindow : Window
         if (!long.TryParse(nominalTxt, out var nominal) || nominal <= 0 ||
             nama.Length < 2 || alamat.Length < 2)
         {
-            MessageBox.Show(this, "Lengkapi nama (min 2), alamat (min 2), nominal > 0.",
-                "Validasi", MessageBoxButton.OK, MessageBoxImage.Warning);
+            M3Snack.Show(this, "Lengkapi nama (min 2), alamat (min 2), nominal > 0.", isError: true);
             return;
         }
-        var metode = (_metodeBox?.SelectedItem as string) ?? "AMPLOP";
+        var metode = _metode;
         var catatan = (_catatanBox?.Text ?? "").Trim();
         var sig = $"{_ev.Id}|{nama}|{alamat}|{nominal}|{metode}|{catatan}";
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -986,6 +1046,7 @@ public partial class EventDetailWindow : Window
             Content = content,
         };
         win.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty, "SurfaceBrush");
+        M3Chrome.Attach(win, dialog: true);
         return win;
     }
 
@@ -1091,6 +1152,8 @@ public partial class EventDetailWindow : Window
         if (_bookDialogOpen || _bookSaving) return;
         _bookDialogOpen = true;
         var n = new TextBox(); var a = new TextBox();
+        var errBk = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
+        errBk.SetResourceReference(TextBlock.ForegroundProperty, "ErrorBrush");
         var save = M3Primary("Simpan");
         var win = M3Dialog("Buku tamu baru", new StackPanel
         {
@@ -1098,9 +1161,10 @@ public partial class EventDetailWindow : Window
             Children = {
                     M3Label("Nama"), n,
                     M3Label("Alamat", new Thickness(0,8,0,4)), a,
+                    errBk,
                     save,
                 }
-        }, 280);
+        }, 300);
         win.Closed += (_, _) => { _bookDialogOpen = false; };
         save.Click += async (_, _) =>
         {
@@ -1110,8 +1174,7 @@ public partial class EventDetailWindow : Window
             if (_books.Any(b => string.Equals(b.Nama, namaBk, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(b.Alamat, alamatBk, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, "Nama dan alamat sudah tercatat di buku tamu.", "Duplikat",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                errBk.Text = "Nama dan alamat sudah tercatat di buku tamu.";
                 return;
             }
             var sig = $"{_ev.Id}|{namaBk}|{alamatBk}";
@@ -1352,13 +1415,11 @@ public partial class EventDetailWindow : Window
                 else
                     Services.Exporter.ExportPdf(dlg.FileName, _ev, snapshot, email, meja);
             });
-            MessageBox.Show(this, $"Tersimpan: {dlg.FileName}", "Export",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            M3Snack.Show(this, $"Tersimpan: {dlg.FileName}");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Export gagal: {ex.Message}", "Export",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            M3Snack.Show(this, $"Export gagal: {ex.Message}", isError: true);
         }
         finally
         {

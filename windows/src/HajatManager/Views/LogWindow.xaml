@@ -7,21 +7,42 @@
   <!-- Fase 5: page-shell cermin web (max 1120px, auto-center) -->
   <DockPanel Margin="16" MaxWidth="1120">
     <TextBlock DockPanel.Dock="Top" Text="Log Aktivitas" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
       <TextBox x:Name="SearchBox" Width="300" TextChanged="OnSearchGo"/>
-      <ComboBox x:Name="AksiBox" Width="180" Margin="8,0,0,0" SelectionChanged="OnFilter"/>
       <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload" Style="{DynamicResource TonalButton}"/>
       <TextBlock x:Name="StatusText" Margin="12,0,0,0" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}" Text="…"/>
     </StackPanel>
+    <!-- Filter aksi horizontal cermin Flutter FilterChip -->
+    <ScrollViewer DockPanel.Dock="Top" HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Disabled" Margin="0,0,0,12">
+      <WrapPanel x:Name="AksiChips" Orientation="Horizontal"/>
+    </ScrollViewer>
+    <ProgressBar x:Name="LoadingBar" DockPanel.Dock="Top" Height="4" Margin="0,0,0,8"
+                 IsIndeterminate="True" Visibility="Collapsed"/>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"
+                VerticalAlignment="Center">
+      <TextBlock x:Name="LogFooter" VerticalAlignment="Center"
+                 Foreground="{DynamicResource OnVariantBrush}"/>
+      <Button x:Name="LogMoreBtn" Content="Muat 30 lagi" Margin="12,0,0,0" Click="OnMore"
+              Style="{DynamicResource OutlineButton}" Visibility="Collapsed"/>
+    </StackPanel>
     <TextBlock x:Name="ErrText" DockPanel.Dock="Top" Foreground="{DynamicResource ErrorBrush}"
                Visibility="Collapsed" Margin="0,0,0,8" TextWrapping="Wrap"/>
-    <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True">
-      <DataGrid.Columns>
-        <DataGridTextColumn Header="Aksi" Binding="{Binding Aksi}" Width="180"/>
-        <DataGridTextColumn Header="Oleh" Binding="{Binding Oleh}" Width="*"/>
-        <DataGridTextColumn Header="Waktu" Binding="{Binding Waktu}" Width="130"/>
-      </DataGrid.Columns>
-    </DataGrid>
+    <Grid x:Name="BodyHost">
+      <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Aksi" Binding="{Binding Aksi}" Width="180"/>
+          <DataGridTextColumn Header="Oleh" Binding="{Binding Oleh}" Width="*"/>
+          <DataGridTextColumn Header="Waktu" Binding="{Binding Waktu}" Width="130"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <!-- Empty state cermin Flutter -->
+      <Border x:Name="EmptyHost" Visibility="Collapsed" Margin="0,24,0,0"
+              Style="{DynamicResource M3Card}" HorizontalAlignment="Center" VerticalAlignment="Top"
+              MaxWidth="480" Padding="24">
+        <StackPanel x:Name="EmptyBody" HorizontalAlignment="Center"/>
+      </Border>
+    </Grid>
   </DockPanel>
 </Window>

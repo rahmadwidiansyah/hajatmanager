@@ -44,7 +44,7 @@
             <TextBox x:Name="BookSearch" Width="300" TextChanged="OnBookSearch"/>
             <Button x:Name="AddBookBtn" Content="+ Tamu" Margin="8,0,0,0" Click="OnAddBook"
                     Style="{DynamicResource PrimaryButton}"/>
-            <Button Content="Sync" Margin="8,0,0,0" Click="OnSync" Style="{DynamicResource TonalButton}"/>
+            <Button Content="Sync" Margin="8,0,0,0" Click="OnSync" Style="{DynamicResource OutlineButton}"/>
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"
                       VerticalAlignment="Center">

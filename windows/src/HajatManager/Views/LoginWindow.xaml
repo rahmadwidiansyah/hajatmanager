@@ -6,6 +6,9 @@
         Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="32" MaxWidth="400" VerticalAlignment="Center">
+      <!-- Ikon app cermin Flutter (72px) -->
+      <Image Source="/HajatManager;component/Assets/app.ico" Width="72" Height="72"
+             HorizontalAlignment="Center" Margin="0,0,0,12" Stretch="Uniform"/>
       <TextBlock Text="Hajat Manager" Style="{DynamicResource M3Headline}" TextAlignment="Center"/>
       <TextBlock Text="Catat pemberian satset, online maupun offline."
                  Foreground="{DynamicResource OnVariantBrush}" TextAlignment="Center"

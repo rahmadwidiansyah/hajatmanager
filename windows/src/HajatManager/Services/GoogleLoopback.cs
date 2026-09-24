@@ -200,6 +200,7 @@ public sealed class CodePasteDialog : Window
         row.Children.Add(ok);
         p.Children.Add(row);
         Content = p;
+        Views.M3Chrome.Attach(this, dialog: true);
         _box.Focus();
     }
 }
@@ -256,6 +257,7 @@ public sealed class LinkCopyDialog : Window
         row.Children.Add(copy);
         p.Children.Add(row);
         Content = p;
+        Views.M3Chrome.Attach(this, dialog: true);
         box.Focus();
         box.SelectAll();
     }

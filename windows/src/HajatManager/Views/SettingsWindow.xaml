@@ -6,24 +6,50 @@
         Background="{DynamicResource SurfaceBrush}">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="16" MaxWidth="760">
-      <TextBlock x:Name="SummaryText" Style="{DynamicResource M3Headline}" Margin="0,0,0,12"/>
+      <!-- Header + RoleChip cermin Flutter AppBar -->
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
+        <TextBlock x:Name="SummaryText" Style="{DynamicResource M3Headline}" VerticalAlignment="Center"/>
+        <Border x:Name="RoleChip" Margin="12,0,0,0" Padding="10,4" CornerRadius="999"
+                BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SurfaceContainerHighBrush}">
+          <TextBlock x:Name="RoleChipText" FontSize="11" FontWeight="SemiBold"
+                     Foreground="{DynamicResource OnSurfaceBrush}"/>
+        </Border>
+      </StackPanel>
+      <ProgressBar x:Name="LoadingBar" Height="4" Margin="0,0,0,8"
+                   IsIndeterminate="True" Visibility="Collapsed"/>
       <GroupBox Header="Info Acara" Margin="0,0,0,12">
         <StackPanel>
-          <TextBlock Text="NAMA ACARA" Style="{DynamicResource M3SectionTitle}"/>
-          <TextBox x:Name="NamaBox" Margin="0,0,0,8"/>
-          <TextBlock Text="TUAN RUMAH" Style="{DynamicResource M3SectionTitle}"/>
-          <TextBox x:Name="TuanBox" Margin="0,0,0,8"/>
-          <TextBlock Text="LOKASI" Style="{DynamicResource M3SectionTitle}"/>
-          <TextBox x:Name="LokBox" Margin="0,0,0,8"/>
-          <TextBlock Text="CATATAN" Style="{DynamicResource M3SectionTitle}"/>
-          <TextBox x:Name="CatBox" Margin="0,0,0,12"/>
+          <!-- 2 kolom di layar lebar cermin Flutter -->
+          <UniformGrid Columns="2" Margin="0,0,0,0">
+            <StackPanel Margin="0,0,6,0">
+              <TextBlock Text="NAMA ACARA" Style="{DynamicResource M3SectionTitle}"/>
+              <TextBox x:Name="NamaBox" Margin="0,0,0,8"/>
+              <TextBlock Text="TUAN RUMAH" Style="{DynamicResource M3SectionTitle}"/>
+              <TextBox x:Name="TuanBox" Margin="0,0,0,8"/>
+              <TextBlock Text="TANGGAL" Style="{DynamicResource M3SectionTitle}"/>
+              <DatePicker x:Name="TglPicker" Margin="0,0,0,8"/>
+            </StackPanel>
+            <StackPanel Margin="6,0,0,0">
+              <TextBlock Text="LOKASI" Style="{DynamicResource M3SectionTitle}"/>
+              <TextBox x:Name="LokBox" Margin="0,0,0,8"/>
+              <TextBlock Text="CATATAN" Style="{DynamicResource M3SectionTitle}"/>
+              <TextBox x:Name="CatBox" Margin="0,0,0,8" AcceptsReturn="True" Height="64"
+                       VerticalContentAlignment="Top"/>
+            </StackPanel>
+          </UniformGrid>
+          <TextBlock x:Name="ViewerNote" FontSize="12"
+                     Foreground="{DynamicResource OnVariantBrush}" Visibility="Collapsed"
+                     Margin="0,0,0,8">Hanya OWNER/ADMIN yang bisa mengubah info acara.</TextBlock>
           <Button x:Name="SaveInfoBtn" Content="Simpan Perubahan"
                   Style="{DynamicResource PrimaryButton}" Click="OnSaveInfo"/>
         </StackPanel>
       </GroupBox>
-      <GroupBox Header="Meja" Margin="0,0,0,12">
+      <GroupBox Header="Meja (maks 10)" Margin="0,0,0,12">
         <StackPanel>
-          <ListBox x:Name="MejaList" Height="110"/>
+          <!-- Chips deletable cermin Flutter -->
+          <WrapPanel x:Name="MejaChips" Orientation="Horizontal"/>
           <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
             <TextBox x:Name="MejaBox" Width="220"/>
             <Button Content="Tambah" Margin="8,0,0,0" Click="OnAddMeja" Style="{DynamicResource TonalButton}"/>
@@ -42,11 +68,33 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="Nama" Binding="{Binding Name}" Width="*"/>
               <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="*"/>
-              <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="100"/>
+              <!-- Role bisa diubah + anggota bisa dihapus cermin Flutter -->
+              <DataGridTemplateColumn Header="Role" Width="130">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <ComboBox SelectedValue="{Binding Role, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              SelectedValuePath="Content"
+                              SelectionChanged="OnRoleChanged" Tag="{Binding}"
+                              Width="115" Padding="8,4">
+                      <ComboBoxItem Content="OWNER"/>
+                      <ComboBoxItem Content="ADMIN"/>
+                      <ComboBoxItem Content="VIEWER"/>
+                    </ComboBox>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Aksi" Width="90">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Button Content="Hapus" Click="OnRemoveMember" Padding="8,2"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
             </DataGrid.Columns>
           </DataGrid>
         </StackPanel>
       </GroupBox>
+      <!-- Danger zone cermin Flutter (ketik HAPUS untuk konfirmasi) -->
       <Button x:Name="DeleteBtn" Content="Hapus Acara Permanen" Click="OnDelete"
               Style="{DynamicResource DangerButton}"/>
     </StackPanel>

@@ -34,27 +34,57 @@ public static class PinFlow
     }
 }
 
-/// Dialog input 6 digit.
+/// Dialog input 6 digit (kunci buka) — cermin _PinLockScreenState Flutter:
+/// ikon lock + auto-submit saat 6 digit.
 public sealed class PinDialog : Window
 {
     private readonly PasswordBox _box = new() { MaxLength = 6, Margin = new Thickness(0, 8, 0, 0) };
+    private bool _auto;
     public string Pin => _box.Password;
 
     public PinDialog(string title, string hint)
     {
         Title = title;
-        Width = 360; Height = 220;
+        Width = 360; Height = 300;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(24) };
-        p.Children.Add(new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap });
+        var p = new StackPanel { Margin = new Thickness(24), HorizontalAlignment = HorizontalAlignment.Center };
+        var icon = new Border
+        {
+            Width = 56, Height = 56, CornerRadius = new CornerRadius(28),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 12),
+            Child = new TextBlock
+            {
+                Text = "\uE72E",
+                FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                FontSize = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+        icon.SetResourceReference(Border.BackgroundProperty, "PrimaryContainerBrush");
+        icon.Child.SetResourceReference(TextBlock.ForegroundProperty, "OnPrimaryContainerBrush");
+        p.Children.Add(icon);
+        p.Children.Add(new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center });
         p.Children.Add(_box);
+        var help = new TextBlock { Text = "Wajib 6 digit angka.", Margin = new Thickness(0, 4, 0, 0) };
+        help.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+        p.Children.Add(help);
         var ok = new Button { Content = "OK", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += (_, _) => { DialogResult = _box.Password.Length == 6; };
         p.Children.Add(ok);
         Content = p;
+        M3Chrome.Attach(this, dialog: true);
+        _box.PasswordChanged += (_, _) =>
+        {
+            if (_auto || _box.Password.Length != 6) return;
+            _auto = true;
+            try { DialogResult = true; } catch { _auto = false; }
+        };
         _box.Focus();
     }
+}
 }
 
 public sealed class PinSetupWindow : Window
@@ -75,6 +105,8 @@ public sealed class PinSetupWindow : Window
         });
         var b1 = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 12, 0, 0) };
         var b2 = new PasswordBox { MaxLength = 6, Margin = new Thickness(0, 8, 0, 0) };
+        var help = new TextBlock { Text = "Wajib 6 digit angka.", Margin = new Thickness(0, 4, 0, 0) };
+        help.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
         var err = new TextBlock { Foreground = Ui.ErrorBrush, Margin = new Thickness(0, 8, 0, 0) };
         var ok = new Button { Content = "Simpan PIN", Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += async (_, _) =>
@@ -106,9 +138,11 @@ public sealed class PinSetupWindow : Window
         p.Children.Add(b1);
         p.Children.Add(new TextBlock { Text = "Ulangi PIN", Margin = new Thickness(0, 8, 0, 0) });
         p.Children.Add(b2);
+        p.Children.Add(help);
         p.Children.Add(err);
         p.Children.Add(ok);
         Content = p;
+        M3Chrome.Attach(this, dialog: true);
     }
 }
 
@@ -159,5 +193,6 @@ public sealed class PinRestoreWindow : Window
         p.Children.Add(ok);
         p.Children.Add(lupa);
         Content = p;
+        M3Chrome.Attach(this, dialog: true);
     }
 }

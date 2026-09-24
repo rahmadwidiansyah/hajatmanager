@@ -63,6 +63,7 @@ public sealed class CreateEventDialog : Window
         row.Children.Add(simpan);
         p.Children.Add(row);
         Content = p;
+        M3Chrome.Attach(this, dialog: true);
     }
 
     private static TextBlock M3Title(string t)

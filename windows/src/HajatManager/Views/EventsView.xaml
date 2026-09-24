@@ -37,7 +37,8 @@
         </TextBlock.Style>
       </TextBlock>
       <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                 Foreground="{DynamicResource OnVariantBrush}" FontSize="14" Text="&#xE71E;"/>
+                 Foreground="{DynamicResource OnVariantBrush}" FontSize="14"
+                 FontFamily="Segoe MDL2 Assets" Text="&#xE71E;"/>
     </Grid>
     <ProgressBar x:Name="LoadingBar" DockPanel.Dock="Top" Height="4" Margin="0,0,0,8"
                  IsIndeterminate="True" Visibility="Collapsed"/>
@@ -87,8 +88,8 @@
                     <TextBlock Foreground="{DynamicResource OnVariantBrush}" FontSize="11"
                                TextTrimming="CharacterEllipsis"
                                Text="{Binding NamaTuanRumah, TargetNullValue='', StringFormat='Tuan rumah: {0}'}"/>
-                    <!-- RoleChip warna per-role -->
-                    <Border Margin="0,6,0,0" Padding="10,3" CornerRadius="8"
+                    <!-- RoleChip warna per-role (Stadium cermin Flutter) -->
+                    <Border Margin="0,6,0,0" Padding="10,3" CornerRadius="999"
                             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                             HorizontalAlignment="Left">
                       <Border.Style>

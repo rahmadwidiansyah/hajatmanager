@@ -11,6 +11,29 @@ public partial class AccountView : UserControl
     public AccountView()
     {
         InitializeComponent();
+        // Segmented Terang/Gelap/Sistem cermin Flutter (ganti radio).
+        try
+        {
+            var cur = ThemeManager.Current;
+            var seg = M3Segmented.Build(
+                new List<(string, string?)>
+                {
+                    ("Terang", null),
+                    ("Gelap", null),
+                    ("Sistem", null),
+                },
+                cur == ThemeManager.Dark ? 1 : cur == ThemeManager.Light ? 0 : 2,
+                idx =>
+                {
+                    var tag = idx == 1 ? ThemeManager.Dark : idx == 0 ? ThemeManager.Light : ThemeManager.System;
+                    if (tag != ThemeManager.Current)
+                    {
+                        try { ThemeManager.Apply(tag); } catch (Exception ex) { AppLogger.LogException("Ganti tema gagal", ex); }
+                    }
+                });
+            ThemeSegHost.Content = seg;
+        }
+        catch { }
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -38,44 +61,35 @@ public partial class AccountView : UserControl
     {
         NameText.Text = u.TryGetProperty("name", out var n) ? n.GetString() ?? "…" : "…";
         EmailText.Text = u.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "";
-        // Fase A: tandai pilihan tema tersimpan (tanpa memicu Checked).
+        // Avatar inisial cermin Flutter CircleAvatar.
         try
         {
-            var cur = ThemeManager.Current;
-            ThemeLight.IsChecked = cur == ThemeManager.Light;
-            ThemeDark.IsChecked = cur == ThemeManager.Dark;
-            ThemeSystem.IsChecked = cur != ThemeManager.Light && cur != ThemeManager.Dark;
+            var nm = NameText.Text.Trim();
+            AvatarText.Text = nm.Length > 0 ? nm[..1].ToUpperInvariant() : "?";
         }
         catch { }
     }
 
-    // Fase A: ganti tema instan, tersimpan untuk startup berikutnya.
-    private void OnThemeChecked(object s, RoutedEventArgs e)
+    // Tile aktif ditandai border Primary (ganti chip aktif).
+    private void MarkActive(Border active)
     {
-        try
+        foreach (var b in new Border[] { TileProfil, TileKeamanan, TilePin, TileTentang })
         {
-            // Abaikan event inisialisasi (SetHeader menandai radio tersimpan).
-            if (s is RadioButton rb && rb.Tag is string tag && rb.IsChecked == true
-                && tag != ThemeManager.Current)
-                ThemeManager.Apply(tag);
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogException("Ganti tema gagal", ex);
+            try
+            {
+                if (ReferenceEquals(b, active))
+                    b.SetResourceReference(Border.BorderBrushProperty, "PrimaryBrush");
+                else
+                    b.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+                b.BorderThickness = new Thickness(ReferenceEquals(b, active) ? 1.5 : 1);
+            }
+            catch { }
         }
     }
 
-    private void MarkActive(System.Windows.Controls.Button active)
-    {
-        foreach (var b in new[] { ProfilBtn, KeamananBtn, PinBtn, TentangBtn })
-        {
-            try { b.SetResourceReference(StyleProperty, ReferenceEquals(b, active) ? "M3ChipActive" : "M3Chip"); } catch { }
-        }
-    }
-
-    private void GoProfile(object s, RoutedEventArgs e) { SubHost.Content = new ProfileView(); MarkActive(ProfilBtn); }
-    private void GoSecurity(object s, RoutedEventArgs e) { SubHost.Content = new SecurityView(); MarkActive(KeamananBtn); }
-    private void GoPin(object s, RoutedEventArgs e)
+    private void GoProfile(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new ProfileView(); MarkActive(TileProfil); }
+    private void GoSecurity(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new SecurityView(); MarkActive(TileKeamanan); }
+    private void GoPin(object s, System.Windows.Input.MouseButtonEventArgs e)
     {
         var email = "";
         try
@@ -85,7 +99,21 @@ public partial class AccountView : UserControl
         }
         catch { }
         new PinSetupWindow(email).ShowDialog();
-        MarkActive(PinBtn);
+        MarkActive(TilePin);
     }
-    private void GoAbout(object s, RoutedEventArgs e) { SubHost.Content = new AboutView(); MarkActive(TentangBtn); }
+    private void GoAbout(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new AboutView(); MarkActive(TileTentang); }
+
+    private void OnTileKey(object s, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        try
+        {
+            if (ReferenceEquals(s, TileProfil)) { SubHost.Content = new ProfileView(); MarkActive(TileProfil); }
+            else if (ReferenceEquals(s, TileKeamanan)) { SubHost.Content = new SecurityView(); MarkActive(TileKeamanan); }
+            else if (ReferenceEquals(s, TilePin)) GoPin(s, new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left));
+            else if (ReferenceEquals(s, TileTentang)) { SubHost.Content = new AboutView(); MarkActive(TileTentang); }
+            e.Handled = true;
+        }
+        catch { }
+    }
 }

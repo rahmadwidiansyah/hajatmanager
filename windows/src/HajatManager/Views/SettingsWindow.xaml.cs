@@ -21,11 +21,30 @@ public partial class SettingsWindow : Window
         MemberBox.Visibility = ev.IsOwner ? Visibility.Visible : Visibility.Collapsed;
         DeleteBtn.Visibility = ev.IsOwner ? Visibility.Visible : Visibility.Collapsed;
         SaveInfoBtn.IsEnabled = ev.CanEdit;
+        // RoleChip + catatan viewer cermin Flutter AppBar.
+        try
+        {
+            RoleChipText.Text = ev.MyRole;
+            if (ev.MyRole == "OWNER")
+            {
+                RoleChip.SetResourceReference(Border.BackgroundProperty, "PrimaryContainerBrush");
+                RoleChipText.SetResourceReference(TextBlock.ForegroundProperty, "OnPrimaryContainerBrush");
+            }
+            else if (ev.MyRole == "ADMIN")
+            {
+                RoleChip.SetResourceReference(Border.BackgroundProperty, "WarningContainerBrush");
+                RoleChipText.SetResourceReference(TextBlock.ForegroundProperty, "OnWarningContainerBrush");
+            }
+            ViewerNote.Visibility = ev.CanEdit ? Visibility.Collapsed : Visibility.Visible;
+        }
+        catch { }
+        M3Chrome.Attach(this);
         Loaded += async (_, _) => await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
+        try { LoadingBar.Visibility = Visibility.Visible; } catch { }
         try
         {
             var doc = await ApiClient.Instance.GetAsync($"/api/events/{_ev.Id}");
@@ -35,25 +54,38 @@ public partial class SettingsWindow : Window
             TuanBox.Text = r.TryGetProperty("namaTuanRumah", out var t) && t.ValueKind != JsonValueKind.Null ? t.GetString() ?? "" : "";
             LokBox.Text = r.TryGetProperty("lokasi", out var l) && l.ValueKind != JsonValueKind.Null ? l.GetString() ?? "" : "";
             CatBox.Text = r.TryGetProperty("catatan", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? "" : "";
+            try
+            {
+                if (r.TryGetProperty("tanggal", out var tg) && tg.ValueKind == JsonValueKind.String &&
+                    DateTime.TryParse(tg.GetString(), out var d))
+                    TglPicker.SelectedDate = d;
+            }
+            catch { }
             _meja.Clear();
             if (r.TryGetProperty("mejaList", out var ml))
                 foreach (var m in ml.EnumerateArray())
                     _meja.Add(m.GetString() ?? "");
-            MejaList.ItemsSource = _meja.ToList();
+            RefreshMejaChips();
             var total = r.TryGetProperty("totalTamu", out var tt) ? tt.GetInt32() : 0;
             SummaryText.Text = $"{total} tamu";
             if (r.TryGetProperty("members", out var ms))
             {
-                MemberGrid.ItemsSource = ms.EnumerateArray().Select(m => new MemberModel
+                _membersLoading = true;
+                try
                 {
-                    UserId = MemberUid(m),
-                    Role = m.TryGetProperty("role", out var ro) ? ro.GetString() ?? "VIEWER" : "VIEWER",
-                    Name = m.TryGetProperty("user", out var u) && u.TryGetProperty("name", out var nm) ? nm.GetString() ?? "" : "",
-                    Email = m.TryGetProperty("user", out var u2) && u2.TryGetProperty("email", out var em) ? em.GetString() ?? "" : "",
-                }).ToList();
+                    MemberGrid.ItemsSource = ms.EnumerateArray().Select(m => new MemberModel
+                    {
+                        UserId = MemberUid(m),
+                        Role = m.TryGetProperty("role", out var ro) ? ro.GetString() ?? "VIEWER" : "VIEWER",
+                        Name = m.TryGetProperty("user", out var u) && u.TryGetProperty("name", out var nm) ? nm.GetString() ?? "" : "",
+                        Email = m.TryGetProperty("user", out var u2) && u2.TryGetProperty("email", out var em) ? em.GetString() ?? "" : "",
+                    }).ToList();
+                }
+                finally { _membersLoading = false; }
             }
         }
         catch { }
+        finally { try { LoadingBar.Visibility = Visibility.Collapsed; } catch { } }
     }
 
     private static string MemberUid(JsonElement m)
@@ -65,6 +97,65 @@ public partial class SettingsWindow : Window
     }
 
     private bool _savingInfo;
+    private bool _membersLoading;
+
+    // Chips meja deletable cermin Flutter (× per chip + PATCH).
+    private async void RefreshMejaChips(bool push = false)
+    {
+        try
+        {
+            MejaChips.Children.Clear();
+            foreach (var m in _meja.ToList())
+            {
+                var chip = new Border
+                {
+                    Margin = new Thickness(0, 0, 6, 6),
+                    Padding = new Thickness(12, 6, 6, 6),
+                    CornerRadius = new CornerRadius(999),
+                    BorderThickness = new Thickness(1),
+                };
+                chip.SetResourceReference(Border.BackgroundProperty, "SurfaceContainerHighBrush");
+                chip.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+                var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var label = new TextBlock { Text = m, VerticalAlignment = VerticalAlignment.Center };
+                label.SetResourceReference(TextBlock.ForegroundProperty, "OnSurfaceBrush");
+                row.Children.Add(label);
+                var x = new Button
+                {
+                    Content = "\uE711",
+                    FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 9,
+                    Width = 22, Height = 22,
+                    Margin = new Thickness(6, 0, 0, 0),
+                    Padding = new Thickness(0),
+                    Tag = m,
+                    ToolTip = $"Hapus {m}",
+                };
+                if (TryFindResource("TextButton") is Style tbs) x.Style = tbs;
+                x.Click += (s, _) =>
+                {
+                    if (s is Button btn && btn.Tag is string tag)
+                    {
+                        _meja.Remove(tag);
+                        RefreshMejaChips(push: true);
+                    }
+                };
+                row.Children.Add(x);
+                chip.Child = row;
+                MejaChips.Children.Add(chip);
+            }
+        }
+        catch { }
+        if (push)
+        {
+            try
+            {
+                using var _ = await ApiClient.Instance.PatchJsonAsync($"/api/events/{_ev.Id}",
+                    new { mejaList = _meja });
+            }
+            catch { }
+        }
+    }
 
     private async void OnSaveInfo(object sender, RoutedEventArgs e)
     {
@@ -74,20 +165,21 @@ public partial class SettingsWindow : Window
         if (btn != null) btn.IsEnabled = false;
         try
         {
-            using var r = await ApiClient.Instance.PatchJsonAsync($"/api/events/{_ev.Id}",
-                new
-                {
-                    namaAcara = NamaBox.Text,
-                    namaTuanRumah = TuanBox.Text,
-                    lokasi = LokBox.Text,
-                    catatan = string.IsNullOrWhiteSpace(CatBox.Text) ? null : CatBox.Text,
-                    mejaList = _meja,
-                });
-            MessageBox.Show(this, r.IsSuccessStatusCode ? "Tersimpan" : "Gagal simpan",
-                "Info", MessageBoxButton.OK,
-                r.IsSuccessStatusCode ? MessageBoxImage.Information : MessageBoxImage.Error);
+            var payload = new Dictionary<string, object?>
+            {
+                ["namaAcara"] = NamaBox.Text,
+                ["namaTuanRumah"] = TuanBox.Text,
+                ["lokasi"] = LokBox.Text,
+                ["catatan"] = string.IsNullOrWhiteSpace(CatBox.Text) ? null : CatBox.Text,
+                ["mejaList"] = _meja,
+            };
+            if (TglPicker.SelectedDate is DateTime tgl)
+                payload["tanggal"] = tgl.ToString("yyyy-MM-dd");
+            using var r = await ApiClient.Instance.PatchJsonAsync($"/api/events/{_ev.Id}", payload);
+            if (r.IsSuccessStatusCode) M3Snack.Show(this, "Tersimpan");
+            else M3Snack.Show(this, "Gagal simpan", isError: true);
         }
-        catch { MessageBox.Show(this, "Tidak ada koneksi", "Info", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch { M3Snack.Show(this, "Tidak ada koneksi", isError: true); }
         finally { _savingInfo = false; if (btn != null) btn.IsEnabled = true; }
     }
 
@@ -96,7 +188,7 @@ public partial class SettingsWindow : Window
         var v = MejaBox.Text.Trim().ToUpperInvariant();
         if (v.Length == 0 || _meja.Contains(v) || _meja.Count >= 10) return;
         _meja.Add(v);
-        MejaList.ItemsSource = _meja.ToList();
+        RefreshMejaChips();
         MejaBox.Text = "";
         try
         {
@@ -131,6 +223,55 @@ public partial class SettingsWindow : Window
     }
 
     private bool _addingMember;
+    private bool _changingRole;
+
+    // Ubah role anggota cermin Flutter (Dropdown OWNER/ADMIN/VIEWER).
+    private async void OnRoleChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_membersLoading || _changingRole) return;
+        if (sender is not ComboBox box) return;
+        if (box.Tag is not MemberModel m) return;
+        if (box.SelectedValue is not string role || role == m.Role) return;
+        _changingRole = true;
+        try
+        {
+            using var r = await ApiClient.Instance.PatchJsonAsync(
+                $"/api/events/{_ev.Id}/members",
+                new { userId = m.UserId, role });
+            if (r.IsSuccessStatusCode)
+            {
+                m.Role = role;
+                M3Snack.Show(this, $"Role {m.Name} → {role}");
+            }
+            else
+            {
+                M3Snack.Show(this,
+                    await ApiClient.Instance.TryErrAsync(r, "Gagal ubah role") ?? "Gagal",
+                    isError: true);
+                await LoadAsync();
+            }
+        }
+        catch { M3Snack.Show(this, "Butuh online.", isError: true); await LoadAsync(); }
+        finally { _changingRole = false; }
+    }
+
+    private async void OnRemoveMember(object sender, RoutedEventArgs e)
+    {
+        MemberModel m;
+        try { m = (MemberModel)((FrameworkElement)sender).DataContext; }
+        catch { return; }
+        if (MessageBox.Show(this, $"Keluarkan {m.Name} dari acara?",
+                "Keluarkan anggota", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            using var r = await ApiClient.Instance.DeleteAsync(
+                $"/api/events/{_ev.Id}/members?userId={Uri.EscapeDataString(m.UserId)}");
+            if (r.IsSuccessStatusCode) await LoadAsync();
+            else M3Snack.Show(this, "Gagal mengeluarkan anggota.", isError: true);
+        }
+        catch { M3Snack.Show(this, "Butuh online.", isError: true); }
+    }
 
     private async void OnAddMember(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -152,37 +293,73 @@ public partial class SettingsWindow : Window
             }
             else
             {
-                MessageBox.Show(this,
+                M3Snack.Show(this,
                     await ApiClient.Instance.TryErrAsync(r, "Gagal tambah") ?? "Gagal",
-                    "Anggota", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    isError: true);
             }
         }
-        catch { MessageBox.Show(this, "Butuh online.", "Anggota", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch { M3Snack.Show(this, "Butuh online.", isError: true); }
         finally { _addingMember = false; }
     }
 
-    private bool _deleting;
-
-    private async void OnDelete(object sender, RoutedEventArgs e)
+    // Danger zone cermin Flutter: ketik HAPUS untuk konfirmasi.
+    private void OnDelete(object sender, RoutedEventArgs e)
     {
-        if (_deleting) return;
-        var c = MessageBox.Show(this,
-            "Hapus acara ini permanen beserta semua datanya? Tindakan tidak bisa dibatalkan.",
-            "Hapus Acara", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (c != MessageBoxResult.Yes) return;
-        _deleting = true;
-        var btn = sender as System.Windows.Controls.Button;
-        if (btn != null) btn.IsEnabled = false;
-        try
+        var box = new TextBox { Margin = new Thickness(0, 8, 0, 0) };
+        var err = new TextBlock { Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        err.SetResourceReference(TextBlock.ForegroundProperty, "ErrorBrush");
+        var hapus = new Button { Content = "Hapus Permanen", Margin = new Thickness(8, 0, 0, 0), IsEnabled = false };
+        if (TryFindResource("DangerButton") is Style ds) hapus.Style = ds;
+        var batal = new Button { Content = "Batal" };
+        if (TryFindResource("TextButton") is Style ts) batal.Style = ts;
+        var win = new Window
         {
-            using var r = await ApiClient.Instance.DeleteAsync($"/api/events/{_ev.Id}");
-            if (r.IsSuccessStatusCode)
+            Title = "Hapus Acara Permanen",
+            Width = 440, Height = 300,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            ResizeMode = ResizeMode.NoResize,
+        };
+        win.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        var p = new StackPanel { Margin = new Thickness(24) };
+        p.Children.Add(new TextBlock
+        {
+            Text = "Hapus acara ini permanen beserta semua datanya? Tindakan tidak bisa dibatalkan.\n\nKetik HAPUS untuk melanjutkan.",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        p.Children.Add(box);
+        p.Children.Add(err);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0),
+        };
+        row.Children.Add(batal);
+        row.Children.Add(hapus);
+        p.Children.Add(row);
+        win.Content = p;
+        M3Chrome.Attach(win, dialog: true);
+        box.TextChanged += (_, _) => { hapus.IsEnabled = box.Text.Trim() == "HAPUS"; };
+        batal.Click += (_, _) => win.Close();
+        hapus.Click += async (_, _) =>
+        {
+            hapus.IsEnabled = false;
+            try
             {
-                await Data.LocalDb.Instance.DeleteEventLocalAsync(_ev.Id);
-                Close();
+                using var r = await ApiClient.Instance.DeleteAsync($"/api/events/{_ev.Id}");
+                if (r.IsSuccessStatusCode)
+                {
+                    await Data.LocalDb.Instance.DeleteEventLocalAsync(_ev.Id);
+                    win.Close();
+                    Close();
+                    return;
+                }
+                err.Text = "Gagal menghapus — coba lagi.";
             }
-        }
-        catch { MessageBox.Show(this, "Hapus butuh online.", "Hapus", MessageBoxButton.OK, MessageBoxImage.Warning); }
-        finally { _deleting = false; if (btn != null) btn.IsEnabled = true; }
+            catch { err.Text = "Hapus butuh online."; }
+            finally { try { hapus.IsEnabled = box.Text.Trim() == "HAPUS"; } catch { } }
+        };
+        win.ShowDialog();
     }
 }
