@@ -1,3 +1,10 @@
+## [1.12.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.2...v1.12.3) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** SetResourceReference via referensi TextBlock (CS1061) ([ff420f6](https://github.com/rahmadwidiansyah/hajatmanager/commit/ff420f6b5d16ca2d9c9e335edea7c3c0aafa7e58))
+
 ## [1.12.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.1...v1.12.2) (2026-09-24)
 
 
