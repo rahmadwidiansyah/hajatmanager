@@ -49,22 +49,23 @@ public sealed class PinDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         var p = new StackPanel { Margin = new Thickness(24), HorizontalAlignment = HorizontalAlignment.Center };
+        var iconText = new TextBlock
+        {
+            Text = "\uE72E",
+            FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+            FontSize = 24,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        iconText.SetResourceReference(TextBlock.ForegroundProperty, "OnPrimaryContainerBrush");
         var icon = new Border
         {
             Width = 56, Height = 56, CornerRadius = new CornerRadius(28),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 0, 12),
-            Child = new TextBlock
-            {
-                Text = "\uE72E",
-                FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
-                FontSize = 24,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
+            Child = iconText,
         };
         icon.SetResourceReference(Border.BackgroundProperty, "PrimaryContainerBrush");
-        icon.Child.SetResourceReference(TextBlock.ForegroundProperty, "OnPrimaryContainerBrush");
         p.Children.Add(icon);
         p.Children.Add(new TextBlock { Text = hint, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center });
         p.Children.Add(_box);
