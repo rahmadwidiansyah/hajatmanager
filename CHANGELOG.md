@@ -1,3 +1,10 @@
+## [1.12.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.1...v1.12.2) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** hapus kurung tutup berlebih di PinFlow (CS1022) ([b5b5200](https://github.com/rahmadwidiansyah/hajatmanager/commit/b5b52005fe16154c3010303d4550f409cebe29c5))
+
 ## [1.12.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.0...v1.12.1) (2026-09-24)
 
 
