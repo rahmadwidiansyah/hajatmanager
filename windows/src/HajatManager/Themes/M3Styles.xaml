@@ -15,6 +15,11 @@
   <Thickness x:Key="M3CardPadding">12</Thickness>
   <Thickness x:Key="M3ChipPadding">8,2</Thickness>
 
+  <!-- Skala radius M3 (cermin app_theme.dart rSm8/rMd12/rXl28 + Stadium):
+       Full = tombol & chip, 12 = kartu & input & grup, 4 = popup menu & item,
+       28 = dialog. Satu-satunya nilai yang dipakai file ini. -->
+  <CornerRadius x:Key="RFull">999</CornerRadius>
+
   <!-- Kartu M3: surface-container-lowest + outline-variant 1px + radius 12 -->
   <Style x:Key="M3Card" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
@@ -56,7 +61,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                  CornerRadius="999" Padding="{TemplateBinding Padding}"
+                  CornerRadius="{StaticResource RFull}" Padding="{TemplateBinding Padding}"
                   SnapsToDevicePixels="True">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
@@ -89,7 +94,7 @@
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="Transparent"
                   BorderBrush="{DynamicResource OutlineStrongBrush}" BorderThickness="1"
-                  CornerRadius="999" Padding="{TemplateBinding Padding}">
+                  CornerRadius="{StaticResource RFull}" Padding="{TemplateBinding Padding}">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
@@ -116,7 +121,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="Transparent"
-                  CornerRadius="999" Padding="{TemplateBinding Padding}">
+                  CornerRadius="{StaticResource RFull}" Padding="{TemplateBinding Padding}">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
@@ -153,7 +158,7 @@
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="{TemplateBinding Background}"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
-                  CornerRadius="999" Padding="{TemplateBinding Padding}">
+                  CornerRadius="{StaticResource RFull}" Padding="{TemplateBinding Padding}">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
@@ -331,7 +336,7 @@
           <Border Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="16" Padding="{TemplateBinding Padding}">
+                  CornerRadius="12" Padding="{TemplateBinding Padding}">
             <StackPanel>
               <ContentPresenter ContentSource="Header" RecognizesAccessKey="True">
                 <ContentPresenter.Resources>
@@ -447,7 +452,7 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="8" Padding="10,6"
+                          CornerRadius="12" Padding="10,6"
                           SnapsToDevicePixels="True">
                       <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
                           Fill="{TemplateBinding Foreground}"
@@ -484,7 +489,7 @@
                    IsOpen="{TemplateBinding IsDropDownOpen}"
                    AllowsTransparency="False" Focusable="False" PopupAnimation="Slide">
               <Border x:Name="DropDownBorder" Background="{DynamicResource CardBrush}"
-                      BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="8"
+                      BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="4"
                       Padding="4" SnapsToDevicePixels="True"
                       MinWidth="{TemplateBinding ActualWidth}"
                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
@@ -532,7 +537,7 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   Padding="{TemplateBinding Padding}"
-                  CornerRadius="6" SnapsToDevicePixels="True">
+                  CornerRadius="4" SnapsToDevicePixels="True">
             <ContentPresenter/>
           </Border>
           <ControlTemplate.Triggers>
@@ -590,9 +595,12 @@
               <Button x:Name="PART_Button" Grid.Column="1"
                       Background="Transparent" BorderThickness="0"
                       Foreground="{TemplateBinding Foreground}"
-                      FontFamily="Segoe MDL2 Assets" Content="&#xE787;"
-                      FontSize="14" Padding="8,0,10,0"
-                      VerticalAlignment="Center" Focusable="False"/>
+                      Padding="8,0,10,0"
+                      VerticalAlignment="Center" Focusable="False">
+                <Button.Content>
+                  <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                </Button.Content>
+              </Button>
               <Popup x:Name="PART_Popup" AllowsTransparency="False"
                      Focusable="False" StaysOpen="False"
                      Placement="Bottom" PlacementTarget="{Binding ElementName=Bd}"/>
@@ -751,7 +759,7 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   Padding="{TemplateBinding Padding}"
-                  CornerRadius="6" SnapsToDevicePixels="True">
+                  CornerRadius="4" SnapsToDevicePixels="True">
             <ContentPresenter/>
           </Border>
           <ControlTemplate.Triggers>

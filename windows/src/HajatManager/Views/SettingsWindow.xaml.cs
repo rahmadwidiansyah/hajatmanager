@@ -122,9 +122,14 @@ public partial class SettingsWindow : Window
                 row.Children.Add(label);
                 var x = new Button
                 {
-                    Content = "\uE711",
-                    FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
-                    FontSize = 9,
+                    Content = new TextBlock
+                    {
+                        Text = "\uE711",
+                        FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                        FontSize = 9,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
                     Width = 22, Height = 22,
                     Margin = new Thickness(6, 0, 0, 0),
                     Padding = new Thickness(0),

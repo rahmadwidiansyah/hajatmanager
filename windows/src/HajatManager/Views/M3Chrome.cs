@@ -141,7 +141,16 @@ public static class M3Chrome
     {
         var b = new Button
         {
-            Content = glyph,
+            // TextBlock eksplisit: tanpa ini TextBlock global (AppFont) menimpa
+            // FontFamily MDL2 hasil auto-generate content string → glyph jadi kotak.
+            Content = new TextBlock
+            {
+                Text = glyph,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
             ToolTip = tip,
             Cursor = Cursors.Hand,
         };
