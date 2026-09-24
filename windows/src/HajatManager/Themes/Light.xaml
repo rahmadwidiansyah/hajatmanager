@@ -68,11 +68,14 @@
   <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Error}"/>
   <SolidColorBrush x:Key="OnErrorBrush" Color="{StaticResource OnError}"/>
   <SolidColorBrush x:Key="ErrorContainerBrush" Color="{StaticResource ErrorContainer}"/>
+  <SolidColorBrush x:Key="OnErrorContainerBrush" Color="{StaticResource OnErrorContainer}"/>
   <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}"/>
   <SolidColorBrush x:Key="WarningContainerBrush" Color="{StaticResource WarningContainer}"/>
   <SolidColorBrush x:Key="OnWarningContainerBrush" Color="{StaticResource OnWarningContainer}"/>
   <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource Info}"/>
+  <SolidColorBrush x:Key="OnInfoBrush" Color="{StaticResource OnInfo}"/>
   <SolidColorBrush x:Key="InfoContainerBrush" Color="{StaticResource InfoContainer}"/>
+  <SolidColorBrush x:Key="OnInfoContainerBrush" Color="{StaticResource OnInfoContainer}"/>
   <SolidColorBrush x:Key="InverseSurfaceBrush" Color="{StaticResource InverseSurface}"/>
   <SolidColorBrush x:Key="InverseOnSurfaceBrush" Color="{StaticResource InverseOnSurface}"/>
 

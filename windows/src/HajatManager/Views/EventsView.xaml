@@ -14,17 +14,33 @@
                    Foreground="{DynamicResource OnVariantBrush}" FontSize="12"/>
       </StackPanel>
       <Button Grid.Column="1" Content="+ Acara" Click="OnCreate"
-              Style="{DynamicResource PrimaryButton}" MinWidth="120"/>
+              Style="{DynamicResource PrimaryButton}" MinWidth="120"
+              ToolTip="Buat acara baru (Ctrl+N)"/>
     </Grid>
     <TextBlock DockPanel.Dock="Top" Text="Pilih acara untuk input, buku tamu, dan rekap."
                Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,8"/>
-    <!-- Search M3 dengan hint -->
-    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-      <TextBox x:Name="SearchBox" TextChanged="OnSearch"
-               Padding="34,6,12,6"/>
-      <TextBlock Margin="36,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                 Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
-                 Text="Cari acara / lokasi… (Ctrl+F)">
+    <!-- Search M3: Border + ikon + TextBox transparan + placeholder (cermin /dashboard) -->
+    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+      <Border Background="{DynamicResource CardBrush}"
+              BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+              CornerRadius="8" SnapsToDevicePixels="True">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="36"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                     Foreground="{DynamicResource OnVariantBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <TextBox x:Name="SearchBox" Grid.Column="1" BorderThickness="0"
+                   Background="Transparent" Padding="0,8" FontSize="13"
+                   TextChanged="OnSearch"/>
+        </Grid>
+      </Border>
+      <!-- Placeholder (collapsed saat ada teks) -->
+      <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="42,0,0,0"
+                 Foreground="{DynamicResource OnVariantBrush}" FontSize="13"
+                 Text="Cari acara atau lokasi… (Ctrl+F)">
         <TextBlock.Style>
           <Style TargetType="TextBlock">
             <Setter Property="Visibility" Value="Collapsed"/>
@@ -36,62 +52,74 @@
           </Style>
         </TextBlock.Style>
       </TextBlock>
-      <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                 Foreground="{DynamicResource OnVariantBrush}" FontSize="14"
-                 FontFamily="Segoe MDL2 Assets" Text="&#xE71E;"/>
     </Grid>
     <ProgressBar x:Name="LoadingBar" DockPanel.Dock="Top" Height="4" Margin="0,0,0,8"
                  IsIndeterminate="True" Visibility="Collapsed"/>
     <Grid>
       <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <!-- WrapPanel = kolom fluida otomatis (cermin columnsForWidth Flutter) -->
+        <!-- UniformGrid 1/2/3 kolom via SizeChanged (cermin md:grid-cols-2 xl:grid-cols-3 web) -->
         <ItemsControl x:Name="List">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel Orientation="Horizontal"/>
+              <UniformGrid Columns="2"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Border MinWidth="280" MaxWidth="480" Margin="0,0,8,8" Padding="12"
-                      Style="{DynamicResource M3Card}"
+              <Border Margin="0,0,12,12" Style="{DynamicResource M3Card}"
                       Cursor="Hand" Focusable="True"
                       ToolTip="Buka acara (Enter)"
-                      MouseLeftButtonUp="OnOpen" KeyDown="OnOpenKey">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="52"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <!-- Kotak tanggal ala Linux (secondaryContainer) -->
-                  <Border Width="48" Height="48" CornerRadius="8" VerticalAlignment="Top"
-                          Background="{DynamicResource SecondaryContainerBrush}"
-                          BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                      <TextBlock Text="{Binding Tanggal, StringFormat=dd}" FontWeight="Bold" FontSize="15"
-                                 Foreground="{DynamicResource OnSecondaryContainerBrush}"
-                                 HorizontalAlignment="Center"/>
-                      <TextBlock Text="{Binding Tanggal, StringFormat=MMM}" FontSize="11"
-                                 Foreground="{DynamicResource OnSecondaryContainerBrush}"
-                                 HorizontalAlignment="Center"/>
-                    </StackPanel>
-                  </Border>
-                  <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding NamaAcara}" FontWeight="SemiBold" FontSize="14"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
-                               TextTrimming="CharacterEllipsis">
-                      <Run Text="{Binding Lokasi, TargetNullValue='-'}"/>
-                      <Run Text=" • "/><Run Text="{Binding Tanggal, StringFormat=d}"/>
-                    </TextBlock>
-                    <TextBlock Foreground="{DynamicResource OnVariantBrush}" FontSize="11"
-                               TextTrimming="CharacterEllipsis"
-                               Text="{Binding NamaTuanRumah, TargetNullValue='', StringFormat='Tuan rumah: {0}'}"/>
-                    <!-- RoleChip warna per-role -->
-                    <Border Margin="0,6,0,0" Padding="10,3" CornerRadius="6"
+                      MouseLeftButtonUp="OnOpen" KeyDown="OnOpenKey"
+                      MouseEnter="OnCardHover" MouseLeave="OnCardLeave">
+                <StackPanel>
+                  <!-- Baris atas: kotak tanggal + info + role chip -->
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="52"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Kotak tanggal -->
+                    <Border Width="48" Height="48" CornerRadius="8"
+                            Background="{DynamicResource SecondaryContainerBrush}"
                             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
-                            HorizontalAlignment="Left">
+                            VerticalAlignment="Top" SnapsToDevicePixels="True">
+                      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Tanggal, StringFormat=dd}" FontWeight="Bold"
+                                   FontSize="16" Foreground="{DynamicResource OnSecondaryContainerBrush}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding TanggalBulan}" FontSize="11"
+                                   Foreground="{DynamicResource OnSecondaryContainerBrush}"
+                                   HorizontalAlignment="Center"/>
+                      </StackPanel>
+                    </Border>
+                    <!-- Info tengah -->
+                    <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding NamaAcara}" FontWeight="SemiBold" FontSize="14"
+                                 TextTrimming="CharacterEllipsis"/>
+                      <TextBlock FontSize="12" Foreground="{DynamicResource OnVariantBrush}"
+                                 Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                 Text="{Binding TuanRumahLabel}"
+                                 Visibility="{Binding TuanRumahVisible}"/>
+                      <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                        <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                   Foreground="{DynamicResource OnVariantBrush}" Margin="0,0,4,0"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding TanggalPanjang}" FontSize="12"
+                                   Foreground="{DynamicResource OnVariantBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                      <TextBlock Text="{Binding LokasiLabel}" FontSize="12"
+                                 Foreground="{DynamicResource OnVariantBrush}"
+                                 Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                 Visibility="{Binding LokasiVisible}"/>
+                    </StackPanel>
+                    <!-- Role chip kanan atas: warna per-role cermin roleChipClass() web -->
+                    <Border Grid.Column="2" VerticalAlignment="Top"
+                            Padding="10,3" CornerRadius="6"
+                            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                            Background="{DynamicResource SurfaceContainerHighBrush}"
+                            SnapsToDevicePixels="True">
                       <Border.Style>
                         <Style TargetType="Border">
                           <Setter Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
@@ -108,7 +136,7 @@
                       <TextBlock Text="{Binding MyRole}" FontSize="11" FontWeight="SemiBold">
                         <TextBlock.Style>
                           <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding MyRole}" Value="OWNER">
                                 <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
@@ -121,10 +149,19 @@
                         </TextBlock.Style>
                       </TextBlock>
                     </Border>
+                  </Grid>
+                  <!-- Separator -->
+                  <Border Height="1" Background="{DynamicResource OutlineBrush}" Margin="0,0,0,10"
+                          SnapsToDevicePixels="True"/>
+                  <!-- Baris bawah: "Buka Acara →" -->
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="Buka Acara" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryBrush}"/>
+                    <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                               Foreground="{DynamicResource PrimaryBrush}" Margin="4,0,0,0"
+                               VerticalAlignment="Center"/>
                   </StackPanel>
-                  <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="20" VerticalAlignment="Center"
-                             Foreground="{DynamicResource OnVariantBrush}" Margin="8,0,0,0"/>
-                </Grid>
+                </StackPanel>
               </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -144,7 +181,7 @@
                      TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0"/>
           <Button x:Name="EmptyCreateBtn" Content="Buat acara pertama" Click="OnCreate"
                   Style="{DynamicResource PrimaryButton}" Margin="0,12,0,0"
-                  HorizontalAlignment="Center" MinWidth="180"/>
+                  HorizontalAlignment="Center" MinWidth="180" ToolTip="Buat acara baru (Ctrl+N)"/>
         </StackPanel>
       </Border>
     </Grid>

@@ -578,6 +578,26 @@ public sealed class ApiClient
         return await _http.DeleteAsync(path);
     }
 
+    // Upload foto profil (Task 8): multipart field "file" cermin web FormData.
+    public async Task<HttpResponseMessage> PostMultipartAsync(string path, MultipartFormDataContent content)
+    {
+        EnsureConfigured();
+        return await _http.PostAsync(path, content);
+    }
+
+    // Unduh bytes berautentikasi (foto profil cookie-session, Task 8).
+    // path boleh relatif ("/uploads/x.jpg") atau URL absolut.
+    public async Task<byte[]?> GetBytesAsync(string pathOrUrl)
+    {
+        EnsureConfigured();
+        var url = pathOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? pathOrUrl
+            : BaseUrl.TrimEnd('/') + "/" + pathOrUrl.TrimStart('/');
+        using var r = await _http.GetAsync(url);
+        if (!r.IsSuccessStatusCode) return null;
+        return await r.Content.ReadAsByteArrayAsync();
+    }
+
     public async Task<string?> TryErrAsync(HttpResponseMessage r, string fallback)
     {
         try

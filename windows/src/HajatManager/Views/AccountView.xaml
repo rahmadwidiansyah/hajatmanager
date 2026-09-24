@@ -30,67 +30,107 @@
           <ContentControl x:Name="ThemeSegHost" HorizontalAlignment="Left"/>
         </StackPanel>
       </Border>
-      <!-- Tiles 2 kolom cermin Flutter (leading ikon + chevron) -->
+      <!-- Tiles 2 kolom cermin Flutter (ikon kotak + judul + subtitle + chevron) -->
       <UniformGrid x:Name="TileGrid" Columns="2" Margin="0,8,0,0">
         <Border x:Name="TileProfil" Style="{DynamicResource M3Card}" Margin="0,0,6,6"
                 Cursor="Hand" Focusable="True" ToolTip="Profil"
                 MouseLeftButtonUp="GoProfile" KeyDown="OnTileKey">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="8"
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="48"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Border Width="40" Height="40" CornerRadius="10"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <TextBlock Text="Profil" FontWeight="SemiBold" Margin="12,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                       Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-          </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="Profil" FontWeight="SemiBold" FontSize="14"/>
+              <TextBlock Text="Nama, username, email" FontSize="12"
+                         Foreground="{DynamicResource OnVariantBrush}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" Foreground="{DynamicResource OnVariantBrush}"
+                       VerticalAlignment="Center"/>
+          </Grid>
         </Border>
         <Border x:Name="TileKeamanan" Style="{DynamicResource M3Card}" Margin="6,0,0,6"
                 Cursor="Hand" Focusable="True" ToolTip="Keamanan &amp; Password"
                 MouseLeftButtonUp="GoSecurity" KeyDown="OnTileKey">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="8"
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="48"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Border Width="40" Height="40" CornerRadius="10"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <TextBlock Text="Keamanan &amp; Password" FontWeight="SemiBold" Margin="12,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                       Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-          </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="Keamanan" FontWeight="SemiBold" FontSize="14"/>
+              <TextBlock Text="Password &amp; perangkat" FontSize="12"
+                         Foreground="{DynamicResource OnVariantBrush}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" Foreground="{DynamicResource OnVariantBrush}"
+                       VerticalAlignment="Center"/>
+          </Grid>
         </Border>
         <Border x:Name="TilePin" Style="{DynamicResource M3Card}" Margin="0,0,6,0"
                 Cursor="Hand" Focusable="True" ToolTip="PIN &amp; Kunci Layar"
                 MouseLeftButtonUp="GoPin" KeyDown="OnTileKey">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="8"
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="48"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Border Width="40" Height="40" CornerRadius="10"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE75F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <TextBlock Text="PIN &amp; Kunci Layar" FontWeight="SemiBold" Margin="12,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                       Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-          </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="PIN" FontWeight="SemiBold" FontSize="14"/>
+              <TextBlock Text="Kunci layar otomatis" FontSize="12"
+                         Foreground="{DynamicResource OnVariantBrush}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" Foreground="{DynamicResource OnVariantBrush}"
+                       VerticalAlignment="Center"/>
+          </Grid>
         </Border>
         <Border x:Name="TileTentang" Style="{DynamicResource M3Card}" Margin="6,0,0,0"
                 Cursor="Hand" Focusable="True" ToolTip="Tentang &amp; Keluar"
                 MouseLeftButtonUp="GoAbout" KeyDown="OnTileKey">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="8"
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="48"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Border Width="40" Height="40" CornerRadius="10"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <TextBlock Text="Tentang &amp; Keluar" FontWeight="SemiBold" Margin="12,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                       Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-          </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="Tentang" FontWeight="SemiBold" FontSize="14"/>
+              <TextBlock Text="Versi, server, keluar" FontSize="12"
+                         Foreground="{DynamicResource OnVariantBrush}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" Foreground="{DynamicResource OnVariantBrush}"
+                       VerticalAlignment="Center"/>
+          </Grid>
         </Border>
       </UniformGrid>
       <ContentControl x:Name="SubHost" Margin="0,8,0,0"/>

@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
+using System.Windows;
 
 namespace HajatManager.Models;
 
@@ -17,6 +19,36 @@ public sealed class EventModel
     public bool IsOwner => MyRole == "OWNER";
     public int TotalTamu { get; set; }
     public long TotalNominal { get; set; }
+
+    // ---- Properti tampilan kartu EventsView (Task 3, cermin /dashboard web) ----
+    // Format id-ID deterministik: "Sep" / "14 September 2026" (bukan kultur OS).
+    private static readonly CultureInfo IdCulture = new("id-ID");
+
+    // → "Sep"
+    [JsonIgnore]
+    public string TanggalBulan => Tanggal.ToString("MMM", IdCulture);
+
+    // → "14 September 2026"
+    [JsonIgnore]
+    public string TanggalPanjang => Tanggal.ToString("d MMMM yyyy", IdCulture);
+
+    // → "Tuan rumah: Budi" atau "" (web hanya render bila ada)
+    [JsonIgnore]
+    public string TuanRumahLabel =>
+        string.IsNullOrWhiteSpace(NamaTuanRumah) ? "" : $"Tuan rumah: {NamaTuanRumah}";
+
+    [JsonIgnore]
+    public Visibility TuanRumahVisible =>
+        string.IsNullOrWhiteSpace(NamaTuanRumah) ? Visibility.Collapsed : Visibility.Visible;
+
+    // → "📍 Lokasi" atau ""
+    [JsonIgnore]
+    public string LokasiLabel =>
+        string.IsNullOrWhiteSpace(Lokasi) ? "" : $"📍 {Lokasi}";
+
+    [JsonIgnore]
+    public Visibility LokasiVisible =>
+        string.IsNullOrWhiteSpace(Lokasi) ? Visibility.Collapsed : Visibility.Visible;
 }
 
 public sealed class GuestBookModel

@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using HajatManager.Api;
 using HajatManager.Data;
 using HajatManager.Models;
@@ -25,17 +27,44 @@ public partial class EventsView : UserControl
                 AppLogger.LogException("EventsView.Load gagal", ex);
                 try { ApplyFilter(); } catch { }
             }
+            try { UpdateColumns(ActualWidth); } catch { }
         };
+        // Grid fluida 1/2/3 kolom cermin md:grid-cols-2 xl:grid-cols-3 (web).
+        try { SizeChanged += (_, e) => UpdateColumns(e.NewSize.Width); } catch { }
         // Ctrl+F fokus ke pencarian (cermin mobile CallbackShortcuts).
+        // ↑↓←→ navigasi antar kartu via fokus directional (Task 9).
         try
         {
             KeyDown += (_, e) =>
             {
-                if (e.Key == System.Windows.Input.Key.F &&
-                    (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0)
+                var ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+                if (ctrl && !e.Handled && e.Key == System.Windows.Input.Key.F)
                 {
                     try { SearchBox.Focus(); } catch { }
                     e.Handled = true;
+                    return;
+                }
+                if (!ctrl && !e.Handled &&
+                    (e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down ||
+                     e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right))
+                {
+                    try
+                    {
+                        if (System.Windows.Input.Keyboard.FocusedElement is FrameworkElement fe
+                            && List.IsAncestorOf(fe))
+                        {
+                            var dir = e.Key == System.Windows.Input.Key.Up
+                                ? System.Windows.Input.FocusNavigationDirection.Up
+                                : e.Key == System.Windows.Input.Key.Down
+                                    ? System.Windows.Input.FocusNavigationDirection.Down
+                                    : e.Key == System.Windows.Input.Key.Left
+                                        ? System.Windows.Input.FocusNavigationDirection.Left
+                                        : System.Windows.Input.FocusNavigationDirection.Right;
+                            if (fe.MoveFocus(new System.Windows.Input.TraversalRequest(dir)))
+                                e.Handled = true;
+                        }
+                    }
+                    catch { }
                 }
             };
             Focusable = true;
@@ -126,6 +155,43 @@ public partial class EventsView : UserControl
         return ev;
     }
 
+    // Cermin WindowUi.columnsForWidth (Flutter) dan md:grid-cols-2 xl:grid-cols-3 (web).
+    // Catatan: UniformGrid di dalam ItemsPanelTemplate tidak bisa diakses via
+    // x:Name/namescope, jadi dicari lewat visual tree di bawah ItemsControl.
+    private void UpdateColumns(double width)
+    {
+        try
+        {
+            if (List == null) return;
+            var cols = width < 700 ? 1 : width < 1050 ? 2 : 3;
+            var grid = FindUniformGrid(List);
+            if (grid != null && grid.Columns != cols)
+                grid.Columns = cols;
+        }
+        catch { }
+    }
+
+    private static UniformGrid? FindUniformGrid(DependencyObject root)
+    {
+        try
+        {
+            var queue = new Queue<DependencyObject>();
+            queue.Enqueue(root);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                if (current is UniformGrid ug) return ug;
+                var count = VisualTreeHelper.GetChildrenCount(current);
+                for (var i = 0; i < count; i++)
+                {
+                    try { queue.Enqueue(VisualTreeHelper.GetChild(current, i)); } catch { }
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
     private void OnSearch(object sender, TextChangedEventArgs e) => ApplyFilter();
 
     private void ApplyFilter()
@@ -150,20 +216,71 @@ public partial class EventsView : UserControl
         catch { }
     }
 
+    // Hybrid open cermin web: embed di Host saat window lebar (≥900px),
+    // ShowDialog saat sempit. Embed penuh via MainWindow.ShowEventDetail (Task 4).
     private void OnOpen(object sender, MouseButtonEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is EventModel ev)
-            new EventDetailWindow(ev).ShowDialog();
+        try
+        {
+            if ((sender as FrameworkElement)?.DataContext is not EventModel ev) return;
+            var mainWin = Application.Current.MainWindow as MainWindow;
+            if (mainWin != null && mainWin.ActualWidth >= 900)
+                mainWin.ShowEventDetail(ev);
+            else
+                new EventDetailWindow(ev).ShowDialog();
+        }
+        catch
+        {
+            if ((sender as FrameworkElement)?.DataContext is EventModel fallback)
+                new EventDetailWindow(fallback).ShowDialog();
+        }
     }
 
     private void OnOpenKey(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == System.Windows.Input.Key.Enter &&
             (sender as FrameworkElement)?.DataContext is EventModel ev)
-            new EventDetailWindow(ev).ShowDialog();
+        {
+            try
+            {
+                var mainWin = Application.Current.MainWindow as MainWindow;
+                if (mainWin != null && mainWin.ActualWidth >= 900)
+                    mainWin.ShowEventDetail(ev);
+                else
+                    new EventDetailWindow(ev).ShowDialog();
+            }
+            catch
+            {
+                new EventDetailWindow(ev).ShowDialog();
+            }
+        }
     }
 
-    private async void OnCreate(object sender, RoutedEventArgs e)
+    // Hover kartu: border menyala ke primary (cermin hover:border-primary web).
+    private void OnCardHover(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        try { if (sender is Border b) b.BorderBrush = BrushOf("PrimaryBrush"); } catch { }
+    }
+
+    private void OnCardLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        try { if (sender is Border b) b.BorderBrush = BrushOf("OutlineBrush"); } catch { }
+    }
+
+    private static Brush BrushOf(string key)
+    {
+        try
+        {
+            if (Application.Current?.TryFindResource(key) is Brush b) return b;
+        }
+        catch { }
+        return Brushes.Gray;
+    }
+
+    // Public agar MainWindow Ctrl+N bisa memicu dialog buat acara (lihat Task 2/9).
+    public void CreateNew() => OnCreate(this, new RoutedEventArgs());
+
+    public async void OnCreate(object? sender, RoutedEventArgs e)
     {
         if (_creating) return;
         var d = new CreateEventDialog();

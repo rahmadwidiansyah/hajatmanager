@@ -12,13 +12,13 @@ public static class Exporter
 {
     public static string FormatRp(long v) => $"Rp {v:N0}".Replace(",", ".");
 
-    public static void ExportPdf(string path, EventModel ev, List<GuestModel> guests, string userName = "-", string? mejaLabel = null)
+    public static void ExportPdf(string path, EventModel ev, List<GuestModel> guests, string userName = "-", string? mejaLabel = null, bool landscape = false, string reportKind = "Pemberian")
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var total = guests.Sum(g => g.Nominal);
         var safeEvent = string.IsNullOrWhiteSpace(ev.NamaAcara) ? "Acara" : ev.NamaAcara.Trim();
         var safeUser = string.IsNullOrWhiteSpace(userName) ? "-" : userName.Trim();
-        var title = $"{safeEvent} - Laporan Pemberian";
+        var title = $"{safeEvent} - Laporan {reportKind}";
         var meta = $"{DateTime.Now:dd/MM/yyyy HH:mm} | {safeUser} | {guests.Count} tamu | {FormatRp(total)}";
         var byMetode = guests.GroupBy(g => string.IsNullOrEmpty(g.Metode) ? "-" : g.Metode)
             .Select(g => new { Metode = g.Key, Jumlah = g.Count(), Total = g.Sum(x => x.Nominal) })
@@ -27,7 +27,7 @@ public static class Exporter
         {
             c.Page(p =>
             {
-                p.Size(PageSizes.A4);
+                p.Size(landscape ? PageSizes.A4.Landscape() : PageSizes.A4);
                 p.Margin(36);
                 p.Header().Column(col =>
                 {
@@ -141,13 +141,13 @@ public static class Exporter
         });
     }
 
-    public static void ExportXlsx(string path, EventModel ev, List<GuestModel> guests)
+    public static void ExportXlsx(string path, EventModel ev, List<GuestModel> guests, string reportKind = "Pemberian")
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Rekap");
         var safeEvent = string.IsNullOrWhiteSpace(ev.NamaAcara) ? "Acara" : ev.NamaAcara.Trim();
         ws.Cell(1, 1).Value = safeEvent;
-        ws.Cell(2, 1).Value = $"Laporan Pemberian | {DateTime.Now:dd/MM/yyyy HH:mm} | {guests.Count} tamu";
+        ws.Cell(2, 1).Value = $"Laporan {reportKind} | {DateTime.Now:dd/MM/yyyy HH:mm} | {guests.Count} tamu";
         string[] head = { "No", "Nama", "Alamat", "Nominal", "Metode", "Meja", "Catatan" };
         for (var i = 0; i < head.Length; i++)
         {

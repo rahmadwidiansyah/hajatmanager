@@ -5,29 +5,81 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
   <DockPanel>
-    <!-- M3 TopAppBar: judul + status chip kiri, aksi kanan -->
-    <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}"
-            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1"
-            Padding="12,8">
+    <!-- M3 TopAppBar cermin DashboardHeader.tsx: brand + status chip kiri, sync + avatar kanan -->
+    <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
+        <!-- Kiri: Brand + status chip -->
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Hajat Manager" Style="{DynamicResource M3Headline}" VerticalAlignment="Center"/>
-          <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8"
-                  Background="{DynamicResource SurfaceContainerHighBrush}"
+          <TextBlock Text="Hajat Manager" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+          <Border x:Name="StatusChip" Margin="10,0,0,0" Padding="8,3" CornerRadius="6"
+                  Background="{DynamicResource SurfaceContainerBrush}"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
-                  VerticalAlignment="Center">
-            <TextBlock x:Name="StatusText" Text="Siap" FontSize="12"
-                       Foreground="{DynamicResource OnSurfaceBrush}"/>
+                  VerticalAlignment="Center" SnapsToDevicePixels="True">
+            <TextBlock x:Name="StatusText" Text="Siap" FontSize="11"
+                       Foreground="{DynamicResource OnSurfaceBrush}" VerticalAlignment="Center"/>
           </Border>
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button x:Name="SyncBtn" Content="Sync Semua" Click="OnSyncAll"
-                  Style="{DynamicResource TonalButton}" Margin="0,0,8,0"/>
-          <Button Content="Akun" Click="GoAccount" Style="{DynamicResource TextButton}"/>
+        <!-- Kanan: SyncBtn + AvatarBtn -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                    HorizontalAlignment="Right">
+          <Grid Margin="0,0,8,0">
+            <Button x:Name="SyncBtn" Style="{DynamicResource M3SyncButton}" Click="OnSyncAll"
+                    Content="&#xE117;" ToolTip="Sync data (Ctrl+R)"/>
+            <Border x:Name="SyncBadgeBorder" MinWidth="18" Height="18" CornerRadius="9"
+                    Background="{DynamicResource ErrorBrush}"
+                    BorderBrush="{DynamicResource SurfaceBrush}" BorderThickness="1"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0"
+                    Visibility="Collapsed" SnapsToDevicePixels="True">
+              <TextBlock x:Name="SyncBadgeText" Text="0" FontSize="10" FontWeight="Bold"
+                         Foreground="{DynamicResource OnErrorBrush}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+            </Border>
+          </Grid>
+          <Button x:Name="AvatarBtn" Click="OnAvatarMenu" Style="{DynamicResource TonalButton}"
+                  Padding="4,4,10,4" ToolTip="Menu akun">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Border x:Name="AvatarCircle" Width="28" Height="28" CornerRadius="14"
+                      Background="{DynamicResource PrimaryContainerBrush}"
+                      SnapsToDevicePixels="True">
+                <TextBlock x:Name="AvatarInitial" Text="?" FontWeight="Bold" FontSize="12"
+                           Foreground="{DynamicResource OnPrimaryContainerBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock x:Name="UserNameText" Text="" Margin="6,0,4,0" VerticalAlignment="Center"
+                         FontSize="13" MaxWidth="110" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                         Foreground="{DynamicResource OnVariantBrush}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <!-- Popup dropdown avatar cermin DashboardHeader.tsx -->
+          <Popup x:Name="AvatarPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=AvatarBtn}"
+                 StaysOpen="False" AllowsTransparency="False">
+            <Border Style="{DynamicResource M3Card}" Padding="4" MinWidth="200">
+              <StackPanel>
+                <StackPanel Margin="8,8,8,4">
+                  <TextBlock x:Name="PopupNameText" Text="" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock x:Name="PopupEmailText" Text="" FontSize="11" Foreground="{DynamicResource OnVariantBrush}"
+                             TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <Separator Margin="0,4,0,4" Background="{DynamicResource OutlineBrush}"/>
+                <Button Content="Akun" Click="GoAccount" Style="{DynamicResource TextButton}"
+                        HorizontalContentAlignment="Left" Padding="8,6"
+                        ToolTip="Buka halaman akun (Alt+2)"/>
+                <Button x:Name="ThemeToggleBtn" Content="Mode Gelap" Click="OnToggleTheme"
+                        Style="{DynamicResource TextButton}" HorizontalContentAlignment="Left" Padding="8,6"
+                        ToolTip="Ganti tema terang/gelap"/>
+                <Separator Margin="0,4,0,4" Background="{DynamicResource OutlineBrush}"/>
+                <Button Content="Keluar" Click="OnLogout" Style="{DynamicResource DangerButton}"
+                        HorizontalContentAlignment="Left" Padding="8,6" Margin="0"
+                        ToolTip="Keluar dari akun"/>
+              </StackPanel>
+            </Border>
+          </Popup>
         </StackPanel>
       </Grid>
     </Border>
@@ -39,19 +91,23 @@
       </Grid.ColumnDefinitions>
       <Border Background="{DynamicResource SurfaceBrush}"
               BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0"
-              Padding="8">
+              Padding="8,4">
         <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect"
                  BorderThickness="0" Background="Transparent">
-          <ListBoxItem x:Name="AcaraItem" Tag="events" Padding="10,8">
+          <ListBoxItem x:Name="AcaraItem" Tag="events" Style="{DynamicResource M3NavRailItem}"
+                         ToolTip="Acara (Alt+1)">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Text="&#xE8B5;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
-              <TextBlock Text="Acara" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE8B5;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                         Margin="0,0,10,0" VerticalAlignment="Center"/>
+              <TextBlock Text="Acara" VerticalAlignment="Center" FontSize="13"/>
             </StackPanel>
           </ListBoxItem>
-          <ListBoxItem x:Name="AkunItem" Tag="account" Padding="10,8">
+          <ListBoxItem x:Name="AkunItem" Tag="account" Style="{DynamicResource M3NavRailItem}"
+                         ToolTip="Akun (Alt+2)">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center"/>
-              <TextBlock Text="Akun" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                         Margin="0,0,10,0" VerticalAlignment="Center"/>
+              <TextBlock Text="Akun" VerticalAlignment="Center" FontSize="13"/>
             </StackPanel>
           </ListBoxItem>
         </ListBox>

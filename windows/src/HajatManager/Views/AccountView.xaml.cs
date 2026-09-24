@@ -35,6 +35,15 @@ public partial class AccountView : UserControl
         }
         catch { }
         Loaded += async (_, _) => await LoadAsync();
+        // Tile 1/2 kolom cermin web (Task 8): sempit → 1 kolom.
+        try
+        {
+            SizeChanged += (_, e) =>
+            {
+                try { if (TileGrid != null) TileGrid.Columns = e.NewSize.Width < 600 ? 1 : 2; } catch { }
+            };
+        }
+        catch { }
     }
 
     private async Task LoadAsync()
@@ -68,27 +77,90 @@ public partial class AccountView : UserControl
             AvatarText.Text = nm.Length > 0 ? nm[..1].ToUpperInvariant() : "?";
         }
         catch { }
+        // Foto profil bila ada (image/avatar/profilePicture dari /api/users/me).
+        try
+        {
+            string? url = null;
+            foreach (var key in new[] { "profilePicture", "avatar", "image" })
+            {
+                if (u.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
+                {
+                    var v = p.GetString();
+                    if (!string.IsNullOrWhiteSpace(v)) { url = v; break; }
+                }
+            }
+            if (url != null) _ = LoadAvatarPhotoAsync(url);
+            else if (AvatarCircle != null) AvatarCircle.Child = AvatarText;
+        }
+        catch { }
     }
 
-    // Tile aktif ditandai border Primary (ganti chip aktif).
-    private void MarkActive(Border active)
+    // Unduh foto berautentikasi (cookie-session) lalu tampilkan bulat.
+    private async Task LoadAvatarPhotoAsync(string url)
+    {
+        try
+        {
+            var bytes = await ApiClient.Instance.GetBytesAsync(url);
+            if (bytes == null || bytes.Length == 0) return;
+            await Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                    using var ms = new System.IO.MemoryStream(bytes);
+                    bmp.BeginInit();
+                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bmp.StreamSource = ms;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    var img = new System.Windows.Controls.Image
+                    {
+                        Source = bmp,
+                        Stretch = System.Windows.Media.Stretch.UniformToFill,
+                        Width = 52, Height = 52,
+                    };
+                    var clip = new System.Windows.Media.EllipseGeometry(
+                        new System.Windows.Point(26, 26), 26, 26);
+                    img.Clip = clip;
+                    if (AvatarCircle != null) AvatarCircle.Child = img;
+                }
+                catch { }
+            }));
+        }
+        catch { }
+    }
+
+    // Tile aktif ditandai border Primary (ganti chip aktif). null = bersihkan semua.
+    private void MarkActive(Border? active)
     {
         foreach (var b in new Border[] { TileProfil, TileKeamanan, TilePin, TileTentang })
         {
             try
             {
-                if (ReferenceEquals(b, active))
+                if (active != null && ReferenceEquals(b, active))
                     b.SetResourceReference(Border.BorderBrushProperty, "PrimaryBrush");
                 else
                     b.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
-                b.BorderThickness = new Thickness(ReferenceEquals(b, active) ? 1.5 : 1);
+                b.BorderThickness = new Thickness(active != null && ReferenceEquals(b, active) ? 1.5 : 1);
             }
             catch { }
         }
     }
 
-    private void GoProfile(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new ProfileView(); MarkActive(TileProfil); }
-    private void GoSecurity(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new SecurityView(); MarkActive(TileKeamanan); }
+    // Kembali dari sub-halaman: tutup SubHost + refresh kartu profil.
+    private void OnSubBack()
+    {
+        try
+        {
+            SubHost.Content = null;
+            MarkActive(null);
+        }
+        catch { }
+        _ = LoadAsync();
+    }
+
+    private void GoProfile(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new ProfileView(OnSubBack); MarkActive(TileProfil); }
+    private void GoSecurity(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new SecurityView(OnSubBack); MarkActive(TileKeamanan); }
     private void GoPin(object s, System.Windows.Input.MouseButtonEventArgs e)
     {
         var email = "";
@@ -98,20 +170,20 @@ public partial class AccountView : UserControl
                 .RootElement.GetProperty("email").GetString() ?? "";
         }
         catch { }
-        new PinSetupWindow(email).ShowDialog();
+        SubHost.Content = new PinSubView(email, OnSubBack);
         MarkActive(TilePin);
     }
-    private void GoAbout(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new AboutView(); MarkActive(TileTentang); }
+    private void GoAbout(object s, System.Windows.Input.MouseButtonEventArgs e) { SubHost.Content = new AboutView(OnSubBack); MarkActive(TileTentang); }
 
     private void OnTileKey(object s, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key != System.Windows.Input.Key.Enter) return;
         try
         {
-            if (ReferenceEquals(s, TileProfil)) { SubHost.Content = new ProfileView(); MarkActive(TileProfil); }
-            else if (ReferenceEquals(s, TileKeamanan)) { SubHost.Content = new SecurityView(); MarkActive(TileKeamanan); }
+            if (ReferenceEquals(s, TileProfil)) { SubHost.Content = new ProfileView(OnSubBack); MarkActive(TileProfil); }
+            else if (ReferenceEquals(s, TileKeamanan)) { SubHost.Content = new SecurityView(OnSubBack); MarkActive(TileKeamanan); }
             else if (ReferenceEquals(s, TilePin)) GoPin(s, new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left));
-            else if (ReferenceEquals(s, TileTentang)) { SubHost.Content = new AboutView(); MarkActive(TileTentang); }
+            else if (ReferenceEquals(s, TileTentang)) { SubHost.Content = new AboutView(OnSubBack); MarkActive(TileTentang); }
             e.Handled = true;
         }
         catch { }

@@ -155,15 +155,15 @@ Rail item aktif     : CornerRadius="8"   (baru)
 
 ### Checklist Task 1
 
-- [ ] Perbarui 4 token `Thickness` yang ada
-- [ ] Tambah 4 token `Thickness` baru (`M3SectionGap`, `M3ItemGap`, `M3CardGap`, `M3ChipSmallPadding`)
-- [ ] Tambah 3 style `M3RoleChip*` (Owner/Admin/Viewer)
-- [ ] Tambah 3 style `M3Banner*` (Error/Warning/Info)
-- [ ] Tambah style `M3NavRailItem`
-- [ ] Tambah style `M3SyncButton`
-- [ ] Perbarui `DataGrid` `RowHeight` → 36
-- [ ] Perbarui `TabItem` `Padding` → `16,8`
-- [ ] Pastikan semua brush pakai `DynamicResource` (tidak ada `StaticResource` warna)
+- [x] Perbarui 4 token `Thickness` yang ada
+- [x] Tambah 4 token `Thickness` baru (`M3SectionGap`, `M3ItemGap`, `M3CardGap`, `M3ChipSmallPadding`)
+- [x] Tambah 3 style `M3RoleChip*` (Owner/Admin/Viewer)
+- [x] Tambah 3 style `M3Banner*` (Error/Warning/Info)
+- [x] Tambah style `M3NavRailItem`
+- [x] Tambah style `M3SyncButton`
+- [x] Perbarui `DataGrid` `RowHeight` → 36
+- [x] Perbarui `TabItem` `Padding` → `16,8`
+- [x] Pastikan semua brush pakai `DynamicResource` (tidak ada `StaticResource` warna)
 
 ---
 
@@ -290,13 +290,13 @@ Implementasi di `MainWindow.xaml`:
 
 ### Checklist Task 2
 
-- [ ] Ganti AppBar: brand + status chip + SyncBtn + AvatarBtn + dropdown
-- [ ] Wiring `AvatarBtn`: load inisial + nama dari `AppConfig.GetCachedUser()`
-- [ ] Wiring `ThemeToggleBtn`: toggle Light/Dark via `ThemeManager`
-- [ ] Update label ThemeToggleBtn sesuai mode aktif ("Mode Gelap" / "Mode Terang")
-- [ ] Update `SyncBtn` state: `OnSyncChanged()` + `RefreshStatusAsync()`
-- [ ] Perbarui rail kiri: style `M3NavRailItem`, ikon MDL2 di setiap item
-- [ ] Tambah shortcut `Alt+1`, `Alt+2`, `Ctrl+N` di `PreviewKeyDown`
+- [x] Ganti AppBar: brand + status chip + SyncBtn + AvatarBtn + dropdown
+- [x] Wiring `AvatarBtn`: load inisial + nama dari `AppConfig.GetCachedUser()`
+- [x] Wiring `ThemeToggleBtn`: toggle Light/Dark via `ThemeManager`
+- [x] Update label ThemeToggleBtn sesuai mode aktif ("Mode Gelap" / "Mode Terang")
+- [x] Update `SyncBtn` state: `OnSyncChanged()` + `RefreshStatusAsync()`
+- [x] Perbarui rail kiri: style `M3NavRailItem`, ikon MDL2 di setiap item
+- [x] Tambah shortcut `Alt+1`, `Alt+2`, `Ctrl+N` di `PreviewKeyDown`
 
 ---
 
@@ -509,16 +509,16 @@ public void ShowEventDetail(EventModel ev)
 
 ### Checklist Task 3
 
-- [ ] Ganti `WrapPanel` → `UniformGrid` + `SizeChanged` update kolom (1/2/3)
-- [ ] Buat DataTemplate kartu baru (kotak tanggal, info, role chip, separator, "Buka Acara →")
-- [ ] Tambah ViewModel properties di wrapper class atau `EventModel`
-- [ ] Role chip warna per-role menggunakan style dari Task 1
-- [ ] Hover state kartu (border berubah ke primary saat mouse over)
-- [ ] Hybrid open: embed di Host saat ≥900px, `ShowDialog` saat <900px
-- [ ] Perbarui `MainWindow.cs` tambah `ShowEventDetail()`
-- [ ] Perbarui search bar (Border + ikon search + placeholder)
-- [ ] Shortcut `Ctrl+F` fokus search (sudah ada, pastikan masih berfungsi)
-- [ ] Shortcut `Ctrl+N` panggil `OnCreate`
+- [x] Ganti `WrapPanel` → `UniformGrid` + `SizeChanged` update kolom (1/2/3)
+- [x] Buat DataTemplate kartu baru (kotak tanggal, info, role chip, separator, "Buka Acara →")
+- [x] Tambah ViewModel properties di wrapper class atau `EventModel`
+- [x] Role chip warna per-role menggunakan style dari Task 1
+- [x] Hover state kartu (border berubah ke primary saat mouse over)
+- [x] Hybrid open: embed di Host saat ≥900px, `ShowDialog` saat <900px
+- [x] Perbarui `MainWindow.cs` tambah `ShowEventDetail()`
+- [x] Perbarui search bar (Border + ikon search + placeholder)
+- [x] Shortcut `Ctrl+F` fokus search (sudah ada, pastikan masih berfungsi)
+- [x] Shortcut `Ctrl+N` panggil `OnCreate`
 
 ---
 
@@ -719,15 +719,15 @@ private void OnKeyDown(object s, KeyEventArgs e)
 
 ### Checklist Task 4
 
-- [ ] Buat `EventDetailView.xaml` (UserControl) dengan XAML yang sama tapi `UserControl` bukan `Window`
-- [ ] Buat `EventDetailView.xaml.cs` dengan logic yang sama (atau shared via helper)
-- [ ] Tambah `TabItem Header="Setting"` (konten kosong dulu, diisi Task 7)
-- [ ] Tambah TopBar baru (cermin `TopBar.tsx`) di atas `TabControl`
-- [ ] Tambah `BackBtn` (hanya di `EventDetailView`, Collapsed di `EventDetailWindow`)
-- [ ] Wiring shortcut `Ctrl+1–4`, `Ctrl+S`, `Ctrl+R`, `Escape`, auto-fokus
-- [ ] `EventsView.cs` `OnOpen`: logic hybrid (embed vs ShowDialog)
-- [ ] `MainWindow.cs` tambah `ShowEventDetail()`
-- [ ] Tombol kembali di `EventDetailView`: kembali ke daftar acara
+- [x] Buat `EventDetailView.xaml` (UserControl) dengan XAML yang sama tapi `UserControl` bukan `Window`
+- [x] Buat `EventDetailView.xaml.cs` dengan logic yang sama (atau shared via helper)
+- [x] Tambah `TabItem Header="Setting"` (konten kosong dulu, diisi Task 7)
+- [x] Tambah TopBar baru (cermin `TopBar.tsx`) di atas `TabControl`
+- [x] Tambah `BackBtn` (hanya di `EventDetailView`, Collapsed di `EventDetailWindow`)
+- [x] Wiring shortcut `Ctrl+1–4`, `Ctrl+S`, `Ctrl+R`, `Escape`, auto-fokus
+- [x] `EventsView.cs` `OnOpen`: logic hybrid (embed vs ShowDialog)
+- [x] `MainWindow.cs` tambah `ShowEventDetail()`
+- [x] Tombol kembali di `EventDetailView`: kembali ke daftar acara
 
 ---
 
@@ -850,21 +850,21 @@ Popup di atas `NamaBox` (sudah ada, perlu styling):
 
 ### Checklist Task 5
 
-- [ ] Ganti form menjadi 2-kolom UniformGrid (kiri: nama+alamat, kanan: nominal+metode)
-- [ ] Preview nominal (angka besar, font numeric) di atas input nominal
-- [ ] Chip nominal: 6 chips, merge shortcut+default, sorted, `M3Chip`/`M3ChipActive`
-- [ ] Chip alamat: 4 chips, `M3Chip`/`M3ChipActive`, klik isi field alamat
-- [ ] Suggest dropdown: Popup dengan ListBox bergaya M3 (nama bold + alamat kecil)
-- [ ] Keyboard `↑↓` navigasi suggest, `Enter` pilih, `Escape` tutup
-- [ ] Auto-fokus field nominal setelah pilih suggest
-- [ ] Banner duplikat: `M3BannerError` dengan teks detail duplikat
-- [ ] Tombol simpan: full-width, label "Simpan (Ctrl+S)", `PrimaryButton`
-- [ ] Sort/filter bar di atas tabel
-- [ ] Tabel tamu: 8 kolom, row height 36, alternating row
-- [ ] Baris Nama menampilkan catatan jika ada (↳ catatan)
-- [ ] Tombol Edit + Hapus di kolom Aksi (hanya saat isEditor)
-- [ ] Footer: total nominal + jumlah data
-- [ ] "Muat 50 lagi" tombol (sudah ada, pastikan visible)
+- [x] Ganti form menjadi 2-kolom UniformGrid (kiri: nama+alamat, kanan: nominal+metode)
+- [x] Preview nominal (angka besar, font numeric) di atas input nominal
+- [x] Chip nominal: 6 chips, merge shortcut+default, sorted, `M3Chip`/`M3ChipActive`
+- [x] Chip alamat: 4 chips, `M3Chip`/`M3ChipActive`, klik isi field alamat
+- [x] Suggest dropdown: Popup dengan ListBox bergaya M3 (nama bold + alamat kecil)
+- [x] Keyboard `↑↓` navigasi suggest, `Enter` pilih, `Escape` tutup
+- [x] Auto-fokus field nominal setelah pilih suggest
+- [x] Banner duplikat: `M3BannerError` dengan teks detail duplikat
+- [x] Tombol simpan: full-width, label "Simpan (Ctrl+S)", `PrimaryButton`
+- [x] Sort/filter bar di atas tabel
+- [x] Tabel tamu: 8 kolom, row height 36, alternating row
+- [x] Baris Nama menampilkan catatan jika ada (↳ catatan)
+- [x] Tombol Edit + Hapus di kolom Aksi (hanya saat isEditor)
+- [x] Footer: total nominal + jumlah data
+- [x] "Muat 50 lagi" tombol (sudah ada, pastikan visible)
 
 ---
 
@@ -1020,20 +1020,20 @@ private void OnSizeChanged(object s, SizeChangedEventArgs e)
 ### Checklist Task 6
 
 **Buku Tamu:**
-- [ ] Search bar bergaya M3 (border + ikon) + tombol "+ Tamu" kanan
-- [ ] DataGrid tabel: #, Nama, Alamat, Aksi (Edit + Hapus)
-- [ ] Dialog Add/Edit: `M3Card` popup dengan field Nama + Alamat + tombol Batal/Simpan
-- [ ] Konfirmasi hapus: `MessageBox` atau dialog kecil (bukan `confirm()` native)
-- [ ] Footer: total buku tamu + "Muat 50 lagi"
+- [x] Search bar bergaya M3 (border + ikon) + tombol "+ Tamu" kanan
+- [x] DataGrid tabel: #, Nama, Alamat, Aksi (Edit + Hapus)
+- [x] Dialog Add/Edit: `M3Card` popup dengan field Nama + Alamat + tombol Batal/Simpan
+- [x] Konfirmasi hapus: `MessageBox` atau dialog kecil (bukan `confirm()` native)
+- [x] Footer: total buku tamu + "Muat 50 lagi"
 
 **Rekap:**
-- [ ] Kartu total besar: jumlah tamu + total nominal (font besar numeric) + hide/show + Export
-- [ ] `UniformGrid` 2 kolom: per-Alamat + per-Metode; `SizeChanged` → 1 kolom saat <800px
-- [ ] DataGrid per-Alamat: Alamat, Jumlah, Total Rp
-- [ ] DataGrid per-Metode: Metode, Jumlah, Total Rp, Porsi %
-- [ ] Dialog Export: tipe, format, urutan, orientasi
-- [ ] Export PDF memanggil `Exporter.cs` (sudah ada)
-- [ ] Export Excel/CSV memanggil `Exporter.cs`
+- [x] Kartu total besar: jumlah tamu + total nominal (font besar numeric) + hide/show + Export
+- [x] `UniformGrid` 2 kolom: per-Alamat + per-Metode; `SizeChanged` → 1 kolom saat <800px
+- [x] DataGrid per-Alamat: Alamat, Jumlah, Total Rp
+- [x] DataGrid per-Metode: Metode, Jumlah, Total Rp, Porsi %
+- [x] Dialog Export: tipe, format, urutan, orientasi
+- [x] Export PDF memanggil `Exporter.cs` (sudah ada)
+- [x] Export Excel/CSV memanggil `Exporter.cs`
 
 ---
 
@@ -1184,14 +1184,14 @@ private async void OnDelete(object s, RoutedEventArgs e)
 
 ### Checklist Task 7
 
-- [ ] Pindahkan form info acara ke tab Setting (2 kolom UniformGrid)
-- [ ] Chip meja deletable dengan tombol × per chip
-- [ ] Seksi anggota: cari user + ComboBox role + DataGrid + edit/hapus (hanya OWNER)
-- [ ] Audit log: DataGrid + search debounce
-- [ ] Danger zone: border merah + tombol hapus + dialog konfirmasi ketik "HAPUS"
-- [ ] `Ctrl+S` dari tab Setting → `OnSaveInfo()`
-- [ ] Setelah simpan: refresh TopBar judul acara
-- [ ] `SettingsWindow` tetap ada (fallback), tapi isinya diganti dengan pesan redirect
+- [x] Pindahkan form info acara ke tab Setting (2 kolom UniformGrid)
+- [x] Chip meja deletable dengan tombol × per chip
+- [x] Seksi anggota: cari user + ComboBox role + DataGrid + edit/hapus (hanya OWNER)
+- [x] Audit log: DataGrid + search debounce
+- [x] Danger zone: border merah + tombol hapus + dialog konfirmasi ketik "HAPUS"
+- [x] `Ctrl+S` dari tab Setting → `OnSaveInfo()`
+- [x] Setelah simpan: refresh TopBar judul acara
+- [x] `SettingsWindow` tetap ada (fallback), tapi isinya diganti dengan pesan redirect
 
 ---
 
@@ -1319,16 +1319,16 @@ Setiap sub-halaman (`ProfilSub`, `KeamananSub`, `PinSub`, `TentangSub`) adalah
 
 ### Checklist Task 8
 
-- [ ] Perbarui kartu profil: avatar 52px, load foto jika ada
-- [ ] Pasang M3Segmented tema (Terang/Gelap/Sistem) via `ThemeSegHost`
-- [ ] Tile grid 2 kolom: ikon kotak `SecondaryContainer` + judul + subtitle + chevron
-- [ ] `SizeChanged` → 1 kolom saat <600px
-- [ ] Sub-halaman inline: click tile → `SubHost.Content = UserControl baru`
-- [ ] Buat `ProfilSub.xaml` + `.cs`: form nama/username + upload foto + simpan
-- [ ] Buat `KeamananSub.xaml` + `.cs`: ganti password + daftar perangkat
-- [ ] Buat `PinSub.xaml` + `.cs`: reuse `PinFlow.cs` + jeda kunci
-- [ ] Buat `TentangSub.xaml` + `.cs`: versi + server URL + keluar
-- [ ] Snackbar: `Dispatcher.BeginInvoke` dengan auto-dismiss 3 detik
+- [x] Perbarui kartu profil: avatar 52px, load foto jika ada
+- [x] Pasang M3Segmented tema (Terang/Gelap/Sistem) via `ThemeSegHost`
+- [x] Tile grid 2 kolom: ikon kotak `SecondaryContainer` + judul + subtitle + chevron
+- [x] `SizeChanged` → 1 kolom saat <600px
+- [x] Sub-halaman inline: click tile → `SubHost.Content = UserControl baru`
+- [x] Buat `ProfilSub.xaml` + `.cs`: form nama/username + upload foto + simpan
+- [x] Buat `KeamananSub.xaml` + `.cs`: ganti password + daftar perangkat
+- [x] Buat `PinSub.xaml` + `.cs`: reuse `PinFlow.cs` + jeda kunci
+- [x] Buat `TentangSub.xaml` + `.cs`: versi + server URL + keluar
+- [x] Snackbar: `Dispatcher.BeginInvoke` dengan auto-dismiss 3 detik
 
 ---
 
@@ -1391,14 +1391,14 @@ Semua tombol penting harus punya `ToolTip` yang menyebut shortcut:
 
 ### Checklist Task 9
 
-- [ ] `PreviewKeyDown` di `MainWindow`: `Alt+1`, `Alt+2`, `Ctrl+N`
-- [ ] `KeyDown` di `EventDetailWindow`/`EventDetailView`: `Ctrl+1–4`, `Ctrl+S`, `Ctrl+R`, `Escape`
-- [ ] Navigasi suggest: `↑↓` + `Enter` + `Escape`
-- [ ] Auto-fokus field Nama dari karakter bebas (saat tab 1, tidak ada fokus input)
-- [ ] `Tab` navigasi antar field form (urus `TabIndex` di XAML)
-- [ ] `Enter` di EventsView buka acara terpilih
-- [ ] Semua tombol penting punya `ToolTip` dengan shortcut
-- [ ] Test: alur satset tanpa mouse — search → open → ketik → suggest → Enter → nominal → Ctrl+S
+- [x] `PreviewKeyDown` di `MainWindow`: `Alt+1`, `Alt+2`, `Ctrl+N`
+- [x] `KeyDown` di `EventDetailWindow`/`EventDetailView`: `Ctrl+1–4`, `Ctrl+S`, `Ctrl+R`, `Escape`
+- [x] Navigasi suggest: `↑↓` + `Enter` + `Escape`
+- [x] Auto-fokus field Nama dari karakter bebas (saat tab 1, tidak ada fokus input)
+- [x] `Tab` navigasi antar field form (urus `TabIndex` di XAML)
+- [x] `Enter` di EventsView buka acara terpilih
+- [x] Semua tombol penting punya `ToolTip` dengan shortcut
+- [x] Test: alur satset tanpa mouse — search → open → ketik → suggest → Enter → nominal → Ctrl+S
 
 ---
 
@@ -1481,15 +1481,15 @@ mobile/lib/core/window_ui.dart  (mungkin tidak perlu diubah, sudah bagus)
 
 | Task | Status | Catatan |
 |---|---|---|
-| Task 1: Token desain | ⬜ Todo | |
-| Task 2: MainWindow AppBar + Rail | ⬜ Todo | |
-| Task 3: EventsView grid fluida | ⬜ Todo | |
-| Task 4: EventDetailView hybrid + tab 4 | ⬜ Todo | |
-| Task 5: Tab Pemberian | ⬜ Todo | |
-| Task 6: Tab Buku Tamu + Rekap | ⬜ Todo | |
-| Task 7: Tab Setting | ⬜ Todo | |
-| Task 8: AccountView | ⬜ Todo | |
-| Task 9: Shortcut global | ⬜ Todo | |
+| Task 1: Token desain | ✅ Done | Foreground RoleChip/Banner + brush OnErrorContainer/OnInfo dilengkapi 2026-09-24 |
+| Task 2: MainWindow AppBar + Rail | ✅ Done | AppBar DashboardHeader + rail M3NavRailItem + Alt+1/2 Ctrl+N 2026-09-24 |
+| Task 3: EventsView grid fluida | ✅ Done | UniformGrid 1/2/3 + kartu baru + hybrid dispatch (embed penuh di Task 4) 2026-09-24 |
+| Task 4: EventDetailView hybrid + tab 4 | ✅ Done | Inversi View-pemilik-logic + TopBar + shortcut + Setting placeholder 2026-09-24 |
+| Task 5: Tab Pemberian | ✅ Done | Form 2-kolom + chip merge-6 + suggest M3 + banner error + simpan full-width 2026-09-24 |
+| Task 6: Tab Buku Tamu + Rekap | ✅ Done | Search M3 + dialog Batal + rekap hide/Porsi + opsi Export 2026-09-24 |
+| Task 7: Tab Setting | ✅ Done | Port SettingsWindow penuh + audit-log + HAPUS confirm + redirect fallback 2026-09-24 |
+| Task 8: AccountView | ✅ Done | Subs inline + foto/cek-user/perangkat/PIN-grace/server-URL + snack 2026-09-24 |
+| Task 9: Shortcut global | ✅ Done | ↑↓ kartu + Ctrl+R global + ← kembali + tooltip pass 2026-09-24 |
 | Task 10: Polish & QA | ⬜ Todo | |
 
 Legend: ⬜ Todo · 🔵 In Progress · ✅ Done · 🔴 Blocked
