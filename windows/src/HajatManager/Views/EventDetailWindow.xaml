@@ -20,7 +20,7 @@
               Style="{DynamicResource TonalButton}" VerticalAlignment="Center"
               ToolTip="Sudah tersinkron — klik untuk refresh">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock x:Name="SyncCloudIcon" Text="☁ ✓" FontSize="14" VerticalAlignment="Center"/>
+          <TextBlock x:Name="SyncCloudIcon" Text="&#xE117;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
           <Border x:Name="SyncBadgeBorder" Margin="6,0,0,0" Padding="6,1" CornerRadius="8"
                   Background="{DynamicResource ErrorBrush}" Visibility="Collapsed"
                   VerticalAlignment="Center">

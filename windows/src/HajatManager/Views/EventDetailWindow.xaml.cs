@@ -115,32 +115,31 @@ public partial class EventDetailWindow : Window
             if (SyncCloudBtn == null || SyncCloudIcon == null) return;
             if (_syncing)
             {
-                SyncCloudIcon.Text = "☁ …";
+                SyncCloudIcon.Text = M3Icons.Sync;
                 SyncCloudBtn.ToolTip = "Sinkronisasi berjalan…";
                 SyncCloudBtn.IsEnabled = false;
             }
             else
             {
                 SyncCloudBtn.IsEnabled = true;
+                // Satu glyph sync (cermin SyncButton Flutter); state via warna + badge.
+                SyncCloudIcon.Text = M3Icons.Sync;
                 if (!online)
                 {
                     SyncCloudBtn.Background = BrushOf("SurfaceContainerBrush");
                     SyncCloudBtn.Foreground = BrushOf("OnVariantBrush");
-                    SyncCloudIcon.Text = "☁ ✕";
                     SyncCloudBtn.ToolTip = $"Offline — data tersimpan di perangkat{(pending > 0 ? $" ({pending} menunggu sync)" : "")}. Klik untuk coba sync.";
                 }
                 else if (pending > 0)
                 {
                     SyncCloudBtn.Background = BrushOf("WarningBrush");
                     SyncCloudBtn.Foreground = BrushOf("OnPrimaryBrush");
-                    SyncCloudIcon.Text = "☁ ↑";
                     SyncCloudBtn.ToolTip = $"{pending} data belum sync — klik untuk sync sekarang";
                 }
                 else
                 {
                     SyncCloudBtn.Background = BrushOf("PrimaryBrush");
                     SyncCloudBtn.Foreground = BrushOf("OnPrimaryBrush");
-                    SyncCloudIcon.Text = "☁ ✓";
                     SyncCloudBtn.ToolTip = "Sudah tersinkron — klik untuk refresh";
                 }
             }

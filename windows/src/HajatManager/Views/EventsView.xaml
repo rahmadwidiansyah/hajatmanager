@@ -121,7 +121,7 @@
                       </TextBlock>
                     </Border>
                   </StackPanel>
-                  <TextBlock Grid.Column="2" Text="›" FontSize="24" VerticalAlignment="Center"
+                  <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="20" VerticalAlignment="Center"
                              Foreground="{DynamicResource OnVariantBrush}" Margin="8,0,0,0"/>
                 </Grid>
               </Border>
