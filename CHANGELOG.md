@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.0...v1.12.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** TargetName pindah ke ControlTemplate.Triggers (MC4011) ([5930f38](https://github.com/rahmadwidiansyah/hajatmanager/commit/5930f388d537d0eb4af61945f67f57043e112dda))
+
 # [1.12.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.11.1...v1.12.0) (2026-09-24)
 
 
