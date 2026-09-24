@@ -1,3 +1,10 @@
+## [1.10.5](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.4...v1.10.5) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** template kustom ComboBox/ComboBoxItem ikut tema dark ([f106e28](https://github.com/rahmadwidiansyah/hajatmanager/commit/f106e28b8ecfd967a2741133aac704ca2df0ad7c))
+
 ## [1.10.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.3...v1.10.4) (2026-09-24)
 
 
