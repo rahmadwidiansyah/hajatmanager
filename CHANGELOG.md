@@ -1,3 +1,10 @@
+## [1.10.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.2...v1.10.3) (2026-09-24)
+
+
+### Bug Fixes
+
+* double item Windows via localId, dropdown dark, meja persist + icon awan sync ([2473f4b](https://github.com/rahmadwidiansyah/hajatmanager/commit/2473f4bc17b25e12ce1a7acce9f75e30697c5a34))
+
 ## [1.10.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.1...v1.10.2) (2026-09-22)
 
 
