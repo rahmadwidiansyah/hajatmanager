@@ -218,22 +218,25 @@
     <Setter Property="SnapsToDevicePixels" Value="True"/>
   </Style>
 
+  <!-- Catatan: Border TIDAK punya properti Foreground (MC4005 bila dipaksa).
+       Warna teks diwariskan via attached property TextBlock.Foreground — TextBlock
+       yang set Foreground eksplisit tetap menang (diwarisi < lokal). -->
   <!-- OWNER: primary-container (hijau muda terang / hijau gelap di dark) -->
   <Style x:Key="M3RoleChipOwner" TargetType="Border" BasedOn="{StaticResource M3RoleChipBase}">
     <Setter Property="Background" Value="{DynamicResource PrimaryContainerBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnPrimaryContainerBrush}"/>
   </Style>
 
   <!-- ADMIN: warning-container (kuning muda / amber gelap di dark) -->
   <Style x:Key="M3RoleChipAdmin" TargetType="Border" BasedOn="{StaticResource M3RoleChipBase}">
     <Setter Property="Background" Value="{DynamicResource WarningContainerBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnWarningContainerBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnWarningContainerBrush}"/>
   </Style>
 
   <!-- VIEWER: surface-container-high (abu netral) -->
   <Style x:Key="M3RoleChipViewer" TargetType="Border" BasedOn="{StaticResource M3RoleChipBase}">
     <Setter Property="Background" Value="{DynamicResource SurfaceContainerHighBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnVariantBrush}"/>
   </Style>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -253,19 +256,19 @@
   <!-- Error/Offline — cermin ErrorContainer web -->
   <Style x:Key="M3BannerError" TargetType="Border" BasedOn="{StaticResource M3BannerBase}">
     <Setter Property="Background" Value="{DynamicResource ErrorContainerBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnErrorContainerBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnErrorContainerBrush}"/>
   </Style>
 
   <!-- Warning/Pending sync — cermin WarningContainer web -->
   <Style x:Key="M3BannerWarning" TargetType="Border" BasedOn="{StaticResource M3BannerBase}">
     <Setter Property="Background" Value="{DynamicResource WarningContainerBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnWarningContainerBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnWarningContainerBrush}"/>
   </Style>
 
   <!-- Info — cermin InfoContainer / TertiaryContainer web -->
   <Style x:Key="M3BannerInfo" TargetType="Border" BasedOn="{StaticResource M3BannerBase}">
     <Setter Property="Background" Value="{DynamicResource InfoContainerBrush}"/>
-    <Setter Property="Foreground" Value="{DynamicResource OnInfoContainerBrush}"/>
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnInfoContainerBrush}"/>
   </Style>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
