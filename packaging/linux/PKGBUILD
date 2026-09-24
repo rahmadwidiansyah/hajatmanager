@@ -2,7 +2,7 @@
 # Paket -bin untuk Arch/CachyOS: unduh tarball rilis GitHub resmi.
 # pkgver disync otomatis via `node scripts/sync-versions.js <ver>`.
 pkgname=hajat-manager-bin
-pkgver=1.10.3
+pkgver=1.10.4
 pkgrel=1
 pkgdesc="Buku tamu & catat pemberian hajatan (Flutter desktop)"
 arch=('x86_64')

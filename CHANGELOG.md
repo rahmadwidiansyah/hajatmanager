@@ -1,3 +1,10 @@
+## [1.10.4](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.3...v1.10.4) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** rename out var agar tidak tabrakan scope (CS0136) ([ddfb2b2](https://github.com/rahmadwidiansyah/hajatmanager/commit/ddfb2b29063b3027f9c87aa12b2f3f295f919cf9))
+
 ## [1.10.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.2...v1.10.3) (2026-09-24)
 
 
