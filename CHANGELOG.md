@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.13.1...v1.14.0) (2026-09-24)
+
+
+### Features
+
+* **web:** unduhan Android/Windows/Linux + versi otomatis ngikutin semantic-release ([83000bb](https://github.com/rahmadwidiansyah/hajatmanager/commit/83000bbcd16f3222b023ef25ce79f0fc4f477fc7))
+
 ## [1.13.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.13.0...v1.13.1) (2026-09-24)
 
 
