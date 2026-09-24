@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.5...v1.11.0) (2026-09-24)
+
+
+### Features
+
+* **windows:** fase 0 parity linux — template PasswordBox/DatePicker/ScrollBar/Radio/CheckBox, tombol stadium, ikon MDL2, infra snack/empty/skeleton ([74a1851](https://github.com/rahmadwidiansyah/hajatmanager/commit/74a18514b2c0f284ad2ac28dabf52cc549b24fc3))
+
 ## [1.10.5](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.10.4...v1.10.5) (2026-09-24)
 
 
