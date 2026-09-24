@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 // Web only — full Flutter untuk mobile (Capacitor/Tauri dihapus).
 
@@ -30,6 +31,16 @@ const withSerwist = withSerwistInit({
 // Turbopack (default Next 16). Dev memakai Turbopack tanpa wrapper Serwist
 // (SW nonaktif di dev, lihat export di bawah).
 
+// Versi semantic-release = package.json (diupdate otomatis oleh
+// semantic-release tiap tag v*). Jadikan default NEXT_PUBLIC_APP_VERSION
+// agar tampilan web + link unduhan selalu ngikutin versi rilis tanpa
+// edit .env manual. ENV eksplisit tetap menang bila diisi.
+let pkgVersion = "";
+try {
+  pkgVersion =
+    (JSON.parse(readFileSync("./package.json", "utf-8")).version ?? "").trim();
+} catch {}
+
 const nextConfig: NextConfig = {
   // HP Android akses via IP LAN saat dev (HMR + API).
   allowedDevOrigins: ["192.168.1.85"],
@@ -43,6 +54,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: { bodySizeLimit: "20mb" },
+  },
+  env: {
+    NEXT_PUBLIC_APP_VERSION:
+      process.env.NEXT_PUBLIC_APP_VERSION?.trim() || pkgVersion,
   },
   // Mitigasi bundle MUI: import per-komponen agar tree-shake optimal
   modularizeImports: {

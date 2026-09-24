@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import CreateEvent from "./CreateEvent";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSync } from "./DashboardSync";
+import { AppFooter } from "@/components/AppFooter";
 import { CalendarDays, MapPin, ArrowRight } from "lucide-react";
 
 // Halaman auth+DB: jangan di-prerender saat build (DATABASE_URL dummy di Docker).
@@ -109,6 +110,7 @@ export default async function DashboardPage() {
           </div>
         )}
       </main>
+      <AppFooter />
     </div>
   );
 }

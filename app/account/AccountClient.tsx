@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useColorScheme } from "@mui/material/styles";
 import { cachePinHash, clearCachedPinHash } from "@/lib/offline-pin";
+import { AppFooter } from "@/components/AppFooter";
 
 type UserData = {
   id: string;
@@ -681,6 +682,7 @@ export default function AccountClient({ initialUser }: { initialUser: UserData }
           </div>
         </div>
       </main>
+      <AppFooter />
 
       {/* Dialog konfirmasi hapus PIN — M3 alert dialog */}
       {confirmDeletePin && (

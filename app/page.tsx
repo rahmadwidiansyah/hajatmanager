@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BookOpen, Zap, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BrandMark } from "@/components/BrandMark";
+import { AppDownloads } from "@/components/AppDownloads";
+import { AppFooter } from "@/components/AppFooter";
 
 export default function Home() {
   return (
@@ -43,6 +45,11 @@ export default function Home() {
               Sudah punya akun
             </Link>
           </div>
+        </div>
+
+        {/* Unduh aplikasi — link + versi dari ENV, sembunyi bila ENV kosong */}
+        <div className="mb-10">
+          <AppDownloads />
         </div>
 
         {/* Feature cards — rotasi primary > secondary > tertiary agar colorful tapi 1 CTA tetap hijau */}
@@ -90,9 +97,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="py-5 text-center text-xs text-[var(--on-surface-variant)] border-t border-[var(--outline-variant)]">
-        Made by Rahmad Widiansyah
-      </footer>
+      <AppFooter />
     </div>
   );
 }

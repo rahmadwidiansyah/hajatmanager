@@ -30,6 +30,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Versi web ngikutin semantic-release: bila trigger tag v* pakai tag
+      # itu; bila manual (workflow_dispatch) pakai package.json.
+      - name: Resolve version
+        id: ver
+        run: |
+          REF="${GITHUB_REF_NAME:-}"
+          case "$REF" in
+            v*) V="${REF#v}" ;;
+            *) V=$(node -p "require('./package.json').version") ;;
+          esac
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "web version=$V"
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -50,6 +63,11 @@ jobs:
           cache-to: type=gha,mode=max,scope=web-${{ matrix.arch }}
           build-args: |
             DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+            NEXT_PUBLIC_APP_VERSION=${{ steps.ver.outputs.version }}
+            NEXT_PUBLIC_GITHUB_REPO=${{ github.repository }}
+            NEXT_PUBLIC_DOWNLOAD_ANDROID=${{ vars.NEXT_PUBLIC_DOWNLOAD_ANDROID }}
+            NEXT_PUBLIC_DOWNLOAD_WINDOWS=${{ vars.NEXT_PUBLIC_DOWNLOAD_WINDOWS }}
+            NEXT_PUBLIC_DOWNLOAD_LINUX=${{ vars.NEXT_PUBLIC_DOWNLOAD_LINUX }}
 
       - name: Export digest
         run: |

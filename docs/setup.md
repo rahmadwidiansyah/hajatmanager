@@ -52,6 +52,15 @@ GOOGLE_CLIENT_SECRET="xxx"
 
 # App
 NEXT_PUBLIC_APP_NAME="Hajat Manager"
+
+# Versi + link unduhan OTOMATIS ngikutin semantic-release — biarkan kosong:
+# versi diambil dari package.json, link dibentuk ke GitHub Releases tag tsb.
+NEXT_PUBLIC_APP_VERSION=""
+NEXT_PUBLIC_GITHUB_REPO="rahmadwidiansyah/hajatmanager"
+NEXT_PUBLIC_DOWNLOAD_ANDROID=""
+NEXT_PUBLIC_DOWNLOAD_WINDOWS=""
+NEXT_PUBLIC_DOWNLOAD_LINUX=""
+# Isi manual hanya untuk override (misal CDN). Tiap ganti wajib rebuild.
 ```
 
 Generate `AUTH_SECRET`:

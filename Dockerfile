@@ -11,6 +11,19 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # dummy env for prisma generate + next collectPageData (real env injected at runtime)
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 ENV AUTH_SECRET=dummy-32-chars-for-build-only-xxxxxxxxxxxxxxxx
+# NEXT_PUBLIC_* di-inline saat build — override via --build-arg / build-args CI.
+# Kosong = otomatis: versi dari package.json (next.config.ts), link dari
+# versi + repo tersebut (lib/app-downloads.ts).
+ARG NEXT_PUBLIC_APP_VERSION=""
+ARG NEXT_PUBLIC_GITHUB_REPO="rahmadwidiansyah/hajatmanager"
+ARG NEXT_PUBLIC_DOWNLOAD_ANDROID=""
+ARG NEXT_PUBLIC_DOWNLOAD_WINDOWS=""
+ARG NEXT_PUBLIC_DOWNLOAD_LINUX=""
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV NEXT_PUBLIC_GITHUB_REPO=$NEXT_PUBLIC_GITHUB_REPO
+ENV NEXT_PUBLIC_DOWNLOAD_ANDROID=$NEXT_PUBLIC_DOWNLOAD_ANDROID
+ENV NEXT_PUBLIC_DOWNLOAD_WINDOWS=$NEXT_PUBLIC_DOWNLOAD_WINDOWS
+ENV NEXT_PUBLIC_DOWNLOAD_LINUX=$NEXT_PUBLIC_DOWNLOAD_LINUX
 RUN npx prisma generate && npm run build
 
 FROM node:22-alpine AS runner
