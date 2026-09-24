@@ -10,14 +10,15 @@
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Border x:Name="AvatarCircle" Width="52" Height="52" CornerRadius="26"
                   Background="{DynamicResource PrimaryContainerBrush}"
-                  VerticalAlignment="Center">
+                  VerticalAlignment="Center" SnapsToDevicePixels="True">
             <TextBlock x:Name="AvatarText" Text="?" FontWeight="Bold" FontSize="20"
                        Foreground="{DynamicResource OnPrimaryContainerBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-            <TextBlock x:Name="NameText" FontWeight="Bold" FontSize="16"/>
-            <TextBlock x:Name="EmailText" Foreground="{DynamicResource OnVariantBrush}"/>
+            <TextBlock x:Name="NameText" FontWeight="Bold" FontSize="16" TextTrimming="CharacterEllipsis"/>
+            <TextBlock x:Name="EmailText" Foreground="{DynamicResource OnVariantBrush}"
+                       TextTrimming="CharacterEllipsis"/>
           </StackPanel>
         </StackPanel>
       </Border>
@@ -41,7 +42,7 @@
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Border Width="40" Height="40" CornerRadius="10"
+            <Border Width="40" Height="40" CornerRadius="10" SnapsToDevicePixels="True"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -66,7 +67,7 @@
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Border Width="40" Height="40" CornerRadius="10"
+            <Border Width="40" Height="40" CornerRadius="10" SnapsToDevicePixels="True"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -91,7 +92,7 @@
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Border Width="40" Height="40" CornerRadius="10"
+            <Border Width="40" Height="40" CornerRadius="10" SnapsToDevicePixels="True"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE75F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -116,7 +117,7 @@
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Border Width="40" Height="40" CornerRadius="10"
+            <Border Width="40" Height="40" CornerRadius="10" SnapsToDevicePixels="True"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"

@@ -671,7 +671,17 @@ public partial class EventDetailView : UserControl
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "#", Binding = new System.Windows.Data.Binding("No"), Width = 50 });
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Nama", Binding = new System.Windows.Data.Binding("NamaFull"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Alamat", Binding = new System.Windows.Data.Binding("Alamat"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Nominal", Binding = new System.Windows.Data.Binding("NominalRp"), Width = 130 });
+        var nominalCol = new DataGridTextColumn { Header = "Nominal", Binding = new System.Windows.Data.Binding("NominalRp"), Width = 130 };
+        try
+        {
+            var numStyle = new Style(typeof(TextBlock));
+            if (Application.Current?.TryFindResource("NumericFont") is System.Windows.Media.FontFamily nf)
+                numStyle.Setters.Add(new Setter(TextBlock.FontFamilyProperty, nf));
+            numStyle.Setters.Add(new Setter(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right));
+            nominalCol.ElementStyle = numStyle;
+        }
+        catch { }
+        _guestGrid.Columns.Add(nominalCol);
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Meja", Binding = new System.Windows.Data.Binding("Meja"), Width = 90 });
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Kasir", Binding = new System.Windows.Data.Binding("Kasir"), Width = 110 });
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "Metode", Binding = new System.Windows.Data.Binding("Metode"), Width = 100 });

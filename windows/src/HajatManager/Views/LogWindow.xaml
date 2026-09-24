@@ -8,7 +8,8 @@
   <DockPanel Margin="16" MaxWidth="1120">
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
       <TextBox x:Name="SearchBox" Width="300" TextChanged="OnSearchGo"/>
-      <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload" Style="{DynamicResource TonalButton}"/>
+      <Button Content="Muat Ulang" Margin="8,0,0,0" Click="OnReload" Style="{DynamicResource TonalButton}"
+              ToolTip="Muat ulang log (Ctrl+R)"/>
       <TextBlock x:Name="StatusText" Margin="12,0,0,0" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}" Text="…"/>
     </StackPanel>
@@ -24,7 +25,7 @@
       <TextBlock x:Name="LogFooter" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}"/>
       <Button x:Name="LogMoreBtn" Content="Muat 30 lagi" Margin="12,0,0,0" Click="OnMore"
-              Style="{DynamicResource OutlineButton}" Visibility="Collapsed"/>
+              Style="{DynamicResource OutlineButton}" Visibility="Collapsed" ToolTip="Muat 30 lagi"/>
     </StackPanel>
     <TextBlock x:Name="ErrText" DockPanel.Dock="Top" Foreground="{DynamicResource ErrorBrush}"
                Visibility="Collapsed" Margin="0,0,0,6" TextWrapping="Wrap"/>

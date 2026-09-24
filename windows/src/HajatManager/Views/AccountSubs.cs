@@ -115,6 +115,8 @@ internal static class SubPhotos
                         Stretch = System.Windows.Media.Stretch.UniformToFill,
                         Width = 52, Height = 52,
                     };
+                    img.SetValue(System.Windows.Media.RenderOptions.BitmapScalingModeProperty,
+                        System.Windows.Media.BitmapScalingMode.HighQuality);
                     img.Clip = new System.Windows.Media.EllipseGeometry(
                         new Point(26, 26), 26, 26);
                     circle.Child = img;

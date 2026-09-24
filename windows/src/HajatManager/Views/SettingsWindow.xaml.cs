@@ -12,6 +12,10 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         Title = $"Pengaturan — {ev.NamaAcara}";
         M3Chrome.Attach(this);
+        KeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape) { try { Close(); } catch { } }
+        };
         try
         {
             RedirectText.Text =

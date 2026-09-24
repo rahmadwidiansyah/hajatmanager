@@ -23,8 +23,9 @@
       <PasswordBox x:Name="PassBox" Margin="0,0,0,12"/>
 
       <Button x:Name="SubmitBtn" Content="Masuk" Style="{DynamicResource PrimaryButton}"
-              Click="OnSubmit" Margin="0,0,0,8"/>
+              Click="OnSubmit" Margin="0,0,0,8" ToolTip="Masuk (Enter)"/>
       <Button Content="Belum punya akun? Daftar" Click="OnToggleReg"
+              ToolTip="Buka form pendaftaran"
               Style="{DynamicResource TextButton}"/>
 
       <!-- Fase 4: Google desktop via browser (visible bila server mendukung) -->
@@ -41,9 +42,9 @@
           <Separator Grid.Column="2" VerticalAlignment="Center"/>
         </Grid>
         <Button x:Name="GoogleBtn" Content="Lanjutkan dengan Google" Click="OnGoogle"
-                Style="{DynamicResource OutlineButton}"/>
+                Style="{DynamicResource OutlineButton}" ToolTip="Login via browser"/>
         <Button Content="Punya kode Google manual? Tempel di sini" Click="OnPasteCode"
-                Style="{DynamicResource TextButton}"
+                Style="{DynamicResource TextButton}" ToolTip="Tempel kode otorisasi Google"
                 FontSize="11" Margin="0,4,0,0"/>
       </StackPanel>
 
@@ -54,7 +55,7 @@
       <TextBlock x:Name="ServerLabel" Text="Server (…)" Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,6"/>
       <DockPanel>
         <Button Content="Tes" Click="OnTestServer" DockPanel.Dock="Right"
-                Margin="8,0,0,0" Style="{DynamicResource TonalButton}"/>
+                Margin="8,0,0,0" Style="{DynamicResource TonalButton}" ToolTip="Tes koneksi server"/>
         <TextBox x:Name="ServerBox" Text="https://hajat.sanding.online"/>
       </DockPanel>
       <TextBlock Text="Default: https://hajat.sanding.online — tap Tes dulu sebelum masuk."

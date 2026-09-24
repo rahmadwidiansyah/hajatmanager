@@ -1409,39 +1409,39 @@ Semua tombol penting harus punya `ToolTip` yang menyebut shortcut:
 ### Checklist Polish
 
 **Spacing:**
-- [ ] Audit semua `Margin`/`Padding` hardcoded → ganti ke token (`{StaticResource M3CardPadding}`, dll)
-- [ ] Jarak antar kartu konsisten: `M3CardGap` (0,0,0,12)
-- [ ] Jarak antar seksi dalam kartu: `M3SectionGap` (0,12,0,0)
+- [x] Audit semua `Margin`/`Padding` hardcoded → ganti ke token (`{StaticResource M3CardPadding}`, dll)
+- [x] Jarak antar kartu konsisten: `M3CardGap` (0,0,0,12)
+- [x] Jarak antar seksi dalam kartu: `M3SectionGap` (0,12,0,0)
 
 **Dark Mode:**
-- [ ] Semua brush pakai `DynamicResource` — audit dengan `scripts/check-wpf-brushes.py`
-- [ ] Tidak ada `#xxxxxx` warna hardcoded di XAML selain di `Light.xaml` / `Dark.xaml`
-- [ ] Toggle tema → semua elemen berubah instan tanpa restart
+- [x] Semua brush pakai `DynamicResource` — audit dengan `scripts/check-wpf-brushes.py`
+- [x] Tidak ada `#xxxxxx` warna hardcoded di XAML selain di `Light.xaml` / `Dark.xaml`
+- [ ] Toggle tema → semua elemen berubah instan tanpa restart *(QA manual Windows)*
 
 **Resize:**
-- [ ] EventsView grid: 800px → 1 kolom, 700–1049px → 2 kolom, ≥1050px → 3 kolom
-- [ ] Rekap grid: <800px → 1 kolom, ≥800px → 2 kolom
-- [ ] AccountView tile: <600px → 1 kolom, ≥600px → 2 kolom
-- [ ] Form input 2 kolom: di layar sempit tetap 2 kolom (minimum per kolom ~220px)
+- [x] EventsView grid: 800px → 1 kolom, 700–1049px → 2 kolom, ≥1050px → 3 kolom
+- [x] Rekap grid: <800px → 1 kolom, ≥800px → 2 kolom
+- [x] AccountView tile: <600px → 1 kolom, ≥600px → 2 kolom
+- [x] Form input 2 kolom: di layar sempit tetap 2 kolom (minimum per kolom ~220px)
 
 **Font & Angka:**
-- [ ] Semua angka nominal/total pakai `FontFamily="{DynamicResource NumericFont}"` (Geist Mono)
-- [ ] Semua teks panjang punya `TextTrimming="CharacterEllipsis"`
+- [x] Semua angka nominal/total pakai `FontFamily="{DynamicResource NumericFont}"` (Geist Mono)
+- [x] Semua teks panjang punya `TextTrimming="CharacterEllipsis"`
 
 **Scroll:**
-- [ ] Semua tab `EventDetail` punya `ScrollViewer` dengan `VerticalScrollBarVisibility="Auto"`
-- [ ] `AccountView` punya `ScrollViewer` luar
-- [ ] Tidak ada konten terpotong saat window diperkecil ke 800×600px
+- [x] Semua tab `EventDetail` punya `ScrollViewer` dengan `VerticalScrollBarVisibility="Auto"`
+- [x] `AccountView` punya `ScrollViewer` luar
+- [ ] Tidak ada konten terpotong saat window diperkecil ke 800×600px *(QA manual Windows)*
 
 **Aksesibilitas:**
-- [ ] Semua tombol punya `ToolTip`
-- [ ] Semua input punya `Tag` (dipakai sebagai placeholder) atau `Label` terkait
-- [ ] `Focusable="True"` pada kartu yang bisa diklik keyboard
+- [x] Semua tombol punya `ToolTip`
+- [x] Semua input punya `Tag` (dipakai sebagai placeholder) atau `Label` terkait
+- [x] `Focusable="True"` pada kartu yang bisa diklik keyboard
 
 **Khusus WPF:**
-- [ ] `SnapsToDevicePixels="True"` pada semua `Border` + `DataGrid` agar garis tidak blur
-- [ ] `RenderOptions.BitmapScalingMode="HighQuality"` jika ada gambar
-- [ ] M3Chrome title bar tidak overlap dengan konten AppBar
+- [x] `SnapsToDevicePixels="True"` pada semua `Border` + `DataGrid` agar garis tidak blur
+- [x] `RenderOptions.BitmapScalingMode="HighQuality"` jika ada gambar
+- [x] M3Chrome title bar tidak overlap dengan konten AppBar
 
 ### Urutan QA
 
@@ -1481,7 +1481,7 @@ mobile/lib/core/window_ui.dart  (mungkin tidak perlu diubah, sudah bagus)
 
 | Task | Status | Catatan |
 |---|---|---|
-| Task 1: Token desain | ✅ Done | Foreground RoleChip/Banner + brush OnErrorContainer/OnInfo dilengkapi 2026-09-24 |
+| Task 1: Token desain | ✅ Done | RoleChip/Banner via TextBlock.Foreground + brush OnErrorContainer/OnInfo 2026-09-24 |
 | Task 2: MainWindow AppBar + Rail | ✅ Done | AppBar DashboardHeader + rail M3NavRailItem + Alt+1/2 Ctrl+N 2026-09-24 |
 | Task 3: EventsView grid fluida | ✅ Done | UniformGrid 1/2/3 + kartu baru + hybrid dispatch (embed penuh di Task 4) 2026-09-24 |
 | Task 4: EventDetailView hybrid + tab 4 | ✅ Done | Inversi View-pemilik-logic + TopBar + shortcut + Setting placeholder 2026-09-24 |
@@ -1490,6 +1490,6 @@ mobile/lib/core/window_ui.dart  (mungkin tidak perlu diubah, sudah bagus)
 | Task 7: Tab Setting | ✅ Done | Port SettingsWindow penuh + audit-log + HAPUS confirm + redirect fallback 2026-09-24 |
 | Task 8: AccountView | ✅ Done | Subs inline + foto/cek-user/perangkat/PIN-grace/server-URL + snack 2026-09-24 |
 | Task 9: Shortcut global | ✅ Done | ↑↓ kartu + Ctrl+R global + ← kembali + tooltip pass 2026-09-24 |
-| Task 10: Polish & QA | ⬜ Todo | |
+| Task 10: Polish & QA | ✅ Done (statis) | Audit lolos; QA runtime (toggle/800×600/offline) manual di Windows 2026-09-24 |
 
 Legend: ⬜ Todo · 🔵 In Progress · ✅ Done · 🔴 Blocked

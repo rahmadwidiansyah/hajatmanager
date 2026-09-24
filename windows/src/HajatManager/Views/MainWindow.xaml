@@ -7,7 +7,8 @@
   <DockPanel>
     <!-- M3 TopAppBar cermin DashboardHeader.tsx: brand + status chip kiri, sync + avatar kanan -->
     <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource SurfaceBrush}"
-            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1">
+            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1"
+            SnapsToDevicePixels="True">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
@@ -91,7 +92,7 @@
       </Grid.ColumnDefinitions>
       <Border Background="{DynamicResource SurfaceBrush}"
               BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0"
-              Padding="8,4">
+              Padding="8,4" SnapsToDevicePixels="True">
         <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect"
                  BorderThickness="0" Background="Transparent">
           <ListBoxItem x:Name="AcaraItem" Tag="events" Style="{DynamicResource M3NavRailItem}"

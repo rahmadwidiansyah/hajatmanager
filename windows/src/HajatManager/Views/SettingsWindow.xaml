@@ -14,7 +14,7 @@
                    Text="Pengaturan acara kini ada di tab Setting pada halaman detail acara."/>
         <Button Content="Tutup" Click="OnClose" Margin="0,12,0,0"
                 Style="{DynamicResource PrimaryButton}" HorizontalAlignment="Right"
-                MinWidth="120"/>
+                MinWidth="120" ToolTip="Tutup (Esc)"/>
       </StackPanel>
     </Border>
   </StackPanel>

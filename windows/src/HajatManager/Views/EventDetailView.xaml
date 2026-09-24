@@ -180,7 +180,7 @@
             <TextBlock x:Name="BookFooter" VerticalAlignment="Center"
                        Foreground="{DynamicResource OnVariantBrush}"/>
             <Button x:Name="BookMoreBtn" Content="Muat 50 lagi" Margin="12,0,0,0" Click="OnBookMore"
-                    Style="{DynamicResource OutlineButton}" Visibility="Collapsed"/>
+                    Style="{DynamicResource OutlineButton}" Visibility="Collapsed" ToolTip="Muat 50 lagi"/>
           </StackPanel>
           <DataGrid x:Name="BooksGrid" AutoGenerateColumns="False" IsReadOnly="True"
                     SelectionMode="Single" HeadersVisibility="Column">
@@ -217,7 +217,8 @@
                              Foreground="{DynamicResource OnVariantBrush}"/>
                   <StackPanel Orientation="Horizontal" Margin="0,4,0,0" VerticalAlignment="Center">
                     <TextBlock x:Name="TotalNominalText" FontSize="28" FontWeight="Bold"
-                               FontFamily="{DynamicResource NumericFont}" VerticalAlignment="Center"/>
+                               FontFamily="{DynamicResource NumericFont}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
                     <Button x:Name="HideRekapNominalBtn" Style="{DynamicResource TextButton}"
                             Width="24" Height="24" Click="OnToggleHideNominal" Margin="8,0,0,0"
                             Content="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="12"
@@ -235,7 +236,14 @@
                 <DataGrid.Columns>
                   <DataGridTextColumn Header="Alamat" Binding="{Binding Label}" Width="*"/>
                   <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
-                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130"/>
+                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="FontFamily" Value="{DynamicResource NumericFont}"/>
+                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
                 </DataGrid.Columns>
               </DataGrid>
               <DataGrid x:Name="MetodeGrid" AutoGenerateColumns="False" IsReadOnly="True"
@@ -243,7 +251,14 @@
                 <DataGrid.Columns>
                   <DataGridTextColumn Header="Metode" Binding="{Binding Label}" Width="*"/>
                   <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
-                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130"/>
+                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="FontFamily" Value="{DynamicResource NumericFont}"/>
+                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
                   <DataGridTextColumn Header="Porsi" Binding="{Binding Porsi}" Width="70"/>
                 </DataGrid.Columns>
               </DataGrid>
@@ -290,7 +305,8 @@
                   <TextBox x:Name="SettingMejaBox" Width="160" VerticalAlignment="Center"
                            ToolTip="Nama meja baru, mis. MEJA-3"/>
                   <Button Content="+ Tambah" Click="OnAddSettingMeja" Margin="8,0,0,0"
-                          Style="{DynamicResource OutlineButton}" VerticalAlignment="Center"/>
+                          Style="{DynamicResource OutlineButton}" VerticalAlignment="Center"
+                          ToolTip="Tambah meja"/>
                 </StackPanel>
               </StackPanel>
             </GroupBox>
@@ -306,7 +322,8 @@
                     <ComboBoxItem Content="VIEWER"/>
                   </ComboBox>
                   <Button Content="+ Tambah" Click="OnAddSettingMember" Margin="8,0,0,0"
-                          Style="{DynamicResource OutlineButton}" VerticalAlignment="Center"/>
+                          Style="{DynamicResource OutlineButton}" VerticalAlignment="Center"
+                          ToolTip="Tambah anggota terpilih"/>
                 </StackPanel>
                 <ListBox x:Name="SettingResultList" MaxHeight="120" Margin="0,0,0,8"
                          MouseDoubleClick="OnAddSettingMemberDbl"/>

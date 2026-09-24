@@ -119,6 +119,8 @@ public partial class AccountView : UserControl
                         Stretch = System.Windows.Media.Stretch.UniformToFill,
                         Width = 52, Height = 52,
                     };
+                    img.SetValue(System.Windows.Media.RenderOptions.BitmapScalingModeProperty,
+                        System.Windows.Media.BitmapScalingMode.HighQuality);
                     var clip = new System.Windows.Media.EllipseGeometry(
                         new System.Windows.Point(26, 26), 26, 26);
                     img.Clip = clip;
