@@ -55,7 +55,7 @@ public static class M3Snack
             Background = isError ? Res("ErrorContainerBrush", Brushes.DarkRed) : Res("InverseSurfaceBrush", Brushes.Black),
             BorderBrush = isError ? Res("ErrorBrush", Brushes.Red) : Res("OutlineBrush", Brushes.Gray),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 8, 12, 8),
             MaxWidth = 440,
             Effect = new System.Windows.Media.Effects.DropShadowEffect
@@ -188,7 +188,7 @@ public static class M3Skeleton
         return fallback;
     }
 
-    public static Border Block(double width, double height, double radius = 12)
+    public static Border Block(double width, double height, double radius = 8)
     {
         var b = new Border
         {

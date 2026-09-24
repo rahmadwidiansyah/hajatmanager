@@ -9,7 +9,7 @@
       <!-- Header + RoleChip cermin Flutter AppBar -->
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
         <TextBlock x:Name="SummaryText" Style="{DynamicResource M3Headline}" VerticalAlignment="Center"/>
-        <Border x:Name="RoleChip" Margin="12,0,0,0" Padding="10,4" CornerRadius="999"
+        <Border x:Name="RoleChip" Margin="12,0,0,0" Padding="10,4" CornerRadius="6"
                 BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                 VerticalAlignment="Center"
                 Background="{DynamicResource SurfaceContainerHighBrush}">

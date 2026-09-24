@@ -21,7 +21,7 @@ public sealed class M3Segmented : Border
 
     private M3Segmented()
     {
-        CornerRadius = new CornerRadius(999);
+        CornerRadius = new CornerRadius(8);
         Padding = new Thickness(4);
         SetResourceReference(BackgroundProperty, "SurfaceContainerHighBrush");
         BorderThickness = new Thickness(0);

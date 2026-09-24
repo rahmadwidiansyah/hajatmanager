@@ -8,7 +8,7 @@
   <DockPanel Margin="16" MaxWidth="1120">
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
       <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
-      <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="8" VerticalAlignment="Center"
+      <Border Margin="12,0,0,0" Padding="10,4" CornerRadius="6" VerticalAlignment="Center"
               Background="{DynamicResource SurfaceContainerBrush}">
         <TextBlock x:Name="RoleText" FontWeight="SemiBold"/>
       </Border>
@@ -21,7 +21,7 @@
               ToolTip="Sudah tersinkron — klik untuk refresh">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock x:Name="SyncCloudIcon" Text="&#xE117;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
-          <Border x:Name="SyncBadgeBorder" Margin="6,0,0,0" Padding="6,1" CornerRadius="8"
+          <Border x:Name="SyncBadgeBorder" Margin="6,0,0,0" Padding="6,1" CornerRadius="6"
                   Background="{DynamicResource ErrorBrush}" Visibility="Collapsed"
                   VerticalAlignment="Center">
             <TextBlock x:Name="SyncBadgeText" Text="0" FontSize="11" FontWeight="Bold"

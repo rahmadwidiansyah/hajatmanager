@@ -36,7 +36,7 @@
                 Cursor="Hand" Focusable="True" ToolTip="Profil"
                 MouseLeftButtonUp="GoProfile" KeyDown="OnTileKey">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="12"
+            <Border Width="40" Height="40" CornerRadius="8"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -51,7 +51,7 @@
                 Cursor="Hand" Focusable="True" ToolTip="Keamanan &amp; Password"
                 MouseLeftButtonUp="GoSecurity" KeyDown="OnTileKey">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="12"
+            <Border Width="40" Height="40" CornerRadius="8"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -66,7 +66,7 @@
                 Cursor="Hand" Focusable="True" ToolTip="PIN &amp; Kunci Layar"
                 MouseLeftButtonUp="GoPin" KeyDown="OnTileKey">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="12"
+            <Border Width="40" Height="40" CornerRadius="8"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE75F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"
@@ -81,7 +81,7 @@
                 Cursor="Hand" Focusable="True" ToolTip="Tentang &amp; Keluar"
                 MouseLeftButtonUp="GoAbout" KeyDown="OnTileKey">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="40" Height="40" CornerRadius="12"
+            <Border Width="40" Height="40" CornerRadius="8"
                     Background="{DynamicResource SecondaryContainerBrush}" VerticalAlignment="Center">
               <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                          Foreground="{DynamicResource OnSecondaryContainerBrush}"

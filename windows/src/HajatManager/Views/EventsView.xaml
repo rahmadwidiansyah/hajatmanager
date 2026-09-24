@@ -65,7 +65,7 @@
                     <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
                   <!-- Kotak tanggal ala Linux (secondaryContainer) -->
-                  <Border Width="48" Height="48" CornerRadius="12" VerticalAlignment="Top"
+                  <Border Width="48" Height="48" CornerRadius="8" VerticalAlignment="Top"
                           Background="{DynamicResource SecondaryContainerBrush}"
                           BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -88,8 +88,8 @@
                     <TextBlock Foreground="{DynamicResource OnVariantBrush}" FontSize="11"
                                TextTrimming="CharacterEllipsis"
                                Text="{Binding NamaTuanRumah, TargetNullValue='', StringFormat='Tuan rumah: {0}'}"/>
-                    <!-- RoleChip warna per-role (Stadium cermin Flutter) -->
-                    <Border Margin="0,6,0,0" Padding="10,3" CornerRadius="999"
+                    <!-- RoleChip warna per-role -->
+                    <Border Margin="0,6,0,0" Padding="10,3" CornerRadius="6"
                             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                             HorizontalAlignment="Left">
                       <Border.Style>
