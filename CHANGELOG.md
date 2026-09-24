@@ -1,3 +1,15 @@
+# [1.17.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.16.0...v1.17.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **windows:** Foreground Border ilegal -> TextBlock.Foreground + BeginInvoke tanpa await ([32629ea](https://github.com/rahmadwidiansyah/hajatmanager/commit/32629eaa1bbb930deecb980dd0ec9dedb8a8ce22))
+
+
+### Features
+
+* **windows:** polish QA task 10 (tooltip, snaps, numeric, trimming, avatar HQ) ([129c537](https://github.com/rahmadwidiansyah/hajatmanager/commit/129c5374e7b0986ee366f36e3b35dae264eac482))
+
 # [1.16.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.15.0...v1.16.0) (2026-09-24)
 
 
