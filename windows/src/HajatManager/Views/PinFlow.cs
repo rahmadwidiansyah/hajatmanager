@@ -85,7 +85,6 @@ public sealed class PinDialog : Window
         _box.Focus();
     }
 }
-}
 
 public sealed class PinSetupWindow : Window
 {
