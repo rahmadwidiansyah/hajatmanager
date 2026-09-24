@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.15.0...v1.16.0) (2026-09-24)
+
+
+### Features
+
+* **windows:** rombak UI WPF cermin web task 1-9 (token, appbar, grid, detail, setting, akun, shortcut) ([0221013](https://github.com/rahmadwidiansyah/hajatmanager/commit/02210131ebc40a2eacce534d9f821486b2891938))
+
 # [1.15.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.14.0...v1.15.0) (2026-09-24)
 
 
