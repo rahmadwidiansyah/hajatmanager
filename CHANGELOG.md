@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.3...v1.13.0) (2026-09-24)
+
+
+### Features
+
+* **windows:** density compact cermin linux — token padding, kontrol ramping, judul ganda dihapus ([47bbb05](https://github.com/rahmadwidiansyah/hajatmanager/commit/47bbb05afbf0ca6ee4f180dffc0902c07f13f5b9))
+
 ## [1.12.3](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.12.2...v1.12.3) (2026-09-24)
 
 
