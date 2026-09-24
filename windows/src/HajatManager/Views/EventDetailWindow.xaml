@@ -14,6 +14,21 @@
       </Border>
       <TextBlock x:Name="PendingText" Margin="12,0,0,0" VerticalAlignment="Center"
                  Foreground="{DynamicResource OnVariantBrush}"/>
+      <!-- Tombol awan sync cermin web TopBar: hijau=tersinkron, kuning=ada antre,
+           abu=offline + badge jumlah pending. Klik = sync sekarang. -->
+      <Button x:Name="SyncCloudBtn" Margin="12,0,0,0" Click="OnSync"
+              Style="{DynamicResource TonalButton}" VerticalAlignment="Center"
+              ToolTip="Sudah tersinkron — klik untuk refresh">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock x:Name="SyncCloudIcon" Text="☁ ✓" FontSize="14" VerticalAlignment="Center"/>
+          <Border x:Name="SyncBadgeBorder" Margin="6,0,0,0" Padding="6,1" CornerRadius="8"
+                  Background="{DynamicResource ErrorBrush}" Visibility="Collapsed"
+                  VerticalAlignment="Center">
+            <TextBlock x:Name="SyncBadgeText" Text="0" FontSize="11" FontWeight="Bold"
+                       Foreground="{DynamicResource OnErrorBrush}" VerticalAlignment="Center"/>
+          </Border>
+        </StackPanel>
+      </Button>
       <Button Content="Log" Margin="12,0,0,0" Click="OnOpenLog" Style="{DynamicResource TonalButton}"/>
       <Button Content="Pengaturan" Margin="8,0,0,0" Click="OnOpenSettings" Style="{DynamicResource OutlineButton}"/>
     </StackPanel>

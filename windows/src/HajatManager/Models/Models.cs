@@ -26,6 +26,10 @@ public sealed class GuestBookModel
     public string Nama { get; set; } = "";
     public string Alamat { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    // Kunci idempoten — cermin Guest.localId server (migrasi 20260920000000_add_local_id).
+    // Id lokal awal == LocalId (UUID); setelah sync diganti server-CUID via rekonsiliasi.
+    [JsonPropertyName("localId")]
+    public string? LocalId { get; set; }
 }
 
 public sealed class GuestModel
@@ -42,6 +46,9 @@ public sealed class GuestModel
     public string? MejaLabel { get; set; }
     public string? KodeInput { get; set; }
     public string? DeviceId { get; set; }
+    // Kunci idempoten — cermin Guest.localId server (migrasi 20260920000000_add_local_id).
+    [JsonPropertyName("localId")]
+    public string? LocalId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }

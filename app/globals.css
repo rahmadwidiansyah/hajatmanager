@@ -176,6 +176,19 @@ input, textarea, select {
   color: var(--on-surface);
   background: var(--surface-container-lowest);
 }
+/* Popup daftar <option> native: tanpa ini Chrome/Edge fallback putih
+   sementara text inherit putih (dark) → tidak kelihatan.
+   Ikut var tema + color-scheme agar sinkron dengan toggle MUI. */
+select option,
+select optgroup {
+  background-color: var(--surface-container-lowest);
+  color: var(--on-surface);
+}
+html[data-mui-color-scheme="dark"] select option,
+html[data-mui-color-scheme="dark"] select optgroup {
+  background-color: var(--surface-container-lowest);
+  color: var(--on-surface);
+}
 input::placeholder, textarea::placeholder {
   color: var(--on-surface-variant);
   opacity: 0.6;

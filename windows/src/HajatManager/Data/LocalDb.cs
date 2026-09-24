@@ -67,6 +67,25 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
             await m.ExecuteNonQueryAsync();
         }
         catch (SqliteException) { /* sudah ada */ }
+        // Migrasi deploy-11: kolom localId (kunci idempoten, cermin migrasi
+        // 20260920000000_add_local_id + mobile local_db.dart v3).
+        // Tanpa ini setiap input Windows dobel (id lokal gst-*/bk-* vs server cuid).
+        foreach (var ddl in new[]
+        {
+            "ALTER TABLE guests ADD COLUMN localId TEXT",
+            "ALTER TABLE guest_books ADD COLUMN localId TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_guests_localid ON guests(localId) WHERE localId IS NOT NULL",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_books_localid ON guest_books(localId) WHERE localId IS NOT NULL",
+        })
+        {
+            try
+            {
+                using var m = c.CreateCommand();
+                m.CommandText = ddl;
+                await m.ExecuteNonQueryAsync();
+            }
+            catch (SqliteException) { /* sudah ada */ }
+        }
     }
 
     // ---------- events ----------
@@ -156,6 +175,26 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
     }
 
     // ---------- guests ----------
+    private static string? ColOrNull(Microsoft.Data.Sqlite.SqliteDataReader r, string name)
+    {
+        try
+        {
+            var i = r.GetOrdinal(name);
+            return r.IsDBNull(i) ? null : r.GetString(i);
+        }
+        catch { return null; }
+    }
+
+    private static string ColStr(Microsoft.Data.Sqlite.SqliteDataReader r, string name, string fallback = "")
+    {
+        try
+        {
+            var i = r.GetOrdinal(name);
+            return r.IsDBNull(i) ? fallback : r.GetString(i);
+        }
+        catch { return fallback; }
+    }
+
     public async Task<List<GuestModel>> GuestsLocalAsync(string eventId)
     {
         var out_ = new List<GuestModel>();
@@ -168,20 +207,41 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
         {
             out_.Add(new GuestModel
             {
-                Id = r.GetString(0), EventId = r.GetString(1),
-                GuestBookId = r.IsDBNull(2) ? null : r.GetString(2),
-                Nama = r.GetString(3), Alamat = r.GetString(4),
-                Nominal = r.GetInt64(5), Metode = r.GetString(6),
-                Catatan = r.IsDBNull(7) ? null : r.GetString(7),
-                PetugasId = r.IsDBNull(8) ? null : r.GetString(8),
-                MejaLabel = r.IsDBNull(9) ? null : r.GetString(9),
-                KodeInput = r.IsDBNull(10) ? null : r.GetString(10),
-                DeviceId = r.IsDBNull(11) ? null : r.GetString(11),
-                CreatedAt = DateTime.TryParse(r.GetString(12), out var a) ? a : DateTime.Now,
-                UpdatedAt = DateTime.TryParse(r.GetString(13), out var b) ? b : DateTime.Now,
+                Id = ColStr(r, "id"),
+                EventId = ColStr(r, "eventId"),
+                GuestBookId = ColOrNull(r, "guestBookId"),
+                Nama = ColStr(r, "nama"),
+                Alamat = ColStr(r, "alamat"),
+                Nominal = long.TryParse(ColOrNull(r, "nominal") ?? "", out var _n) ? _n : ReadInt64(r, "nominal"),
+                Metode = ColStr(r, "metode", "AMPLOP"),
+                Catatan = ColOrNull(r, "catatan"),
+                PetugasId = ColOrNull(r, "petugasId"),
+                MejaLabel = ColOrNull(r, "mejaLabel"),
+                KodeInput = ColOrNull(r, "kodeInput"),
+                DeviceId = ColOrNull(r, "deviceId"),
+                LocalId = ColOrNull(r, "localId"),
+                CreatedAt = ReadDate(r, "createdAt"),
+                UpdatedAt = ReadDate(r, "updatedAt"),
             });
         }
         return out_;
+    }
+
+    private static long ReadInt64(Microsoft.Data.Sqlite.SqliteDataReader r, string name)
+    {
+        try
+        {
+            var i = r.GetOrdinal(name);
+            if (r.IsDBNull(i)) return 0;
+            try { return r.GetInt64(i); } catch { return 0; }
+        }
+        catch { return 0; }
+    }
+
+    private static DateTime ReadDate(Microsoft.Data.Sqlite.SqliteDataReader r, string name)
+    {
+        var s = ColOrNull(r, name);
+        return DateTime.TryParse(s, out var d) ? d : DateTime.Now;
     }
 
     public async Task InsertGuestAsync(GuestModel g)
@@ -189,8 +249,8 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
         using var c = Open();
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"INSERT OR REPLACE INTO guests
-(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,createdAt,updatedAt)
-VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)";
+(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,localId,createdAt,updatedAt)
+VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$lid,$ca,$ua)";
         cmd.Parameters.AddWithValue("$id", g.Id);
         cmd.Parameters.AddWithValue("$e", g.EventId);
         cmd.Parameters.AddWithValue("$gb", (object?)g.GuestBookId ?? DBNull.Value);
@@ -203,9 +263,46 @@ VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)";
         cmd.Parameters.AddWithValue("$mj", (object?)g.MejaLabel ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$k", (object?)g.KodeInput ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$d", (object?)g.DeviceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$lid", (object?)g.LocalId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$ca", g.CreatedAt.ToString("o"));
         cmd.Parameters.AddWithValue("$ua", g.UpdatedAt.ToString("o"));
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    // Rekonsiliasi id sementara (== localId) → server id. Cermin mobile
+    // updateGuestServerId + web offline-sync.ts flushOutbox.
+    public async Task UpdateGuestServerIdAsync(string localId, string serverId)
+    {
+        if (string.IsNullOrEmpty(localId) || string.IsNullOrEmpty(serverId) || localId == serverId) return;
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        // Baris lokal id-nya masih == localId → ganti ke server id.
+        // Kalau baris server sudah ada via pull, hapus duplikat lokal dulu.
+        cmd.CommandText = "UPDATE guests SET id=$srv WHERE localId=$lid AND (id=$lid OR id!=$srv)";
+        cmd.Parameters.AddWithValue("$srv", serverId);
+        cmd.Parameters.AddWithValue("$lid", localId);
+        await cmd.ExecuteNonQueryAsync();
+        using var dedup = c.CreateCommand();
+        dedup.CommandText = "DELETE FROM guests WHERE localId=$lid AND id!=$srv";
+        dedup.Parameters.AddWithValue("$lid", localId);
+        dedup.Parameters.AddWithValue("$srv", serverId);
+        try { await dedup.ExecuteNonQueryAsync(); } catch { }
+    }
+
+    public async Task UpdateBookServerIdAsync(string localId, string serverId)
+    {
+        if (string.IsNullOrEmpty(localId) || string.IsNullOrEmpty(serverId) || localId == serverId) return;
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "UPDATE guest_books SET id=$srv WHERE localId=$lid AND (id=$lid OR id!=$srv)";
+        cmd.Parameters.AddWithValue("$srv", serverId);
+        cmd.Parameters.AddWithValue("$lid", localId);
+        await cmd.ExecuteNonQueryAsync();
+        using var dedup = c.CreateCommand();
+        dedup.CommandText = "DELETE FROM guest_books WHERE localId=$lid AND id!=$srv";
+        dedup.Parameters.AddWithValue("$lid", localId);
+        dedup.Parameters.AddWithValue("$srv", serverId);
+        try { await dedup.ExecuteNonQueryAsync(); } catch { }
     }
 
     public async Task UpdateGuestLocalAsync(string id, Dictionary<string, object?> fields)
@@ -243,9 +340,12 @@ VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)";
         {
             out_.Add(new GuestBookModel
             {
-                Id = r.GetString(0), EventId = r.GetString(1),
-                Nama = r.GetString(2), Alamat = r.GetString(3),
-                CreatedAt = DateTime.TryParse(r.GetString(4), out var d) ? d : DateTime.Now,
+                Id = ColStr(r, "id"),
+                EventId = ColStr(r, "eventId"),
+                Nama = ColStr(r, "nama"),
+                Alamat = ColStr(r, "alamat"),
+                LocalId = ColOrNull(r, "localId"),
+                CreatedAt = ReadDate(r, "createdAt"),
             });
         }
         return out_;
@@ -255,12 +355,13 @@ VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)";
     {
         using var c = Open();
         using var cmd = c.CreateCommand();
-        cmd.CommandText = @"INSERT OR REPLACE INTO guest_books(id,eventId,nama,alamat,createdAt)
-VALUES($id,$e,$n,$a,$c)";
+        cmd.CommandText = @"INSERT OR REPLACE INTO guest_books(id,eventId,nama,alamat,localId,createdAt)
+VALUES($id,$e,$n,$a,$lid,$c)";
         cmd.Parameters.AddWithValue("$id", b.Id);
         cmd.Parameters.AddWithValue("$e", b.EventId);
         cmd.Parameters.AddWithValue("$n", b.Nama);
         cmd.Parameters.AddWithValue("$a", b.Alamat);
+        cmd.Parameters.AddWithValue("$lid", (object?)b.LocalId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$c", b.CreatedAt.ToString("o"));
         await cmd.ExecuteNonQueryAsync();
     }
@@ -312,12 +413,17 @@ VALUES($id,$e,$n,$a,$c)";
 
     // Merge server data without replacing rows that still have a local outbox operation.
     // Pull responses do not contain deletes, so existing local rows are intentionally kept.
+    // Upsert dua lapis cermin mobile mergeGuests/mergeBooks:
+    //   localId ada → ON CONFLICT(localId) update id ke server id (satu localId = satu baris).
+    //   localId null → ON CONFLICT(id) biasa (data lama web).
     public async Task MergePulledAsync(
         EventModel? eventModel,
         IEnumerable<GuestModel> guests,
         IEnumerable<GuestBookModel> books,
         IEnumerable<string>? deletedGuestIds = null,
-        IEnumerable<string>? deletedBookIds = null)
+        IEnumerable<string>? deletedBookIds = null,
+        IEnumerable<string>? deletedGuestLocalIds = null,
+        IEnumerable<string>? deletedBookLocalIds = null)
     {
         using var c = Open();
         using var tx = c.BeginTransaction();
@@ -344,6 +450,9 @@ VALUES($id,$e,$n,$a,$c)";
                     if (root.TryGetProperty("id", out var id) &&
                         id.ValueKind == System.Text.Json.JsonValueKind.String)
                         pending.Add($"{table}:{id.GetString()}");
+                    if (root.TryGetProperty("localId", out var lid) &&
+                        lid.ValueKind == System.Text.Json.JsonValueKind.String)
+                        pending.Add($"{table}:{lid.GetString()}");
                     // Update/delete payloads use { id, fields } while older
                     // writers may put the identifier inside the fields object.
                     if (root.TryGetProperty("fields", out var fields) &&
@@ -378,46 +487,100 @@ ON CONFLICT(id) DO UPDATE SET namaAcara=$n,namaTuanRumah=$t,tanggal=$tg,
         foreach (var book in books)
         {
             if (pending.Contains($"guest_books:{book.Id}")) continue;
+            if (!string.IsNullOrEmpty(book.LocalId) && pending.Contains($"guest_books:{book.LocalId}")) continue;
             using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = @"
+            if (!string.IsNullOrEmpty(book.LocalId))
+            {
+                cmd.CommandText = @"
+INSERT INTO guest_books(id,eventId,nama,alamat,localId,createdAt)
+VALUES($id,$e,$n,$a,$lid,$c)
+ON CONFLICT(localId) DO UPDATE SET id=$id,eventId=$e,nama=$n,alamat=$a,createdAt=$c";
+                cmd.Parameters.AddWithValue("$lid", book.LocalId);
+            }
+            else
+            {
+                cmd.CommandText = @"
 INSERT INTO guest_books(id,eventId,nama,alamat,createdAt)
 VALUES($id,$e,$n,$a,$c)
 ON CONFLICT(id) DO UPDATE SET eventId=$e,nama=$n,alamat=$a,createdAt=$c";
+            }
             cmd.Parameters.AddWithValue("$id", book.Id);
             cmd.Parameters.AddWithValue("$e", book.EventId);
             cmd.Parameters.AddWithValue("$n", book.Nama);
             cmd.Parameters.AddWithValue("$a", book.Alamat);
             cmd.Parameters.AddWithValue("$c", book.CreatedAt.ToString("o"));
-            await cmd.ExecuteNonQueryAsync();
+            try { await cmd.ExecuteNonQueryAsync(); }
+            catch (Microsoft.Data.Sqlite.SqliteException)
+            {
+                // Fallback DB lama tanpa kolom localId.
+                using var fb = c.CreateCommand();
+                fb.Transaction = tx;
+                fb.CommandText = @"
+INSERT INTO guest_books(id,eventId,nama,alamat,createdAt)
+VALUES($id,$e,$n,$a,$c)
+ON CONFLICT(id) DO UPDATE SET eventId=$e,nama=$n,alamat=$a,createdAt=$c";
+                fb.Parameters.AddWithValue("$id", book.Id);
+                fb.Parameters.AddWithValue("$e", book.EventId);
+                fb.Parameters.AddWithValue("$n", book.Nama);
+                fb.Parameters.AddWithValue("$a", book.Alamat);
+                fb.Parameters.AddWithValue("$c", book.CreatedAt.ToString("o"));
+                await fb.ExecuteNonQueryAsync();
+            }
         }
 
         foreach (var guest in guests)
         {
             if (pending.Contains($"guests:{guest.Id}")) continue;
+            if (!string.IsNullOrEmpty(guest.LocalId) && pending.Contains($"guests:{guest.LocalId}")) continue;
             using var cmd = c.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = @"
+            var p = new Dictionary<string, object?>
+            {
+                ["$id"] = guest.Id, ["$e"] = guest.EventId,
+                ["$gb"] = guest.GuestBookId, ["$n"] = guest.Nama, ["$a"] = guest.Alamat,
+                ["$nom"] = guest.Nominal, ["$m"] = guest.Metode, ["$ct"] = guest.Catatan,
+                ["$p"] = guest.PetugasId, ["$mj"] = guest.MejaLabel, ["$k"] = guest.KodeInput,
+                ["$d"] = guest.DeviceId, ["$ca"] = guest.CreatedAt.ToString("o"),
+                ["$ua"] = guest.UpdatedAt.ToString("o"),
+            };
+            if (!string.IsNullOrEmpty(guest.LocalId))
+            {
+                p["$lid"] = guest.LocalId;
+                cmd.CommandText = @"
+INSERT INTO guests(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,localId,createdAt,updatedAt)
+VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$lid,$ca,$ua)
+ON CONFLICT(localId) DO UPDATE SET id=$id,eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
+  nominal=$nom,metode=$m,catatan=$ct,petugasId=$p,mejaLabel=$mj,kodeInput=$k,
+  deviceId=$d,createdAt=$ca,updatedAt=$ua";
+            }
+            else
+            {
+                cmd.CommandText = @"
 INSERT INTO guests(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,createdAt,updatedAt)
 VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)
 ON CONFLICT(id) DO UPDATE SET eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
   nominal=$nom,metode=$m,catatan=$ct,petugasId=$p,mejaLabel=$mj,kodeInput=$k,
   deviceId=$d,createdAt=$ca,updatedAt=$ua";
-            cmd.Parameters.AddWithValue("$id", guest.Id);
-            cmd.Parameters.AddWithValue("$e", guest.EventId);
-            cmd.Parameters.AddWithValue("$gb", (object?)guest.GuestBookId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$n", guest.Nama);
-            cmd.Parameters.AddWithValue("$a", guest.Alamat);
-            cmd.Parameters.AddWithValue("$nom", guest.Nominal);
-            cmd.Parameters.AddWithValue("$m", guest.Metode);
-            cmd.Parameters.AddWithValue("$ct", (object?)guest.Catatan ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$p", (object?)guest.PetugasId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$mj", (object?)guest.MejaLabel ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$k", (object?)guest.KodeInput ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$d", (object?)guest.DeviceId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$ca", guest.CreatedAt.ToString("o"));
-            cmd.Parameters.AddWithValue("$ua", guest.UpdatedAt.ToString("o"));
-            await cmd.ExecuteNonQueryAsync();
+            }
+            foreach (var kv in p)
+                cmd.Parameters.AddWithValue(kv.Key, (object?)kv.Value ?? DBNull.Value);
+            try { await cmd.ExecuteNonQueryAsync(); }
+            catch (Microsoft.Data.Sqlite.SqliteException)
+            {
+                // Fallback DB lama tanpa kolom localId.
+                using var fb = c.CreateCommand();
+                fb.Transaction = tx;
+                fb.CommandText = @"
+INSERT INTO guests(id,eventId,guestBookId,nama,alamat,nominal,metode,catatan,petugasId,mejaLabel,kodeInput,deviceId,createdAt,updatedAt)
+VALUES($id,$e,$gb,$n,$a,$nom,$m,$ct,$p,$mj,$k,$d,$ca,$ua)
+ON CONFLICT(id) DO UPDATE SET eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
+  nominal=$nom,metode=$m,catatan=$ct,petugasId=$p,mejaLabel=$mj,kodeInput=$k,
+  deviceId=$d,createdAt=$ca,updatedAt=$ua";
+                foreach (var kv in p.Where(x => x.Key != "$lid"))
+                    fb.Parameters.AddWithValue(kv.Key, (object?)kv.Value ?? DBNull.Value);
+                await fb.ExecuteNonQueryAsync();
+            }
         }
 
         foreach (var id in deletedGuestIds ?? Enumerable.Empty<string>())
@@ -428,6 +591,17 @@ ON CONFLICT(id) DO UPDATE SET eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
             cmd.Parameters.AddWithValue("$id", id);
             await cmd.ExecuteNonQueryAsync();
         }
+        // Hapus by localId — penting untuk baris yang id lokalnya belum ter-replace.
+        // Cermin mobile sync_engine delete by id DAN localId.
+        foreach (var lid in deletedGuestLocalIds ?? Enumerable.Empty<string>())
+        {
+            if (string.IsNullOrEmpty(lid)) continue;
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM guests WHERE localId=$lid";
+            cmd.Parameters.AddWithValue("$lid", lid);
+            try { await cmd.ExecuteNonQueryAsync(); } catch (Microsoft.Data.Sqlite.SqliteException) { }
+        }
         foreach (var id in deletedBookIds ?? Enumerable.Empty<string>())
         {
             using var cmd = c.CreateCommand();
@@ -435,6 +609,15 @@ ON CONFLICT(id) DO UPDATE SET eventId=$e,guestBookId=$gb,nama=$n,alamat=$a,
             cmd.CommandText = "DELETE FROM guest_books WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", id);
             await cmd.ExecuteNonQueryAsync();
+        }
+        foreach (var lid in deletedBookLocalIds ?? Enumerable.Empty<string>())
+        {
+            if (string.IsNullOrEmpty(lid)) continue;
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM guest_books WHERE localId=$lid";
+            cmd.Parameters.AddWithValue("$lid", lid);
+            try { await cmd.ExecuteNonQueryAsync(); } catch (Microsoft.Data.Sqlite.SqliteException) { }
         }
 
         tx.Commit();

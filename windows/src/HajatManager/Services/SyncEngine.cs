@@ -162,6 +162,37 @@ public sealed class SyncEngine
                         return (0, 0, status >= 500 ? "server-error" : $"rejected-{status}");
                     }
                     var doc = await res.Content.ReadFromJsonAsync<JsonDocument>(JsonOpts);
+                    // ── Rekonsiliasi id via syncedItems (cermin mobile sync_engine.dart) ──
+                    // Server kembalikan {id: server-CUID, localId: UUID-client}.
+                    // Kalau id != localId → baris lokal masih pakai id sementara → ganti.
+                    // Tanpa ini + tanpa localId di payload = double item setelah pull.
+                    try
+                    {
+                        if (doc?.RootElement.TryGetProperty("syncedItems", out var items) == true)
+                        {
+                            if (items.TryGetProperty("guests", out var sg) && sg.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var it in sg.EnumerateArray())
+                                {
+                                    var srv = it.TryGetProperty("id", out var a) ? a.GetString() ?? "" : "";
+                                    var lid = it.TryGetProperty("localId", out var b) ? b.GetString() ?? "" : "";
+                                    if (!string.IsNullOrEmpty(srv) && !string.IsNullOrEmpty(lid) && srv != lid)
+                                        await LocalDb.Instance.UpdateGuestServerIdAsync(lid, srv);
+                                }
+                            }
+                            if (items.TryGetProperty("guestBooks", out var sb) && sb.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var it in sb.EnumerateArray())
+                                {
+                                    var srv = it.TryGetProperty("id", out var a) ? a.GetString() ?? "" : "";
+                                    var lid = it.TryGetProperty("localId", out var b) ? b.GetString() ?? "" : "";
+                                    if (!string.IsNullOrEmpty(srv) && !string.IsNullOrEmpty(lid) && srv != lid)
+                                        await LocalDb.Instance.UpdateBookServerIdAsync(lid, srv);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
                     var cfl = doc?.RootElement.TryGetProperty("conflicts", out var c) == true
                         ? c.EnumerateArray().ToList() : new List<JsonElement>();
                     var cIds = cfl.Select(e => e.GetProperty("id").GetString() ?? "").ToHashSet();
@@ -302,8 +333,17 @@ public sealed class SyncEngine
                              deletedBooksJson.ValueKind == JsonValueKind.Array
             ? deletedBooksJson.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
             : new List<string>();
+        // Hapus by localId juga — baris lokal yang id-nya belum ter-replace (cermin mobile).
+        var deletedGuestLocalIds = root.TryGetProperty("deletedGuestLocalIds", out var dgl) &&
+                                   dgl.ValueKind == JsonValueKind.Array
+            ? dgl.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : new List<string>();
+        var deletedBookLocalIds = root.TryGetProperty("deletedGuestBookLocalIds", out var dbl) &&
+                                  dbl.ValueKind == JsonValueKind.Array
+            ? dbl.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : new List<string>();
 
-        await LocalDb.Instance.MergePulledAsync(eventModel, guests, books, deletedGuestIds, deletedBookIds);
+        await LocalDb.Instance.MergePulledAsync(eventModel, guests, books, deletedGuestIds, deletedBookIds, deletedGuestLocalIds, deletedBookLocalIds);
         if (root.TryGetProperty("pulledAt", out var pa))
             await LocalDb.Instance.SetMetaAsync($"lastPull:{eventId}", pa.GetString() ?? "");
     }

@@ -227,9 +227,18 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
 
   useEffect(() => {
     if (!event) return;
+    // Jangan timpa pilihan user: auto-pick hanya saat belum ada pilihan
+    // atau pilihan saat ini sudah tak valid (tak ada di mejaList).
+    // (Sebelumnya deps [event, rekap] selalu nimpa MEJA-2 → MEJA-1/unused
+    // setiap rekap selesai load / tiap buka ulang.)
+    const valid = mejaLabel && event.mejaList?.includes(mejaLabel);
+    if (valid) return;
     const key = `mejaLabel:${eventId}:${userEmail}`;
     const saved = localStorage.getItem(key);
     if (saved && event.mejaList?.includes(saved)) { setMejaLabel(saved); return; }
+    if (mejaLabel && !valid) {
+      // pilihan basi (meja dihapus) → lanjut auto-pick di bawah
+    } else if (mejaLabel) return;
     if (rekap?.perMeja) {
       const unused = event.mejaList?.find((m) => !rekap.perMeja.some((p) => p.mejaLabel === m));
       if (unused) { setMejaLabel(unused); return; }
@@ -237,7 +246,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
       if (sorted[0]) { setMejaLabel(sorted[0].mejaLabel); return; }
     }
     if (event.mejaList?.[0] && !saved) setMejaLabel(event.mejaList[0]);
-  }, [event, rekap, userEmail, eventId]);
+  }, [event, rekap, userEmail, eventId, mejaLabel]);
 
   useEffect(() => {
     if (!mejaLabel) return;
@@ -1976,7 +1985,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                     title={isBrowserOffline ? "Butuh internet untuk cari user" : undefined}
                     className={`${inputCls} disabled:opacity-50`} />
                   <select value={addRole} onChange={e => setAddRole(e.target.value)} disabled={event.myRole !== "OWNER" || isBrowserOffline}
-                    className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none disabled:opacity-50">
+                    className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none disabled:opacity-50">
                     <option value="VIEWER">VIEWER</option><option value="ADMIN">ADMIN</option><option value="OWNER">OWNER</option>
                   </select>
                   {searchResults.length > 0 && (
@@ -2299,7 +2308,7 @@ export default function EventClient({ eventId, userEmail, userName, initialTab =
                 <input value={editGuestData.nominal} onChange={e => setEditGuestData({ ...editGuestData, nominal: e.target.value.replace(/\D/g, "").slice(0, 15) })} onPaste={e => { e.preventDefault(); const digits = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 15); if (digits) setEditGuestData({ ...editGuestData, nominal: digits }); }} required type="text" inputMode="numeric" pattern="[0-9]*" maxLength={15} autoComplete="off" className={`${inputCls} font-semibold`} placeholder="Nominal" />
               </div>
             <select value={editGuestData.metode} onChange={e => setEditGuestData({ ...editGuestData, metode: e.target.value })}
-              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm focus:outline-none">
+              className="w-full h-11 px-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-sm text-[var(--on-surface)] focus:outline-none">
               <option>AMPLOP</option><option>QRIS</option><option>TRANSFER</option>
               {["CASH", "BARANG"].includes(editGuestData.metode) && (
                 <option value={editGuestData.metode}>{editGuestData.metode} (lama)</option>

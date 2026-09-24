@@ -53,6 +53,14 @@ public partial class EventDetailWindow : Window
     public EventDetailWindow(EventModel ev)
     {
         _ev = ev;
+        // Pulihkan pilihan meja terakhir (cermin web localStorage + mobile SharedPrefs).
+        // Tanpa ini tiap buka jendela balik ke MEJA-1.
+        try
+        {
+            var saved = AppConfig.Instance.GetMejaFor(ev.Id);
+            if (!string.IsNullOrEmpty(saved)) _meja = saved;
+        }
+        catch { }
         InitializeComponent();
         Title = ev.NamaAcara;
         TitleText.Text = ev.NamaAcara;
@@ -88,12 +96,75 @@ public partial class EventDetailWindow : Window
         try
         {
             var online = SyncEngine.Instance.Online;
+            var pending = await LocalDb.Instance.OutboxCountAsync(_ev.Id);
             PendingText.Text =
-                $"Antre: {await LocalDb.Instance.OutboxCountAsync(_ev.Id)} • " +
+                $"Antre: {pending} • " +
                 (online ? "Online ✓" : "Offline ✗");
+            UpdateSyncCloud(pending, online);
             ApplyGuestFilter();
         }
         catch { }
+    }
+
+    // Ikon awan sync cermin web TopBar (syncBtn): hijau = tersinkron,
+    // kuning = ada pending, abu = offline + badge jumlah antre.
+    private void UpdateSyncCloud(int pending, bool online)
+    {
+        try
+        {
+            if (SyncCloudBtn == null || SyncCloudIcon == null) return;
+            if (_syncing)
+            {
+                SyncCloudIcon.Text = "☁ …";
+                SyncCloudBtn.ToolTip = "Sinkronisasi berjalan…";
+                SyncCloudBtn.IsEnabled = false;
+            }
+            else
+            {
+                SyncCloudBtn.IsEnabled = true;
+                if (!online)
+                {
+                    SyncCloudBtn.Background = BrushOf("SurfaceContainerBrush");
+                    SyncCloudBtn.Foreground = BrushOf("OnVariantBrush");
+                    SyncCloudIcon.Text = "☁ ✕";
+                    SyncCloudBtn.ToolTip = $"Offline — data tersimpan di perangkat{(pending > 0 ? $" ({pending} menunggu sync)" : "")}. Klik untuk coba sync.";
+                }
+                else if (pending > 0)
+                {
+                    SyncCloudBtn.Background = BrushOf("WarningBrush");
+                    SyncCloudBtn.Foreground = BrushOf("OnPrimaryBrush");
+                    SyncCloudIcon.Text = "☁ ↑";
+                    SyncCloudBtn.ToolTip = $"{pending} data belum sync — klik untuk sync sekarang";
+                }
+                else
+                {
+                    SyncCloudBtn.Background = BrushOf("PrimaryBrush");
+                    SyncCloudBtn.Foreground = BrushOf("OnPrimaryBrush");
+                    SyncCloudIcon.Text = "☁ ✓";
+                    SyncCloudBtn.ToolTip = "Sudah tersinkron — klik untuk refresh";
+                }
+            }
+            if (SyncBadgeBorder != null && SyncBadgeText != null)
+            {
+                if (pending > 0)
+                {
+                    SyncBadgeBorder.Visibility = Visibility.Visible;
+                    SyncBadgeText.Text = pending > 9 ? "9+" : pending.ToString();
+                }
+                else SyncBadgeBorder.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch { }
+    }
+
+    private static System.Windows.Media.Brush BrushOf(string key)
+    {
+        try
+        {
+            if (Application.Current?.TryFindResource(key) is System.Windows.Media.Brush b) return b;
+        }
+        catch { }
+        return System.Windows.Media.Brushes.Gray;
     }
 
     private async Task RefreshAsync()
@@ -117,9 +188,11 @@ public partial class EventDetailWindow : Window
         await RefreshRekapAsync();
         // Fase 5: status online + antre konsisten seperti MainWindow.
         var online = await SyncEngine.Instance.CheckNowAsync();
+        var pendingCount = await LocalDb.Instance.OutboxCountAsync(_ev.Id);
         PendingText.Text =
-            $"Antre: {await LocalDb.Instance.OutboxCountAsync(_ev.Id)} • " +
+            $"Antre: {pendingCount} • " +
             (online ? "Online ✓" : "Offline ✗");
+        UpdateSyncCloud(pendingCount, online);
     }
 
     private void RecalcTopsLocal()
@@ -148,7 +221,12 @@ public partial class EventDetailWindow : Window
                         if (lists.Count > 0)
                         {
                             _ev.MejaList = lists;
-                            if (!_ev.MejaList.Contains(_meja)) _meja = _ev.MejaList.First();
+                            // Hormati pilihan tersimpan; fallback ke pertama bila tak valid.
+                            string? saved = null;
+                            try { saved = AppConfig.Instance.GetMejaFor(_ev.Id); } catch { }
+                            if (!string.IsNullOrEmpty(saved) && _ev.MejaList.Contains(saved))
+                                _meja = saved;
+                            else if (!_ev.MejaList.Contains(_meja)) _meja = _ev.MejaList.First();
                         }
                     }
                     if (r.TryGetProperty("members", out var mm) && mm.ValueKind == JsonValueKind.Array)
@@ -248,7 +326,7 @@ public partial class EventDetailWindow : Window
                 SelectedItem = _ev.MejaList.Contains(_meja) ? _meja : _ev.MejaList.FirstOrDefault() ?? "MEJA-1",
                 Margin = new Thickness(0, 0, 0, 0)
             };
-            _mejaBox.SelectionChanged += (_, _) => { _meja = _mejaBox.SelectedItem as string ?? _meja; };
+            _mejaBox.SelectionChanged += (_, _) => { _meja = _mejaBox.SelectedItem as string ?? _meja; try { AppConfig.Instance.SetMejaFor(_ev.Id, _meja); } catch { } };
             var mejaCard = FieldCard("Meja kasir", _mejaBox, null);
             InputPanel.Children.Add(mejaCard);
 
@@ -831,12 +909,16 @@ public partial class EventDetailWindow : Window
         if (_saveBtn != null) { _saveBtn.IsEnabled = false; _saveBtn.Content = "Menyimpan…"; }
         try
         {
-        var id = $"gst-{Guid.NewGuid()}";
+        // Idempoten cermin mobile/web: id lokal AWAL == localId (UUID murni).
+        // Server lookup by localId dulu → retry / POST-langsung + flush tidak dobel.
+        // (Sebelumnya id = "gst-GUID" tanpa localId → server buat cuid baru → 2 baris.)
+        var localId = Guid.NewGuid().ToString();
+        var id = localId;
         var now = DateTime.Now;
         var email = UserEmail();
         var payload = new Dictionary<string, object?>
         {
-            ["id"] = id, ["eventId"] = _ev.Id, ["nama"] = nama, ["alamat"] = alamat,
+            ["id"] = id, ["localId"] = localId, ["eventId"] = _ev.Id, ["nama"] = nama, ["alamat"] = alamat,
             ["nominal"] = nominal, ["metode"] = metode,
             ["catatan"] = string.IsNullOrEmpty(catatan) ? null : catatan,
             ["petugasId"] = email, ["mejaLabel"] = _mejaBox?.SelectedItem as string ?? _meja,
@@ -845,7 +927,7 @@ public partial class EventDetailWindow : Window
         };
         await LocalDb.Instance.InsertGuestAsync(new GuestModel
         {
-            Id = id, EventId = _ev.Id, Nama = nama, Alamat = alamat, Nominal = nominal,
+            Id = id, LocalId = localId, EventId = _ev.Id, Nama = nama, Alamat = alamat, Nominal = nominal,
             Metode = metode, Catatan = string.IsNullOrEmpty(catatan) ? null : catatan,
             PetugasId = email, MejaLabel = _mejaBox?.SelectedItem as string,
             DeviceId = AppConfig.Instance.GetDeviceId(), CreatedAt = now, UpdatedAt = now,
@@ -859,7 +941,21 @@ public partial class EventDetailWindow : Window
         {
             using var r = await ApiClient.Instance.PostJsonAsync(
                 $"/api/events/{_ev.Id}/guests", payload);
-            if (r.IsSuccessStatusCode) await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
+            if (r.IsSuccessStatusCode)
+            {
+                // Rekonsiliasi langsung: server bisa balikin id berbeda (cuid).
+                // Update baris lokal → pull berikutnya tidak insert baris kedua.
+                try
+                {
+                    var body = await r.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(body);
+                    var srv = doc.RootElement.TryGetProperty("id", out var sid) ? sid.GetString() ?? "" : "";
+                    if (!string.IsNullOrEmpty(srv) && srv != localId)
+                        await LocalDb.Instance.UpdateGuestServerIdAsync(localId, srv);
+                }
+                catch { }
+                await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
+            }
         }
         catch { }
         if (_namaBox != null) _namaBox.Text = "";
@@ -1028,16 +1124,17 @@ public partial class EventDetailWindow : Window
             save.IsEnabled = false;
             try
             {
-            var id = $"bk-{Guid.NewGuid()}";
+            var localId = Guid.NewGuid().ToString();
+            var id = localId;
             var payload = new Dictionary<string, object?>
             {
-                ["id"] = id, ["eventId"] = _ev.Id,
+                ["id"] = id, ["localId"] = localId, ["eventId"] = _ev.Id,
                 ["nama"] = TitleCase(n.Text), ["alamat"] = a.Text.Trim(),
                 ["createdAt"] = DateTime.Now.ToString("o"),
             };
             await LocalDb.Instance.InsertBookAsync(new GuestBookModel
             {
-                Id = id, EventId = _ev.Id, Nama = TitleCase(n.Text),
+                Id = id, LocalId = localId, EventId = _ev.Id, Nama = TitleCase(n.Text),
                 Alamat = a.Text.Trim(), CreatedAt = DateTime.Now,
             });
             await LocalDb.Instance.EnqueueAsync(new OutboxOp
@@ -1049,8 +1146,20 @@ public partial class EventDetailWindow : Window
             {
                 using var r = await ApiClient.Instance.PostJsonAsync(
                     $"/api/events/{_ev.Id}/guestbooks",
-                    new { nama = payload["nama"], alamat = payload["alamat"] });
-                if (r.IsSuccessStatusCode) await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
+                    new { nama = payload["nama"], alamat = payload["alamat"], localId });
+                if (r.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        var body = await r.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(body);
+                        var srv = doc.RootElement.TryGetProperty("id", out var sid) ? sid.GetString() ?? "" : "";
+                        if (!string.IsNullOrEmpty(srv) && srv != localId)
+                            await LocalDb.Instance.UpdateBookServerIdAsync(localId, srv);
+                    }
+                    catch { }
+                    await LocalDb.Instance.OutboxRemoveAsync(new[] { id });
+                }
             }
             catch { }
             win.Close();
@@ -1157,6 +1266,7 @@ public partial class EventDetailWindow : Window
         _syncing = true;
         var btn = sender as System.Windows.Controls.Button;
         if (btn != null) btn.IsEnabled = false;
+        try { UpdateSyncCloud(await LocalDb.Instance.OutboxCountAsync(_ev.Id), SyncEngine.Instance.Online); } catch { }
         try
         {
             await SyncEngine.Instance.SyncInBackgroundAsync(_ev.Id);
