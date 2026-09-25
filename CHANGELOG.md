@@ -1,3 +1,16 @@
+# [1.20.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.19.0...v1.20.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* **linux:** empty state pemberian, buku anti-double + enter simpan ([fae35ac](https://github.com/rahmadwidiansyah/hajatmanager/commit/fae35ace3924f4e668d0812f60b265cdf1cd926b))
+* rekap cukup satu alamat/metode di semua lebar layar ([260552d](https://github.com/rahmadwidiansyah/hajatmanager/commit/260552de8c1a399d740a18d9ed8c4b4f79f2b8e9))
+
+
+### Features
+
+* **web:** unduhan Windows Flutter, Linux AppImage, footer berikon ([fc632db](https://github.com/rahmadwidiansyah/hajatmanager/commit/fc632dbd8584cb5ed7d4d2ac2f1c0c2c9cb7d771))
+
 # [1.19.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.2...v1.19.0) (2026-09-25)
 
 
