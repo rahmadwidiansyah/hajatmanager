@@ -102,7 +102,7 @@ public partial class AccountView : UserControl
         {
             var bytes = await ApiClient.Instance.GetBytesAsync(url);
             if (bytes == null || bytes.Length == 0) return;
-            Dispatcher.BeginInvoke(new Action(() =>
+            _ = Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {

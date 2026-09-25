@@ -868,19 +868,19 @@ public partial class EventDetailView : UserControl
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         bar.Children.Add(new TextBlock { Text = "Meja:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var mejaItems = new List<string?> { null }.Concat(_ev.MejaList).ToList();
-        _mejaFilterBox = new ComboBox { Width = 110, ItemsSource = mejaItems, SelectedItem = _mejaFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4), FontSize = 12 };
+        _mejaFilterBox = new ComboBox { Width = 110, ItemsSource = mejaItems, SelectedItem = _mejaFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
         _mejaFilterBox.SelectionChanged += (_, _) => { _mejaFilter = _mejaFilterBox.SelectedItem as string; _guestLimit = 50; ApplyGuestFilter(); };
         bar.Children.Add(_mejaFilterBox);
         bar.Children.Add(new TextBlock { Text = "Kasir:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var kasirIds = _guests.Select(g => g.PetugasId ?? "").Where(s => s != "").Distinct().Take(8).ToList();
         var kasirItems = new List<string?> { null }.Concat(kasirIds).ToList();
-        _kasirFilterBox = new ComboBox { Width = 130, ItemsSource = kasirItems, SelectedItem = _kasirFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4), FontSize = 12 };
+        _kasirFilterBox = new ComboBox { Width = 130, ItemsSource = kasirItems, SelectedItem = _kasirFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
         _kasirFilterBox.SelectionChanged += (_, _) => { _kasirFilter = _kasirFilterBox.SelectedItem as string; _guestLimit = 50; ApplyGuestFilter(); };
         bar.Children.Add(_kasirFilterBox);
-        _sortBox = new ComboBox { Width = 96, ItemsSource = new[] { "Waktu", "Nama", "Nominal" }, SelectedItem = _sortBy, Margin = new Thickness(0, 0, 6, 0), Padding = new Thickness(8, 4), FontSize = 12 };
+        _sortBox = new ComboBox { Width = 96, ItemsSource = new[] { "Waktu", "Nama", "Nominal" }, SelectedItem = _sortBy, Margin = new Thickness(0, 0, 6, 0), Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
         _sortBox.SelectionChanged += (_, _) => { _sortBy = _sortBox.SelectedItem as string ?? "Waktu"; ApplyGuestFilter(); };
         bar.Children.Add(_sortBox);
-        _orderBox = new ComboBox { Width = 84, ItemsSource = new[] { "↓ Desc", "↑ Asc" }, SelectedIndex = _sortDesc ? 0 : 1, Padding = new Thickness(8, 4), FontSize = 12 };
+        _orderBox = new ComboBox { Width = 84, ItemsSource = new[] { "↓ Desc", "↑ Asc" }, SelectedIndex = _sortDesc ? 0 : 1, Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
         _orderBox.SelectionChanged += (_, _) => { _sortDesc = _orderBox.SelectedIndex == 0; ApplyGuestFilter(); };
         bar.Children.Add(_orderBox);
         var reset = new Button { Content = "Reset", Margin = new Thickness(8, 0, 0, 0) };
@@ -2118,7 +2118,7 @@ public partial class EventDetailView : UserControl
                 nameRow.Children.Add(nameText);
                 var chip = new Border
                 {
-                    Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(8, 2, 8, 2), CornerRadius = new CornerRadius(6),
                     BorderThickness = new Thickness(1), Margin = new Thickness(6, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center, SnapsToDevicePixels = true,
                 };
@@ -2135,14 +2135,14 @@ public partial class EventDetailView : UserControl
                 middle.Children.Add(mailText);
                 var edit = new Button
                 {
-                    Content = "Edit", Margin = new Thickness(4, 0, 4, 0), Padding = new Thickness(8, 2),
+                    Content = "Edit", Margin = new Thickness(4, 0, 4, 0), Padding = new Thickness(8, 2, 8, 2),
                     VerticalAlignment = VerticalAlignment.Center, ToolTip = "Ubah role",
                 };
                 if (M3("OutlineButton") is Style obs) edit.Style = obs;
                 edit.Click += (_, _) => EditMember(m);
                 var del = new Button
                 {
-                    Content = "Hapus", Padding = new Thickness(8, 2),
+                    Content = "Hapus", Padding = new Thickness(8, 2, 8, 2),
                     VerticalAlignment = VerticalAlignment.Center, ToolTip = "Keluarkan anggota",
                 };
                 if (M3("TextButton") is Style tbs) del.Style = tbs;

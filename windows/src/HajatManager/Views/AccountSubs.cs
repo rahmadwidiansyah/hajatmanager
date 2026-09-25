@@ -98,7 +98,7 @@ internal static class SubPhotos
             if (string.IsNullOrWhiteSpace(url)) return;
             var bytes = await ApiClient.Instance.GetBytesAsync(url);
             if (bytes == null || bytes.Length == 0) return;
-            circle.Dispatcher.BeginInvoke(new Action(() =>
+            _ = circle.Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {
@@ -288,7 +288,7 @@ public sealed class ProfileView : UserControl
                     "/api/users/check?" + ApiClient.BuildQuery(new() { ["username"] = v }));
                 var available = doc?.RootElement.TryGetProperty("available", out var av) == true && av.GetBoolean();
                 _status = available ? "available" : "taken";
-                status.Dispatcher.BeginInvoke(new Action(() =>
+                _ = status.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     status.Text = available ? "Username tersedia ✓" : "Username sudah dipakai orang lain";
                     status.SetResourceReference(TextBlock.ForegroundProperty,
