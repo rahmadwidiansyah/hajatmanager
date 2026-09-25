@@ -1,3 +1,13 @@
+## [1.18.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.1...v1.18.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* dialog buat acara compact 2 kolom (WPF + Flutter) ([b590843](https://github.com/rahmadwidiansyah/hajatmanager/commit/b5908437f96b636c92ddb9930b6e1a495c77cca8))
+* **linux:** fallback daftar acara setelah hapus + snack aman ([4c6309b](https://github.com/rahmadwidiansyah/hajatmanager/commit/4c6309b20b3f14f3b8d2acecd30867cce688db44))
+* **linux:** grup rekap, sheet blank, buku inline, shortcut desktop ([da0b990](https://github.com/rahmadwidiansyah/hajatmanager/commit/da0b9904437241bac9c98567037805b8dec86cd1))
+* **linux:** porsi alamat, buku optimistis, tabel full-width ([232b9c1](https://github.com/rahmadwidiansyah/hajatmanager/commit/232b9c18ad171cf053694b99eb770882ffc30bf0))
+
 ## [1.18.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.0...v1.18.1) (2026-09-25)
 
 
