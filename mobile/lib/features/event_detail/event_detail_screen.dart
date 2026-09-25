@@ -3679,7 +3679,19 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                   ),
                 ],
               ),
-            if (!wide) ...[
+            if (!wide && medium) ...[
+              Text(
+                'Per alamat',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              _rekapAlamatTable(perAlamat, (t['totalNominal'] as num?)?.toInt() ?? 0),
+              const SizedBox(height: 8),
+              Text(
+                'Per metode',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              _rekapMetodeTable(perMetode),
+              const SizedBox(height: 8),
               _rekapBarCard(
                 title: 'Per meja',
                 badge: 'Lokasi fisik',
@@ -3701,21 +3713,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 rows: perKasir,
                 barColor: Theme.of(context).colorScheme.secondary,
               ),
-              const SizedBox(height: 8),
-            ]
-            else if (medium) ...[
-              Text(
-                'Per alamat',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              _rekapAlamatTable(perAlamat, (t['totalNominal'] as num?)?.toInt() ?? 0),
-              const SizedBox(height: 8),
-              Text(
-                'Per metode',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              _rekapMetodeTable(perMetode),
-            ] else ...[
+            ],
+            if (!wide && !medium) ...[
               Text(
                 'Per alamat',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -3727,6 +3726,28 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               ...perMetode.map((e) => _rekapMetodeTile(e)),
+              const SizedBox(height: 8),
+              _rekapBarCard(
+                title: 'Per meja',
+                badge: 'Lokasi fisik',
+                badgeBg: Theme.of(context).colorScheme.tertiaryContainer,
+                badgeFg:
+                    Theme.of(context).colorScheme.onTertiaryContainer,
+                rows: perMeja,
+                barColor: Theme.of(context).colorScheme.tertiary,
+              ),
+              const SizedBox(height: 8),
+              _rekapBarCard(
+                title: 'Per kasir',
+                badge: 'Petugas',
+                badgeBg:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                badgeFg: Theme.of(context)
+                    .colorScheme
+                    .onSecondaryContainer,
+                rows: perKasir,
+                barColor: Theme.of(context).colorScheme.secondary,
+              ),
             ],
           ],
         );
