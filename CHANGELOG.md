@@ -1,3 +1,15 @@
+# [1.18.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.17.1...v1.18.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* **windows:** sync glyph, combo compact, nominal sebaris, buku inline, anggota foto ([ac33d74](https://github.com/rahmadwidiansyah/hajatmanager/commit/ac33d743b6134ae1e1181e1da4619f4db208060d))
+
+
+### Features
+
+* rekap 4 kategori (meja+kasir) WPF + mobile cermin web ([5da8766](https://github.com/rahmadwidiansyah/hajatmanager/commit/5da87662713b1ed2e0260739bd08b8d2f5422107))
+
 ## [1.17.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.17.0...v1.17.1) (2026-09-25)
 
 
