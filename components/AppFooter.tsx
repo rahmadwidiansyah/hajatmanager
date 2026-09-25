@@ -3,8 +3,8 @@ import { Download, Laptop, Monitor, Smartphone } from "lucide-react";
 import { getAppDownloads } from "@/lib/app-downloads";
 
 // Footer ramping: credit + versi + tombol unduh berikon.
-// Link yang ENV-nya kosong disembunyikan. Varian lain (Setup C#,
-// tarball Linux) tetap ada di halaman rilis GitHub.
+// Link yang ENV-nya kosong disembunyikan. Varian lain (tarball Linux)
+// tetap ada di halaman rilis GitHub.
 export function AppFooter() {
   const { version, androidUrl, windowsUrl, linuxUrl, releaseUrl, hasVersion } =
     getAppDownloads();

@@ -1,9 +1,11 @@
-name: Release Assets (Windows C# + APK)
+name: Release Assets
 
 # Satu-satunya workflow yang build saat tag v* dibuat.
 # semantic-release (release.yml) membuat tag -> workflow ini build semua
 # artifact paralel -> job publish melampirkan SEMUANYA ke 1 release.
 # Jangan pernah attach rilis dari workflow lain agar tidak balapan.
+# Windows = Flutter (ZIP portable + Setup.exe Inno). Varian C# WPF sudah
+# dipensiunkan dari CI (source tetap ada di windows/).
 on:
   push:
     tags: ["v*"]
@@ -40,76 +42,6 @@ jobs:
           echo "version=$V" >> $GITHUB_OUTPUT
           echo "tag=v$V" >> $GITHUB_OUTPUT
           echo "release version=$V tag=v$V"
-
-  build-windows-csharp:
-    # Windows kini C# WPF (windows/), bukan Flutter. APK tetap Flutter.
-    needs: resolve
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: XAML lint (Color-as-Brush guard)
-        shell: pwsh
-        run: python scripts/check-wpf-brushes.py
-        # Catatan: windows-latest sudah menyertakan python3/python.
-        # Gagal di sini = ada Background/Foreground/BorderBrush yang
-        # memakai <Color> (contoh: SurfaceContainer) bukan <Brush>
-        # (SurfaceContainerBrush) — dulu menyebabkan crash
-        # "'#FF1E2A3A' is not valid value for Background" di EventDetailWindow.
-
-      - name: Restore + Build (Release)
-        working-directory: windows/src/HajatManager
-        run: |
-          dotnet restore
-          dotnet build -c Release --no-restore
-
-      # Windows hanya Setup.exe self-contained (tanpa .NET).
-      # Varian ZIP portable framework-dependent dihapus total (sering gagal
-      # jalan karena butuh .NET Desktop Runtime yang tepat).
-      - name: Publish self-contained (untuk Setup.exe)
-        working-directory: windows/src/HajatManager
-        run: >
-          dotnet publish -c Release
-          -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:PublishTrimmed=false
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:Version=${{ needs.resolve.outputs.version }}
-          -o publish-setup
-
-      - name: Ensure release dir
-        shell: pwsh
-        working-directory: windows
-        run: |
-          New-Item -ItemType Directory -Force -Path release | Out-Null
-          Get-ChildItem src/HajatManager/publish-setup/ | Select-Object Name, Length
-          Get-ChildItem release/
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
-      - name: Compile Setup.exe
-        shell: pwsh
-        working-directory: windows/installer
-        run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
-            "/DMyAppVersion=${{ needs.resolve.outputs.version }}" `
-            hajat-manager.iss
-          Get-ChildItem ..\release\*.exe
-
-      - name: Upload Setup.exe
-        uses: actions/upload-artifact@v4
-        with:
-          name: hajat-manager-windows-setup
-          path: windows/release/*.exe
-          if-no-files-found: error
 
   build-flutter-apk:
     # APK dari Flutter (mobile/).
@@ -306,7 +238,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [resolve, build-windows-csharp, build-flutter-apk, build-flutter-linux, build-flutter-windows]
+    needs: [resolve, build-flutter-apk, build-flutter-linux, build-flutter-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write

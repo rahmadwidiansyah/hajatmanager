@@ -9,9 +9,9 @@
 // Nama file mengikuti `.github/workflows/release-assets.yml`:
 //   - Hajat-Manager-<ver>.apk (signed; bila tanpa keystore jadi -unsigned.apk)
 //   - Windows = varian Flutter: Hajat-Manager-Flutter-<ver>-windows-x64-Setup.exe
-//     (varian C# WPF tetap ada di halaman rilis: Hajat-Manager-<ver>-windows-x64-Setup.exe)
+//     (+ ZIP portable Hajat-Manager-<ver>-windows-x64.zip)
 //   - Linux = AppImage: Hajat-Manager-<ver>-linux-x64.AppImage
-//     (tarball tetap ada di halaman rilis: Hajat-Manager-<ver>-linux-x64.tar.gz)
+//     (+ tarball Hajat-Manager-<ver>-linux-x64.tar.gz)
 
 export const DEFAULT_GITHUB_REPO = "rahmadwidiansyah/hajatmanager";
 
