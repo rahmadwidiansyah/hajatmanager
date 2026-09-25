@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.0.0...v1.0.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **ci:** sync versi hajat-flutter.iss tiap rilis ([a058682](https://github.com/rahmadwidiansyah/hajatmanager/commit/a0586827b486b32f6eb8c61264e0249cbfcde0ce))
+
 # 1.0.0 (2026-09-25)
 
 

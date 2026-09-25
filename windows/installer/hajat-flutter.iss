@@ -4,7 +4,7 @@
 ; Berdampingan dengan varian C# (AppId + folder + nama file berbeda)
 ; sehingga keduanya bisa terinstal sekaligus.
 #define MyAppName "Hajat Manager (Flutter)"
-#define MyAppVersion "1.18.2"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Rahmad Widiansyah"
 #define MyAppExeName "hajat_manager.exe"
 
