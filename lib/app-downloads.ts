@@ -6,11 +6,12 @@
 //      https://github.com/<owner>/<repo>/releases/download/v<ver>/<file>
 //   3. Kosong = tombol/badge disembunyikan oleh komponen.
 //
-// Nama file mengikuti `.github/workflows/release-assets.yml` dan sudah
-// diverifikasi terhadap aset rilis v1.13.1:
+// Nama file mengikuti `.github/workflows/release-assets.yml`:
 //   - Hajat-Manager-<ver>.apk (signed; bila tanpa keystore jadi -unsigned.apk)
-//   - Hajat-Manager-<ver>-windows-x64-Setup.exe
-//   - Hajat-Manager-<ver>-linux-x64.tar.gz
+//   - Windows = varian Flutter: Hajat-Manager-Flutter-<ver>-windows-x64-Setup.exe
+//     (varian C# WPF tetap ada di halaman rilis: Hajat-Manager-<ver>-windows-x64-Setup.exe)
+//   - Linux = AppImage: Hajat-Manager-<ver>-linux-x64.AppImage
+//     (tarball tetap ada di halaman rilis: Hajat-Manager-<ver>-linux-x64.tar.gz)
 
 export const DEFAULT_GITHUB_REPO = "rahmadwidiansyah/hajatmanager";
 
@@ -56,12 +57,15 @@ export function getAppDownloads(): AppDownloads {
 
   const androidUrl =
     clean(process.env.NEXT_PUBLIC_DOWNLOAD_ANDROID) || auto(apkFile(version));
+  // Windows = varian Flutter (Setup.exe). Override manual via ENV bila perlu
+  // menunjuk ke varian lain (mis. Setup C# WPF).
   const windowsUrl =
     clean(process.env.NEXT_PUBLIC_DOWNLOAD_WINDOWS) ||
-    auto(`Hajat-Manager-${version}-windows-x64-Setup.exe`);
+    auto(`Hajat-Manager-Flutter-${version}-windows-x64-Setup.exe`);
+  // Linux = AppImage (klik-dua-kali jalan). Tarball tetap ada di halaman rilis.
   const linuxUrl =
     clean(process.env.NEXT_PUBLIC_DOWNLOAD_LINUX) ||
-    auto(`Hajat-Manager-${version}-linux-x64.tar.gz`);
+    auto(`Hajat-Manager-${version}-linux-x64.AppImage`);
 
   return {
     version,

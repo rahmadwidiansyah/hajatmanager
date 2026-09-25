@@ -30,7 +30,7 @@ export function AppDownloads() {
       ? {
           href: linuxUrl,
           label: "Linux",
-          sub: "tar.gz / AppImage",
+          sub: "AppImage",
           icon: <Laptop size={16} />,
         }
       : null,
