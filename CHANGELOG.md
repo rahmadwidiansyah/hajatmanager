@@ -1,3 +1,10 @@
+## [1.17.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.17.0...v1.17.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **windows:** dedup topbar, ikon mata, search berikon, form kartu, hero kartu ([6239296](https://github.com/rahmadwidiansyah/hajatmanager/commit/6239296a498099b63b9c88007cd18f297ee91749))
+
 # [1.17.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.16.0...v1.17.0) (2026-09-24)
 
 
