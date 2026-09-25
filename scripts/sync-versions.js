@@ -51,15 +51,15 @@ updateJson("packages/shared-core/package.json", (j) => { j.version = clean; });
   console.log(`updated HajatManager.csproj -> ${clean}`);
 })();
 
-// windows installer — #define MyAppVersion "x.y.z" di .iss
-(function updateIss() {
-  const p = path.join(__dirname, "..", "windows", "installer", "hajat-manager.iss");
-  if (!fs.existsSync(p)) return console.warn("skip hajat-manager.iss not found");
+// windows installer — #define MyAppVersion "x.y.z" di .iss (C# + Flutter)
+["hajat-manager.iss", "hajat-flutter.iss"].forEach((f) => {
+  const p = path.join(__dirname, "..", "windows", "installer", f);
+  if (!fs.existsSync(p)) return console.warn(`skip ${f} not found`);
   let s = fs.readFileSync(p, "utf8");
   s = s.replace(/^#define MyAppVersion ".*"$/m, `#define MyAppVersion "${clean}"`);
   fs.writeFileSync(p, s);
-  console.log(`updated hajat-manager.iss -> ${clean}`);
-})();
+  console.log(`updated ${f} -> ${clean}`);
+});
 
 // linux AUR — pkgver=x.y.z di PKGBUILD
 (function updatePkgbuild() {
