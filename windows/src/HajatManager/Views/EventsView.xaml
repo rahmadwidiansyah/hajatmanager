@@ -67,7 +67,7 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <Border Margin="0,0,8,8" Style="{DynamicResource M3Card}"
-                      Cursor="Hand" Focusable="True"
+                      Cursor="Hand" Focusable="True" VerticalAlignment="Top"
                       ToolTip="Buka acara (Enter)"
                       MouseLeftButtonUp="OnOpen" KeyDown="OnOpenKey"
                       MouseEnter="OnCardHover" MouseLeave="OnCardLeave">

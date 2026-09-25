@@ -515,9 +515,9 @@ public partial class EventDetailView : UserControl
         _dupTimer?.Stop();
         if (!_ev.CanEdit)
         {
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 4) };
+            _guestSearchBox = new TextBox();
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
-            InputPanel.Children.Add(_guestSearchBox);
+            InputPanel.Children.Add(M3SearchField(_guestSearchBox, "Cari nama, alamat, meja…"));
             InputPanel.Children.Add(BuildFilterBar());
         }
         else
@@ -603,10 +603,13 @@ public partial class EventDetailView : UserControl
             RefreshMetodeChips();
             right.Children.Add(_metodeChips);
             grid.Children.Add(right);
-            InputPanel.Children.Add(grid);
+            // Seluruh form (grid + catatan + banner + simpan) dalam satu kartu panel.
+            var formBody = new StackPanel();
+            formBody.Children.Add(grid);
+            InputPanel.Children.Add(M3Field.Card(formBody));
 
             // Catatan: full-width di bawah 2 kolom (textarea 2 baris cermin web).
-            InputPanel.Children.Add(M3Title("CATATAN (wajib jika duplikat)"));
+            formBody.Children.Add(M3Title("CATATAN (wajib jika duplikat)"));
             _catatanBox = new TextBox
             {
                 TabIndex = 3,
@@ -617,7 +620,7 @@ public partial class EventDetailView : UserControl
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             };
             _catatanBox.TextChanged += (_, _) => RefreshDupBanner();
-            InputPanel.Children.Add(_catatanBox);
+            formBody.Children.Add(_catatanBox);
 
             _dupBanner = new Border
             {
@@ -635,7 +638,7 @@ public partial class EventDetailView : UserControl
                 _dupBanner.SetResourceReference(Border.BackgroundProperty, "ErrorContainerBrush");
             }
             _dupBannerText.SetResourceReference(TextBlock.ForegroundProperty, "OnErrorContainerBrush");
-            InputPanel.Children.Add(_dupBanner);
+            formBody.Children.Add(_dupBanner);
 
             _saveBtn = new Button
             {
@@ -647,16 +650,16 @@ public partial class EventDetailView : UserControl
                 ToolTip = "Simpan pemberian (Ctrl+S)",
             };
             _saveBtn.Click += async (_, _) => await SaveGuestAsync();
-            InputPanel.Children.Add(_saveBtn);
+            formBody.Children.Add(_saveBtn);
 
             // Search + filter editor (cermin web + mobile).
             var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 6, 0, 4) };
             if (M3("M3SectionTitle") is Style sts) title0.Style = sts;
             else title0.FontWeight = FontWeights.SemiBold;
             InputPanel.Children.Add(title0);
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 4) };
+            _guestSearchBox = new TextBox();
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
-            InputPanel.Children.Add(_guestSearchBox);
+            InputPanel.Children.Add(M3SearchField(_guestSearchBox, "Cari nama, alamat, meja…"));
             InputPanel.Children.Add(BuildFilterBar());
             RefreshChips();
             RefreshDupBanner();
@@ -737,6 +740,64 @@ public partial class EventDetailView : UserControl
 
     private static Style? M3(string key) =>
         Application.Current?.TryFindResource(key) as Style;
+
+    // Search field berikon + placeholder cermin BookSearch XAML.
+    // box dibuat pemanggil (handler filter tetap milik pemanggil); overlay
+    // placeholder toggle otomatis via TextChanged internal.
+    private static Grid M3SearchField(TextBox box, string hint)
+    {
+        box.BorderThickness = new Thickness(0);
+        box.Background = System.Windows.Media.Brushes.Transparent;
+        box.Padding = new Thickness(0, 6, 0, 6);
+        box.FontSize = 13;
+        var icon = new TextBlock
+        {
+            Text = "",
+            FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        icon.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+        var inner = new Grid();
+        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        inner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        inner.Children.Add(icon);
+        Grid.SetColumn(box, 1);
+        inner.Children.Add(box);
+        var frame = new Border
+        {
+            Child = inner,
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(1),
+            SnapsToDevicePixels = true,
+        };
+        frame.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+        frame.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+        var overlay = new TextBlock
+        {
+            Text = hint,
+            FontSize = 13,
+            IsHitTestVisible = false,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(42, 0, 0, 0),
+        };
+        overlay.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+        var overlayStyle = new Style(typeof(TextBlock));
+        overlayStyle.Setters.Add(new Setter(TextBlock.VisibilityProperty, Visibility.Collapsed));
+        var showWhenEmpty = new DataTrigger
+        {
+            Binding = new System.Windows.Data.Binding("Text") { Source = box },
+            Value = "",
+        };
+        showWhenEmpty.Setters.Add(new Setter(TextBlock.VisibilityProperty, Visibility.Visible));
+        overlayStyle.Triggers.Add(showWhenEmpty);
+        overlay.Style = overlayStyle;
+        var outer = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+        outer.Children.Add(frame);
+        outer.Children.Add(overlay);
+        return outer;
+    }
 
     // Judul seksi form cermin M3SectionTitle web (NAMA *, ALAMAT *, ...).
     private TextBlock M3Title(string text, Thickness? margin = null)
@@ -1800,15 +1861,6 @@ public partial class EventDetailView : UserControl
             "waktu_desc" => list.OrderByDescending(g => g.CreatedAt).ToList(),
             _ => list.OrderBy(g => g.Nama, StringComparer.OrdinalIgnoreCase).ToList(),
         };
-    }
-
-    private void OnOpenLog(object sender, RoutedEventArgs e) =>
-        new LogWindow(_ev.Id, _ev.NamaAcara).ShowDialog();
-
-    private async void OnOpenSettings(object sender, RoutedEventArgs e)
-    {
-        // Task 7: pengaturan kini tab ke-4, bukan dialog.
-        try { Tabs.SelectedIndex = 3; } catch { }
     }
 
     // ================= Tab Setting (Task 7, porting SettingsWindow) =================

@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
         <!-- Tombol kembali ke daftar (hanya saat embed; Collapsed di dialog) -->
         <Button x:Name="BackBtn" Style="{DynamicResource TextButton}" Click="OnBack"
-                Width="32" Height="32" Content="&#xE72B;" FontFamily="Segoe MDL2 Assets"
+                Width="32" Height="32" Padding="0" Content="&#xE72B;" FontFamily="Segoe MDL2 Assets"
                 FontSize="14" Visibility="Collapsed" VerticalAlignment="Center"
                 ToolTip="Kembali ke daftar acara"/>
         <!-- Info: nama + meja + nominal + kasir -->
@@ -40,7 +40,7 @@
                          Foreground="{DynamicResource OnPrimaryContainerBrush}"
                          VerticalAlignment="Center"/>
               <Button x:Name="HideNominalBtn" Style="{DynamicResource TextButton}"
-                      Width="18" Height="18" Click="OnToggleHideNominal" Margin="4,0,0,0"
+                      Width="18" Height="18" Padding="0" Click="OnToggleHideNominal" Margin="4,0,0,0"
                       Content="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                       ToolTip="Sembunyikan/tampilkan nominal"/>
             </StackPanel>
@@ -60,7 +60,7 @@
             </StackPanel>
           </Border>
         </StackPanel>
-        <!-- Aksi kanan: role chip + export + sync (+ Log/Pengaturan s/d Task 7) -->
+        <!-- Aksi kanan: role chip + sync (Export di Rekap, Log di Audit, Setting di tab) -->
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
           <Border x:Name="TopRoleChip" Padding="8,3" CornerRadius="6" Margin="0,0,8,0"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
@@ -94,10 +94,7 @@
               </TextBlock.Style>
             </TextBlock>
           </Border>
-          <Button Content="Export" Click="OnExport" Style="{DynamicResource TonalButton}"
-                  Margin="0,0,6,0" Padding="8,4" VerticalAlignment="Center"
-                  ToolTip="Export PDF / Excel"/>
-          <Grid Margin="0,0,6,0" VerticalAlignment="Center">
+          <Grid VerticalAlignment="Center">
             <Button x:Name="SyncCloudBtn" Style="{DynamicResource M3SyncButton}" Click="OnSync"
                     ToolTip="Sync data (Ctrl+R)">
               <TextBlock x:Name="SyncCloudIcon" Text="&#xE117;" FontFamily="Segoe MDL2 Assets"
@@ -113,10 +110,6 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
             </Border>
           </Grid>
-          <Button Content="Log" Click="OnOpenLog" Style="{DynamicResource TonalButton}"
-                  Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="Log aktivitas acara"/>
-          <Button Content="Pengaturan" Click="OnOpenSettings" Style="{DynamicResource OutlineButton}"
-                  VerticalAlignment="Center" ToolTip="Buka tab Setting (Ctrl+4)"/>
         </StackPanel>
       </Grid>
     </Border>
@@ -220,7 +213,7 @@
                                FontFamily="{DynamicResource NumericFont}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                     <Button x:Name="HideRekapNominalBtn" Style="{DynamicResource TextButton}"
-                            Width="24" Height="24" Click="OnToggleHideNominal" Margin="8,0,0,0"
+                            Width="24" Height="24" Padding="0" Click="OnToggleHideNominal" Margin="8,0,0,0"
                             Content="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                             ToolTip="Sembunyikan/tampilkan nominal" VerticalAlignment="Center"/>
                   </StackPanel>
@@ -313,8 +306,38 @@
             <GroupBox x:Name="SettingMemberBox" Header="Anggota" Margin="0,0,0,6">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                  <TextBox x:Name="SettingUserSearch" Width="220" VerticalAlignment="Center"
-                           TextChanged="OnSettingUserSearch" ToolTip="Cari user (min. 2 huruf)"/>
+                  <Grid Width="220" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                            CornerRadius="8" SnapsToDevicePixels="True">
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="32"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                   Foreground="{DynamicResource OnVariantBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBox x:Name="SettingUserSearch" Grid.Column="1" BorderThickness="0"
+                                 Background="Transparent" Padding="0,6" FontSize="13"
+                                 TextChanged="OnSettingUserSearch" ToolTip="Cari user (min. 2 huruf)"/>
+                      </Grid>
+                    </Border>
+                    <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="36,0,0,0"
+                               Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
+                               Text="Cari user…">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Text, ElementName=SettingUserSearch}" Value="">
+                              <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Grid>
                   <ComboBox x:Name="SettingRoleBox" Width="110" Margin="8,0,0,0"
                             VerticalAlignment="Center" ToolTip="Role anggota baru">
                     <ComboBoxItem Content="ADMIN" IsSelected="True"/>
@@ -351,8 +374,38 @@
             </GroupBox>
             <GroupBox Header="Audit Log" Margin="0,0,0,6">
               <StackPanel>
-                <TextBox x:Name="LogSearchBox" TextChanged="OnLogSearch" Margin="0,0,0,8"
-                         ToolTip="Cari log…"/>
+                <Grid Margin="0,0,0,8">
+                  <Border Background="{DynamicResource CardBrush}"
+                          BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                          CornerRadius="8" SnapsToDevicePixels="True">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="32"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                 Foreground="{DynamicResource OnVariantBrush}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      <TextBox x:Name="LogSearchBox" Grid.Column="1" BorderThickness="0"
+                               Background="Transparent" Padding="0,6" FontSize="13"
+                               TextChanged="OnLogSearch" ToolTip="Cari log…"/>
+                    </Grid>
+                  </Border>
+                  <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="36,0,0,0"
+                             Foreground="{DynamicResource OnVariantBrush}" FontSize="12"
+                             Text="Cari log…">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Text, ElementName=LogSearchBox}" Value="">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </Grid>
                 <DataGrid x:Name="AuditGrid" AutoGenerateColumns="False" IsReadOnly="True"
                           MaxHeight="250" HeadersVisibility="Column">
                   <DataGrid.Columns>
