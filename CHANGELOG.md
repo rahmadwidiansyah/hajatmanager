@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.0...v1.18.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **windows:** Thickness 2-arg ilegal -> 4-arg + discard BeginInvoke ([99414d9](https://github.com/rahmadwidiansyah/hajatmanager/commit/99414d9443f217b3693bea6978ba1b942cb67df4))
+
 # [1.18.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.17.1...v1.18.0) (2026-09-25)
 
 
