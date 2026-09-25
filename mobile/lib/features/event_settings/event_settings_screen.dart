@@ -8,6 +8,7 @@ import '../../core/sync_engine.dart';
 import '../../models/models.dart';
 import '../../core/window_ui.dart';
 import '../../widgets/app_widgets.dart';
+import '../events/events_screen.dart';
 
 /// Pengaturan acara: info, edit (OWNER/ADMIN), meja, anggota (OWNER), hapus.
 class EventSettingsScreen extends StatefulWidget {
@@ -358,11 +359,20 @@ class _EventSettingsScreenState extends State<EventSettingsScreen> {
       // tampil saat offline dan terus di-sync sia-sia.
       await LocalDb.instance.deleteEventLocal(widget.event.id);
       if (!mounted) return;
-      Navigator.of(context)
-        ..pop(true)
-        ..pop(true);
-      showTopSnack(context, 
-          const SnackBar(content: Text('Acara dihapus')));
+      // Fallback kembali: pop semua sampai daftar acara. Kalau layar ini
+      // ternyata rute pertama (dibuka langsung), ganti ke daftar acara.
+      final nav = Navigator.of(context);
+      nav.popUntil((route) => route.isFirst);
+      if (mounted) {
+        nav.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const EventsScreen()),
+          (_) => false,
+        );
+      }
+      showTopSnack(
+          nav.context, const SnackBar(content: Text('Acara dihapus')));
+      // Picu refresh daftar (events screen reload dari cache lokal).
+      unawaited(SyncEngine.instance.flushAll());
     } on DioException catch (e) {
       _snack(serverMsg(e));
     } finally {
