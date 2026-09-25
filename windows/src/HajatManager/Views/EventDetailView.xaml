@@ -16,15 +16,18 @@
         </Grid.ColumnDefinitions>
         <!-- Tombol kembali ke daftar (hanya saat embed; Collapsed di dialog) -->
         <Button x:Name="BackBtn" Style="{DynamicResource TextButton}" Click="OnBack"
-                Width="32" Height="32" Padding="0" Content="&#xE72B;" FontFamily="Segoe MDL2 Assets"
-                FontSize="14" Visibility="Collapsed" VerticalAlignment="Center"
-                ToolTip="Kembali ke daftar acara"/>
+                Width="32" Height="32" Padding="0" FontSize="14" Visibility="Collapsed"
+                VerticalAlignment="Center" ToolTip="Kembali ke daftar acara">
+          <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
         <!-- Info: nama + meja + nominal + kasir -->
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
           <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="14"
                      TextTrimming="CharacterEllipsis" MaxWidth="220" VerticalAlignment="Center"/>
           <!-- Dropdown meja kasir -->
           <ComboBox x:Name="MejaBox" Margin="8,0,0,0" Width="84" VerticalAlignment="Center"
+                    Padding="6,2" FontSize="12"
                     SelectionChanged="OnMejaChanged" ToolTip="Meja kasir aktif"/>
           <!-- Nominal pill (cermin nominalPill web) -->
           <Border Margin="8,0,0,0" Padding="6,2" CornerRadius="12"
@@ -41,8 +44,10 @@
                          VerticalAlignment="Center"/>
               <Button x:Name="HideNominalBtn" Style="{DynamicResource TextButton}"
                       Width="18" Height="18" Padding="0" Click="OnToggleHideNominal" Margin="4,0,0,0"
-                      Content="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                      ToolTip="Sembunyikan/tampilkan nominal"/>
+                      FontSize="11" ToolTip="Sembunyikan/tampilkan nominal">
+                <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Button>
             </StackPanel>
           </Border>
           <!-- Kasir chip -->
@@ -124,50 +129,93 @@
       </TabItem>
       <TabItem Header="Buku Tamu">
         <DockPanel Margin="4">
-          <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Grid Margin="0,0,8,0">
-              <Border Background="{DynamicResource CardBrush}"
-                      BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
-                      CornerRadius="8" SnapsToDevicePixels="True">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="36"/>
-                    <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                             Foreground="{DynamicResource OnVariantBrush}"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                  <TextBox x:Name="BookSearch" Grid.Column="1" BorderThickness="0"
-                           Background="Transparent" Padding="0,6" FontSize="13"
-                           TextChanged="OnBookSearch"/>
-                </Grid>
-              </Border>
-              <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="42,0,0,0"
-                         Foreground="{DynamicResource OnVariantBrush}" FontSize="13"
-                         Text="Cari buku tamu…">
-                <TextBlock.Style>
-                  <Style TargetType="TextBlock">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding Text, ElementName=BookSearch}" Value="">
-                        <Setter Property="Visibility" Value="Visible"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </TextBlock.Style>
-              </TextBlock>
+          <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <Grid Margin="0,0,8,0">
+                <Border Background="{DynamicResource CardBrush}"
+                        BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                        CornerRadius="8" SnapsToDevicePixels="True">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="36"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                               Foreground="{DynamicResource OnVariantBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBox x:Name="BookSearch" Grid.Column="1" BorderThickness="0"
+                             Background="Transparent" Padding="0,6" FontSize="13"
+                             TextChanged="OnBookSearch"/>
+                  </Grid>
+                </Border>
+                <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="42,0,0,0"
+                           Foreground="{DynamicResource OnVariantBrush}" FontSize="13"
+                           Text="Cari buku tamu…">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Text, ElementName=BookSearch}" Value="">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+              <Button Grid.Column="1" Content="Sync" Click="OnSync" Style="{DynamicResource OutlineButton}"
+                      VerticalAlignment="Center" ToolTip="Sync data (Ctrl+R)"/>
             </Grid>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-              <Button x:Name="AddBookBtn" Content="+ Tamu" Click="OnAddBook"
-                      Style="{DynamicResource PrimaryButton}" ToolTip="Tambah buku tamu"/>
-              <Button Content="Sync" Margin="8,0,0,0" Click="OnSync" Style="{DynamicResource OutlineButton}"
-                      ToolTip="Sync data (Ctrl+R)"/>
-            </StackPanel>
-          </Grid>
+            <!-- Form tambah inline cermin web (satset, tanpa popup) -->
+            <Grid x:Name="BookAddRow" Margin="0,8,0,0" Visibility="Collapsed">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <Grid>
+                <TextBox x:Name="BookNamaBox" Padding="10,6" FontSize="13" ToolTip="Nama tamu (min. 2 huruf)"/>
+                <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource OnVariantBrush}" FontSize="13" Text="Nama…">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Text, ElementName=BookNamaBox}" Value="">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+              <Grid Grid.Column="1" Margin="8,0,0,0">
+                <TextBox x:Name="BookAlamatBox" Padding="10,6" FontSize="13" ToolTip="Alamat/desa (min. 2 huruf)"/>
+                <TextBlock IsHitTestVisible="False" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource OnVariantBrush}" FontSize="13" Text="Alamat…">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Text, ElementName=BookAlamatBox}" Value="">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+              <Button x:Name="BookSaveBtn" Grid.Column="2" Content="Simpan" Click="OnAddBook"
+                      Margin="8,0,0,0" Style="{DynamicResource PrimaryButton}"
+                      VerticalAlignment="Center" ToolTip="Simpan buku tamu (Enter)"/>
+            </Grid>
+            <TextBlock x:Name="BookAddErr" Foreground="{DynamicResource ErrorBrush}" FontSize="12"
+                       TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"/>
+          </StackPanel>
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"
                       VerticalAlignment="Center">
             <TextBlock x:Name="BookFooter" VerticalAlignment="Center"
@@ -214,8 +262,10 @@
                                TextTrimming="CharacterEllipsis"/>
                     <Button x:Name="HideRekapNominalBtn" Style="{DynamicResource TextButton}"
                             Width="24" Height="24" Padding="0" Click="OnToggleHideNominal" Margin="8,0,0,0"
-                            Content="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                            ToolTip="Sembunyikan/tampilkan nominal" VerticalAlignment="Center"/>
+                            FontSize="12" ToolTip="Sembunyikan/tampilkan nominal" VerticalAlignment="Center">
+                      <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
                   </StackPanel>
                 </StackPanel>
                 <Button Grid.Column="1" Content="Export PDF / Excel" Click="OnExport"
@@ -493,7 +543,8 @@
                       </TextBlock.Style>
                     </TextBlock>
                   </Grid>
-                  <ComboBox x:Name="SettingRoleBox" Width="110" Margin="8,0,0,0"
+                  <ComboBox x:Name="SettingRoleBox" Width="96" Margin="8,0,0,0"
+                            Padding="6,2" FontSize="12"
                             VerticalAlignment="Center" ToolTip="Role anggota baru">
                     <ComboBoxItem Content="ADMIN" IsSelected="True"/>
                     <ComboBoxItem Content="OWNER"/>
@@ -505,26 +556,8 @@
                 </StackPanel>
                 <ListBox x:Name="SettingResultList" MaxHeight="120" Margin="0,0,0,8"
                          MouseDoubleClick="OnAddSettingMemberDbl"/>
-                <DataGrid x:Name="SettingMemberGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                          SelectionMode="Single" HeadersVisibility="Column" MaxHeight="250">
-                  <DataGrid.Columns>
-                    <DataGridTextColumn Header="Nama" Binding="{Binding Name}" Width="*"/>
-                    <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="*"/>
-                    <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="90"/>
-                    <DataGridTemplateColumn Header="Aksi" Width="130">
-                      <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                          <StackPanel Orientation="Horizontal">
-                            <Button Content="Edit" Click="OnEditSettingMember"
-                                    Margin="0,0,4,0" Padding="8,2" ToolTip="Ubah role"/>
-                            <Button Content="Hapus" Click="OnRemoveSettingMember" Padding="8,2"
-                                    ToolTip="Keluarkan anggota"/>
-                          </StackPanel>
-                        </DataTemplate>
-                      </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                  </DataGrid.Columns>
-                </DataGrid>
+                <!-- Daftar anggota cermin web: avatar + nama + chip role + email -->
+                <StackPanel x:Name="SettingMemberList"/>
               </StackPanel>
             </GroupBox>
             <GroupBox Header="Audit Log" Margin="0,0,0,6">

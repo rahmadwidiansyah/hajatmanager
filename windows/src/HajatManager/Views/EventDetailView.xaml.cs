@@ -48,7 +48,7 @@ public partial class EventDetailView : UserControl
     private (string nama, string nominalFormatted)? _liveDup;
     private DataGrid? _guestGrid;
     // Anti-double-submit (cermin mobile _saveToken/_lastSig/saving + web isAddingBook).
-    private bool _guestSaving, _bookSaving, _bookDialogOpen, _syncing, _exporting;
+    private bool _guestSaving, _bookSaving, _syncing, _exporting;
     private int _saveToken;
     private string _lastGuestSig = "";
     private long _lastGuestAt;
@@ -355,7 +355,7 @@ public partial class EventDetailView : UserControl
         foreach (var b in books) _books.Add(b);
         RecalcTopsLocal();
         ApplyBookFilter();
-        AddBookBtn.Visibility = _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
+        BookAddRow.Visibility = _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
         if (BooksGrid.Columns.Count > 3)
             BooksGrid.Columns[3].Visibility =
                 _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
@@ -571,20 +571,27 @@ public partial class EventDetailView : UserControl
             _alamatChips = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
             left.Children.Add(_alamatChips);
             grid.Children.Add(left);
-            // Kolom kanan: Nominal (preview + input + chips) + Metode
+            // Kolom kanan: Nominal (judul + preview sebaris, input + chips) + Metode
             var right = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
-            right.Children.Add(M3Title("NOMINAL (Rp)"));
+            var nomHead = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            nomHead.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            nomHead.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var nomTitle = M3Title("NOMINAL (Rp)", new Thickness(0));
+            nomTitle.VerticalAlignment = VerticalAlignment.Bottom;
+            nomHead.Children.Add(nomTitle);
             _nominalPreview = new TextBlock
             {
                 FontWeight = FontWeights.Bold,
                 FontSize = 18,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Margin = new Thickness(0, 0, 0, 4),
+                VerticalAlignment = VerticalAlignment.Bottom,
             };
             if (Application.Current?.TryFindResource("NumericFont") is System.Windows.Media.FontFamily nf)
                 _nominalPreview.FontFamily = nf;
             _nominalPreview.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryBrush");
-            right.Children.Add(_nominalPreview);
+            Grid.SetColumn(_nominalPreview, 1);
+            nomHead.Children.Add(_nominalPreview);
+            right.Children.Add(nomHead);
             _nominalBox = new TextBox { TabIndex = 2 };
             PreviewTextInputRegistrar.DigitsOnly(_nominalBox);
             _nominalBox.TextChanged += (_, _) =>
@@ -724,6 +731,8 @@ public partial class EventDetailView : UserControl
         if (M3("OutlineButton") is Style ob) _guestMoreBtn.Style = ob;
         _guestMoreBtn.Click += (_, _) => { _guestLimit += 50; ApplyGuestFilter(); };
         InputPanel.Children.Add(_guestMoreBtn);
+        // Ruang napas di ujung scroll agar daftar pendek tetap bisa digulir lega.
+        InputPanel.Children.Add(new Border { Height = 64 });
         ApplyGuestFilter();
     }
 
@@ -859,19 +868,19 @@ public partial class EventDetailView : UserControl
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         bar.Children.Add(new TextBlock { Text = "Meja:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var mejaItems = new List<string?> { null }.Concat(_ev.MejaList).ToList();
-        _mejaFilterBox = new ComboBox { Width = 120, ItemsSource = mejaItems, SelectedItem = _mejaFilter, Margin = new Thickness(0, 0, 12, 0) };
+        _mejaFilterBox = new ComboBox { Width = 110, ItemsSource = mejaItems, SelectedItem = _mejaFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4), FontSize = 12 };
         _mejaFilterBox.SelectionChanged += (_, _) => { _mejaFilter = _mejaFilterBox.SelectedItem as string; _guestLimit = 50; ApplyGuestFilter(); };
         bar.Children.Add(_mejaFilterBox);
         bar.Children.Add(new TextBlock { Text = "Kasir:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var kasirIds = _guests.Select(g => g.PetugasId ?? "").Where(s => s != "").Distinct().Take(8).ToList();
         var kasirItems = new List<string?> { null }.Concat(kasirIds).ToList();
-        _kasirFilterBox = new ComboBox { Width = 140, ItemsSource = kasirItems, SelectedItem = _kasirFilter, Margin = new Thickness(0, 0, 12, 0) };
+        _kasirFilterBox = new ComboBox { Width = 130, ItemsSource = kasirItems, SelectedItem = _kasirFilter, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(8, 4), FontSize = 12 };
         _kasirFilterBox.SelectionChanged += (_, _) => { _kasirFilter = _kasirFilterBox.SelectedItem as string; _guestLimit = 50; ApplyGuestFilter(); };
         bar.Children.Add(_kasirFilterBox);
-        _sortBox = new ComboBox { Width = 100, ItemsSource = new[] { "Waktu", "Nama", "Nominal" }, SelectedItem = _sortBy, Margin = new Thickness(0, 0, 8, 0) };
+        _sortBox = new ComboBox { Width = 96, ItemsSource = new[] { "Waktu", "Nama", "Nominal" }, SelectedItem = _sortBy, Margin = new Thickness(0, 0, 6, 0), Padding = new Thickness(8, 4), FontSize = 12 };
         _sortBox.SelectionChanged += (_, _) => { _sortBy = _sortBox.SelectedItem as string ?? "Waktu"; ApplyGuestFilter(); };
         bar.Children.Add(_sortBox);
-        _orderBox = new ComboBox { Width = 90, ItemsSource = new[] { "↓ Desc", "↑ Asc" }, SelectedIndex = _sortDesc ? 0 : 1 };
+        _orderBox = new ComboBox { Width = 84, ItemsSource = new[] { "↓ Desc", "↑ Asc" }, SelectedIndex = _sortDesc ? 0 : 1, Padding = new Thickness(8, 4), FontSize = 12 };
         _orderBox.SelectionChanged += (_, _) => { _sortDesc = _orderBox.SelectedIndex == 0; ApplyGuestFilter(); };
         bar.Children.Add(_orderBox);
         var reset = new Button { Content = "Reset", Margin = new Thickness(8, 0, 0, 0) };
@@ -1471,7 +1480,7 @@ public partial class EventDetailView : UserControl
     {
         _bookLimit = 50;
         ApplyBookFilter();
-        AddBookBtn.Visibility = _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
+        BookAddRow.Visibility = _ev.CanEdit ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnBookMore(object sender, RoutedEventArgs e)
@@ -1497,58 +1506,49 @@ public partial class EventDetailView : UserControl
         }
     }
 
+    // Tambah buku tamu inline cermin web (satset, tanpa popup).
     private async void OnAddBook(object sender, RoutedEventArgs e)
     {
-        if (_bookDialogOpen || _bookSaving) return;
-        _bookDialogOpen = true;
-        var n = new TextBox(); var a = new TextBox();
-        var errBk = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
-        errBk.SetResourceReference(TextBlock.ForegroundProperty, "ErrorBrush");
-        var save = M3Primary("Simpan");
-        Window? win = null;
-        win = M3Dialog("Buku tamu baru", new StackPanel
+        if (_bookSaving) return;
+        if (!_ev.CanEdit) return;
+        var n = (BookNamaBox?.Text ?? "").Trim();
+        var a = (BookAlamatBox?.Text ?? "").Trim();
+        if (n.Length < 2 || a.Length < 2)
         {
-            Margin = new Thickness(0),
-            Children = {
-                    M3Label("Nama"), n,
-                    M3Label("Alamat", new Thickness(0,8,0,4)), a,
-                    errBk,
-                    M3DialogActions(M3Cancel(() => win), save),
-                }
-        }, 300);
-        win.Closed += (_, _) => { _bookDialogOpen = false; };
-        save.Click += async (_, _) =>
+            ShowBookAddErr("Isi nama dan alamat (min. 2 huruf).");
+            return;
+        }
+        var namaBk = TitleCase(n);
+        var alamatBk = a;
+        if (_books.Any(b => string.Equals(b.Nama, namaBk, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(b.Alamat, alamatBk, StringComparison.OrdinalIgnoreCase)))
         {
-            if (n.Text.Trim().Length < 2 || a.Text.Trim().Length < 2) return;
-            var namaBk = TitleCase(n.Text);
-            var alamatBk = a.Text.Trim();
-            if (_books.Any(b => string.Equals(b.Nama, namaBk, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(b.Alamat, alamatBk, StringComparison.OrdinalIgnoreCase)))
-            {
-                errBk.Text = "Nama dan alamat sudah tercatat di buku tamu.";
-                return;
-            }
-            var sig = $"{_ev.Id}|{namaBk}|{alamatBk}";
-            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (_bookSaving || (sig == _lastBookSig && nowMs - _lastBookAt < 3000)) return;
-            _bookSaving = true;
-            _lastBookSig = sig;
-            _lastBookAt = nowMs;
-            save.IsEnabled = false;
-            try
-            {
+            ShowBookAddErr("Nama dan alamat sudah tercatat di buku tamu.");
+            return;
+        }
+        var sig = $"{_ev.Id}|{namaBk}|{alamatBk}";
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (sig == _lastBookSig && nowMs - _lastBookAt < 3000) return;
+        _bookSaving = true;
+        _lastBookSig = sig;
+        _lastBookAt = nowMs;
+        var btn = sender as System.Windows.Controls.Button;
+        if (btn != null) btn.IsEnabled = false;
+        try
+        {
+            HideBookAddErr();
             var localId = Guid.NewGuid().ToString();
             var id = localId;
             var payload = new Dictionary<string, object?>
             {
                 ["id"] = id, ["localId"] = localId, ["eventId"] = _ev.Id,
-                ["nama"] = TitleCase(n.Text), ["alamat"] = a.Text.Trim(),
+                ["nama"] = namaBk, ["alamat"] = alamatBk,
                 ["createdAt"] = DateTime.Now.ToString("o"),
             };
             await LocalDb.Instance.InsertBookAsync(new GuestBookModel
             {
-                Id = id, LocalId = localId, EventId = _ev.Id, Nama = TitleCase(n.Text),
-                Alamat = a.Text.Trim(), CreatedAt = DateTime.Now,
+                Id = id, LocalId = localId, EventId = _ev.Id, Nama = namaBk,
+                Alamat = alamatBk, CreatedAt = DateTime.Now,
             });
             await LocalDb.Instance.EnqueueAsync(new OutboxOp
             {
@@ -1575,16 +1575,37 @@ public partial class EventDetailView : UserControl
                 }
             }
             catch { }
-            win.Close();
-            await RefreshAsync();
-            }
-            finally
+            try
             {
-                _bookSaving = false;
-                try { save.IsEnabled = true; } catch { }
+                if (BookNamaBox != null) BookNamaBox.Text = "";
+                if (BookAlamatBox != null) BookAlamatBox.Text = "";
             }
-        };
-        win.ShowDialog();
+            catch { }
+            await RefreshAsync();
+        }
+        finally
+        {
+            _bookSaving = false;
+            if (btn != null) btn.IsEnabled = true;
+        }
+    }
+
+    private void ShowBookAddErr(string msg)
+    {
+        try
+        {
+            if (BookAddErr != null)
+            {
+                BookAddErr.Text = msg;
+                BookAddErr.Visibility = Visibility.Visible;
+            }
+        }
+        catch { }
+    }
+
+    private void HideBookAddErr()
+    {
+        try { if (BookAddErr != null) BookAddErr.Visibility = Visibility.Collapsed; } catch { }
     }
 
     private static GuestBookModel ResolveBook(object? ctx) => ctx switch
@@ -2002,13 +2023,15 @@ public partial class EventDetailView : UserControl
             {
                 if (r.TryGetProperty("members", out var ms))
                 {
-                    SettingMemberGrid.ItemsSource = ms.EnumerateArray().Select(m => new MemberModel
+                    var members = ms.EnumerateArray().Select(m => new MemberModel
                     {
                         UserId = SettingMemberUid(m),
                         Role = m.TryGetProperty("role", out var ro) ? ro.GetString() ?? "VIEWER" : "VIEWER",
                         Name = m.TryGetProperty("user", out var u) && u.TryGetProperty("name", out var nm) ? nm.GetString() ?? "" : "",
                         Email = m.TryGetProperty("user", out var u2) && u2.TryGetProperty("email", out var em) ? em.GetString() ?? "" : "",
+                        Image = SettingMemberImage(m),
                     }).ToList();
+                    BuildMemberRows(members);
                 }
             }
             catch { }
@@ -2024,6 +2047,122 @@ public partial class EventDetailView : UserControl
         if (m.TryGetProperty("user", out var usr) && usr.TryGetProperty("id", out var id))
             return id.GetString() ?? "";
         return "";
+    }
+
+    private static string? SettingMemberImage(JsonElement m)
+    {
+        try
+        {
+            if (m.TryGetProperty("user", out var u) && u.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var key in new[] { "profilePicture", "avatar", "image" })
+                {
+                    if (u.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
+                    {
+                        var v = p.GetString();
+                        if (!string.IsNullOrWhiteSpace(v)) return v;
+                    }
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    // Daftar anggota cermin web: avatar foto + nama + chip role + email.
+    private void BuildMemberRows(List<MemberModel> members)
+    {
+        try
+        {
+            if (SettingMemberList == null) return;
+            SettingMemberList.Children.Clear();
+            if (members.Count == 0)
+            {
+                var empty = new TextBlock { Text = "Belum ada anggota.", FontSize = 12 };
+                empty.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+                SettingMemberList.Children.Add(empty);
+                return;
+            }
+            foreach (var m in members)
+            {
+                var (bg, fg) = m.Role == "OWNER"
+                    ? ("PrimaryContainerBrush", "OnPrimaryContainerBrush")
+                    : m.Role == "ADMIN"
+                        ? ("WarningContainerBrush", "OnWarningContainerBrush")
+                        : ("SecondaryContainerBrush", "OnSecondaryContainerBrush");
+                var avatar = new Border
+                {
+                    Width = 32, Height = 32, CornerRadius = new CornerRadius(16),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    SnapsToDevicePixels = true,
+                };
+                avatar.SetResourceReference(Border.BackgroundProperty, bg);
+                var initial = new TextBlock
+                {
+                    Text = m.Name.Trim().Length > 0 ? m.Name.Trim()[..1].ToUpperInvariant() : "?",
+                    FontWeight = FontWeights.Bold, FontSize = 13,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                initial.SetResourceReference(TextBlock.ForegroundProperty, fg);
+                avatar.Child = initial;
+                if (!string.IsNullOrWhiteSpace(m.Image))
+                    _ = SubPhotos.FillCircleAsync(avatar, initial, m.Image);
+                var nameRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                var nameText = new TextBlock
+                {
+                    Text = string.IsNullOrWhiteSpace(m.Name) ? m.Email : m.Name,
+                    FontWeight = FontWeights.SemiBold, FontSize = 13,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                nameRow.Children.Add(nameText);
+                var chip = new Border
+                {
+                    Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6),
+                    BorderThickness = new Thickness(1), Margin = new Thickness(6, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center, SnapsToDevicePixels = true,
+                };
+                chip.SetResourceReference(Border.BackgroundProperty, bg);
+                chip.SetResourceReference(Border.BorderBrushProperty, "OutlineBrush");
+                var chipText = new TextBlock { Text = m.Role, FontSize = 11, FontWeight = FontWeights.SemiBold };
+                chipText.SetResourceReference(TextBlock.ForegroundProperty, fg);
+                chip.Child = chipText;
+                nameRow.Children.Add(chip);
+                var mailText = new TextBlock { Text = m.Email, FontSize = 12 };
+                mailText.SetResourceReference(TextBlock.ForegroundProperty, "OnVariantBrush");
+                var middle = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+                middle.Children.Add(nameRow);
+                middle.Children.Add(mailText);
+                var edit = new Button
+                {
+                    Content = "Edit", Margin = new Thickness(4, 0, 4, 0), Padding = new Thickness(8, 2),
+                    VerticalAlignment = VerticalAlignment.Center, ToolTip = "Ubah role",
+                };
+                if (M3("OutlineButton") is Style obs) edit.Style = obs;
+                edit.Click += (_, _) => EditMember(m);
+                var del = new Button
+                {
+                    Content = "Hapus", Padding = new Thickness(8, 2),
+                    VerticalAlignment = VerticalAlignment.Center, ToolTip = "Keluarkan anggota",
+                };
+                if (M3("TextButton") is Style tbs) del.Style = tbs;
+                del.Click += (_, _) => RemoveMember(m);
+                var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                actions.Children.Add(edit);
+                actions.Children.Add(del);
+                var row = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.Children.Add(avatar);
+                Grid.SetColumn(middle, 1);
+                row.Children.Add(middle);
+                Grid.SetColumn(actions, 2);
+                row.Children.Add(actions);
+                SettingMemberList.Children.Add(row);
+            }
+        }
+        catch { }
     }
 
     private async void OnSaveInfo(object sender, RoutedEventArgs e)
@@ -2245,11 +2384,8 @@ public partial class EventDetailView : UserControl
         finally { _addingMember = false; }
     }
 
-    private void OnEditSettingMember(object sender, RoutedEventArgs e)
+    private void EditMember(MemberModel m)
     {
-        MemberModel m;
-        try { m = (MemberModel)((FrameworkElement)sender).DataContext; }
-        catch { return; }
         var roles = new[] { "VIEWER", "ADMIN", "OWNER" };
         var box = new ComboBox { Margin = new Thickness(0, 8, 0, 0), MinWidth = 200 };
         foreach (var r in roles) box.Items.Add(new ComboBoxItem { Content = r });
@@ -2304,11 +2440,8 @@ public partial class EventDetailView : UserControl
         win.ShowDialog();
     }
 
-    private async void OnRemoveSettingMember(object sender, RoutedEventArgs e)
+    private async void RemoveMember(MemberModel m)
     {
-        MemberModel m;
-        try { m = (MemberModel)((FrameworkElement)sender).DataContext; }
-        catch { return; }
         if (MessageBox.Show(Window.GetWindow(this), $"Keluarkan {m.Name} dari acara?",
                 "Keluarkan anggota", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
