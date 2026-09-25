@@ -2474,21 +2474,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             if (canEdit) const SizedBox(height: 8),
             if (canEdit && shownGuests.isEmpty)
               // Skeleton: hanya saat data lokal belum ada sama sekali.
-              (!_localLoaded || (guests.isEmpty && guestQ.isEmpty))
+              ((!_localLoaded || (guests.isEmpty && guestQ.isEmpty))
                   ? const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
                       child: SkeletonList(count: 5),
                     )
-                  : Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          guests.isEmpty
-                              ? 'Belum ada pemberian tercatat.'
-                              : 'Tidak ketemu "$guestQ".',
-                        ),
-                      ),
-                    ),
+                  : EmptyState(
+                      icon: guests.isEmpty
+                          ? Icons.inbox_outlined
+                          : Icons.search_off_outlined,
+                      title: guests.isEmpty
+                          ? 'Belum ada pemberian tercatat'
+                          : 'Tidak ketemu "$guestQ"',
+                      subtitle: guests.isEmpty
+                          ? 'Isi form di atas lalu tekan Simpan (Ctrl+S).'
+                          : 'Coba kata kunci lain.',
+                    )),
             if (canEdit)
               ...(medium
                   ? [_guestTable()]
@@ -2772,9 +2773,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                                   focusNode: bookNamaFocus,
                                   textCapitalization:
                                       TextCapitalization.words,
-                                  textInputAction: TextInputAction.next,
-                                  onSubmitted: (_) => bookAlamatFocus
-                                      .requestFocus(),
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _submitBook(),
                                   decoration: const InputDecoration(
                                     labelText: 'Nama',
                                     hintText: 'Nama tamu',
@@ -2806,9 +2806,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: _submitBook,
+                              onPressed:
+                                  _bookSaving ? null : _submitBook,
                               icon: const Icon(Icons.save_outlined),
-                              label: const Text('Simpan (Enter)'),
+                              label: Text(_bookSaving
+                                  ? 'Menyimpan…'
+                                  : 'Simpan (Enter)'),
                             ),
                           ),
                         ],
@@ -2929,6 +2932,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     _bookSaving = true;
     _lastBookSig = sig;
     _lastBookAt = nowMs;
+    if (mounted) setState(() {});
 
     // localId: UUID v4 murni — identitas tetap dari client.
     // id awal == localId (sementara), akan diganti server id setelah POST.
@@ -2993,6 +2997,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       ));
     } finally {
       _bookSaving = false;
+      if (mounted) setState(() {});
     }
   }
 
