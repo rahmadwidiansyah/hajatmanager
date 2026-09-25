@@ -51,10 +51,19 @@ jobs:
         run: |
           # Dry-run: semantic-release print nextRelease.version tanpa push apa-apa
           OUTPUT=$(npx semantic-release --dry-run --no-ci 2>&1 || true)
+          echo "--- dry-run: $(echo "$OUTPUT" | wc -l) baris output ---"
           echo "$OUTPUT" | tail -20
 
-          # Ekstrak versi yang akan dirilis
-          NEXT_VERSION=$(echo "$OUTPUT" | grep -oP '(?<=The next release version is )\S+' | head -1)
+          # Ekstrak versi yang akan dirilis (case-insensitive + fallback
+          # tanpa -P, karena -P bisa tidak tersedia / gagal diam-diam)
+          NEXT_VERSION=$(echo "$OUTPUT" | grep -oiP '(?<=the next release version is )\S+' | head -1 || true)
+          if [ -z "$NEXT_VERSION" ]; then
+            NEXT_VERSION=$(echo "$OUTPUT" | grep -oiE 'the next release version is [^ ]+' | head -1 | awk '{print $NF}' || true)
+          fi
+          if [ -z "$NEXT_VERSION" ]; then
+            echo "--- diagnostik: cari petunjuk versi/error ---"
+            echo "$OUTPUT" | grep -iE 'next release|no relevant|EGIT|error|✘' | head -10 || true
+          fi
 
           if [ -z "$NEXT_VERSION" ]; then
             # Semantic-release tidak menemukan commit releasable → tidak ada rilis baru
