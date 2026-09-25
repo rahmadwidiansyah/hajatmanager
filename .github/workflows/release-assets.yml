@@ -245,8 +245,52 @@ jobs:
           path: release-linux/*
           if-no-files-found: error
 
+  build-flutter-windows:
+    # Flutter desktop Windows (mobile/): ZIP portable hajat_manager.exe.
+    # Berdampingan dengan Setup.exe C# — user pilih runtime (C#) atau Flutter.
+    # Aman: workmanager hanya di-Android (guard di configureBackgroundSync),
+    # SQLite via FFI, Google login desktop via browser.
+    needs: resolve
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: |
+          flutter config --enable-windows-desktop
+          flutter pub get
+
+      - name: Build Windows (release)
+        working-directory: mobile
+        run: flutter build windows --release --build-name=${{ needs.resolve.outputs.version }} --build-number=${{ github.run_number }}
+
+      - name: Collect portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-windows | Out-Null
+          $Zip = "release-windows/Hajat-Manager-${{ needs.resolve.outputs.version }}-windows-x64.zip"
+          Compress-Archive -Path mobile/build/windows/x64/runner/Release/* -DestinationPath $Zip -Force
+          $Hash = (Get-FileHash $Zip -Algorithm SHA256).Hash.ToLower()
+          "$Hash  $(Split-Path $Zip -Leaf)" | Out-File release-windows/SHA256SUMS-windows.txt -Encoding ascii
+          Get-ChildItem release-windows/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hajat-manager-windows-flutter
+          path: release-windows/*
+          if-no-files-found: error
+
   publish:
-    needs: [resolve, build-windows-csharp, build-flutter-apk, build-flutter-linux]
+    needs: [resolve, build-windows-csharp, build-flutter-apk, build-flutter-linux, build-flutter-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
