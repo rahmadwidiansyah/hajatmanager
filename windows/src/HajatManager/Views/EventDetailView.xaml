@@ -224,23 +224,155 @@
               </Grid>
             </Border>
             <UniformGrid x:Name="RekapGrid" Columns="2" Margin="0,8,0,0">
-              <DataGrid x:Name="AlamatGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                        Margin="0,0,6,0" HeadersVisibility="Column">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="Alamat" Binding="{Binding Label}" Width="*"/>
-                  <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
-                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130">
-                    <DataGridTextColumn.ElementStyle>
-                      <Style TargetType="TextBlock">
-                        <Setter Property="FontFamily" Value="{DynamicResource NumericFont}"/>
-                        <Setter Property="HorizontalAlignment" Value="Right"/>
-                      </Style>
-                    </DataGridTextColumn.ElementStyle>
-                  </DataGridTextColumn>
-                </DataGrid.Columns>
-              </DataGrid>
-              <DataGrid x:Name="MetodeGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                        Margin="6,0,0,0" HeadersVisibility="Column">
+              <!-- Per Meja — bar biru tertiary cermin web -->
+              <Border Style="{DynamicResource M3Card}" Margin="0,0,6,6">
+                <StackPanel>
+                  <TextBlock Text="PER MEJA" Style="{DynamicResource M3SectionTitle}"/>
+                  <Border Padding="8,3" CornerRadius="6" Margin="0,0,0,8"
+                          Background="{DynamicResource TertiaryContainerBrush}"
+                          BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                          HorizontalAlignment="Left" SnapsToDevicePixels="True">
+                    <TextBlock Text="Lokasi fisik" FontSize="11"
+                               Foreground="{DynamicResource OnTertiaryContainerBrush}"/>
+                  </Border>
+                  <TextBlock x:Name="MejaEmpty" Text="Belum ada data" FontSize="12"
+                             Foreground="{DynamicResource OnVariantBrush}" Visibility="Collapsed"/>
+                  <ItemsControl x:Name="MejaList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="0,0,0,10">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Label}" FontWeight="Medium" FontSize="13"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding TotalRp}" FontWeight="Bold"
+                                       FontSize="13" FontFamily="{DynamicResource NumericFont}"
+                                       Margin="8,0,0,0" VerticalAlignment="Center">
+                              <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                  <Setter Property="Foreground" Value="{DynamicResource OnTertiaryContainerBrush}"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Top}" Value="True">
+                                      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </TextBlock.Style>
+                            </TextBlock>
+                          </Grid>
+                          <Grid Height="6" Margin="0,4,0,0" SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="{Binding Fill}"/>
+                              <ColumnDefinition Width="{Binding Rest}"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" CornerRadius="3"
+                                    Background="{DynamicResource TertiaryBrush}">
+                              <Border.Style>
+                                <Style TargetType="Border">
+                                  <Setter Property="Background" Value="{DynamicResource TertiaryBrush}"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Top}" Value="True">
+                                      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Border.Style>
+                            </Border>
+                            <Border Grid.Column="1" CornerRadius="3"
+                                    Background="{DynamicResource SurfaceContainerBrush}"/>
+                          </Grid>
+                          <Grid Margin="0,2,0,0">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Sub}" FontSize="11"
+                                       Foreground="{DynamicResource OnVariantBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding PctText}" FontSize="11"
+                                       Foreground="{DynamicResource OnVariantBrush}"/>
+                          </Grid>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+              <!-- Per Kasir — bar amber cermin web -->
+              <Border Style="{DynamicResource M3Card}" Margin="6,0,0,6">
+                <StackPanel>
+                  <TextBlock Text="PER KASIR" Style="{DynamicResource M3SectionTitle}"/>
+                  <Border Padding="8,3" CornerRadius="6" Margin="0,0,0,8"
+                          Background="{DynamicResource WarningContainerBrush}"
+                          BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
+                          HorizontalAlignment="Left" SnapsToDevicePixels="True">
+                    <TextBlock Text="Petugas" FontSize="11"
+                               Foreground="{DynamicResource OnWarningContainerBrush}"/>
+                  </Border>
+                  <TextBlock x:Name="KasirEmpty" Text="Belum ada data" FontSize="12"
+                             Foreground="{DynamicResource OnVariantBrush}" Visibility="Collapsed"/>
+                  <ItemsControl x:Name="KasirList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="0,0,0,10">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Label}" FontWeight="Medium" FontSize="13"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding TotalRp}" FontWeight="Bold"
+                                       FontSize="13" FontFamily="{DynamicResource NumericFont}"
+                                       Margin="8,0,0,0" VerticalAlignment="Center">
+                              <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                  <Setter Property="Foreground" Value="{DynamicResource OnWarningContainerBrush}"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Top}" Value="True">
+                                      <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </TextBlock.Style>
+                            </TextBlock>
+                          </Grid>
+                          <Grid Height="6" Margin="0,4,0,0" SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="{Binding Fill}"/>
+                              <ColumnDefinition Width="{Binding Rest}"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" CornerRadius="3">
+                              <Border.Style>
+                                <Style TargetType="Border">
+                                  <Setter Property="Background" Value="{DynamicResource WarningBrush}"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Top}" Value="True">
+                                      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Border.Style>
+                            </Border>
+                            <Border Grid.Column="1" CornerRadius="3"
+                                    Background="{DynamicResource SurfaceContainerBrush}"/>
+                          </Grid>
+                          <TextBlock Text="{Binding Sub}" FontSize="11" Margin="0,2,0,0"
+                                     Foreground="{DynamicResource OnVariantBrush}"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+              <!-- Per Metode -->
+              <Border Style="{DynamicResource M3Card}" Margin="0,0,6,0">
+                <StackPanel>
+                  <TextBlock Text="PER METODE" Style="{DynamicResource M3SectionTitle}"/>
+                  <DataGrid x:Name="MetodeGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                            HeadersVisibility="Column">
                 <DataGrid.Columns>
                   <DataGridTextColumn Header="Metode" Binding="{Binding Label}" Width="*"/>
                   <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
@@ -255,6 +387,29 @@
                   <DataGridTextColumn Header="Porsi" Binding="{Binding Porsi}" Width="70"/>
                 </DataGrid.Columns>
               </DataGrid>
+                </StackPanel>
+              </Border>
+              <!-- Per Alamat -->
+              <Border Style="{DynamicResource M3Card}" Margin="6,0,0,0">
+                <StackPanel>
+                  <TextBlock Text="PER ALAMAT" Style="{DynamicResource M3SectionTitle}"/>
+                  <DataGrid x:Name="AlamatGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                            HeadersVisibility="Column">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Alamat" Binding="{Binding Label}" Width="*"/>
+                  <DataGridTextColumn Header="Jumlah" Binding="{Binding Jumlah}" Width="80"/>
+                  <DataGridTextColumn Header="Total" Binding="{Binding TotalRp}" Width="130">
+                    <DataGridTextColumn.ElementStyle>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="FontFamily" Value="{DynamicResource NumericFont}"/>
+                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                      </Style>
+                    </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                </DataGrid.Columns>
+              </DataGrid>
+                </StackPanel>
+              </Border>
             </UniformGrid>
           </StackPanel>
         </ScrollViewer>

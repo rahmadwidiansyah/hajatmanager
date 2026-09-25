@@ -1702,6 +1702,41 @@ public partial class EventDetailView : UserControl
         public string Porsi { get; set; } = "";
     }
 
+    // Baris progress Per Meja / Per Kasir cermin web (bar + total + jumlah).
+    public sealed class BarRow
+    {
+        public string Label { get; set; } = "";
+        public string Sub { get; set; } = "";
+        public string TotalRp { get; set; } = "";
+        public string PctText { get; set; } = "";
+        public bool Top { get; set; }
+        public System.Windows.GridLength Fill { get; set; }
+        public System.Windows.GridLength Rest { get; set; }
+    }
+
+    private static List<BarRow> ToBarRows(IEnumerable<(string label, int jumlah, long total)> items)
+    {
+        var list = items.OrderByDescending(x => x.total).ToList();
+        var max = list.Count > 0 ? Math.Max(list.Max(x => x.total), 1L) : 1L;
+        var rows = new List<BarRow>();
+        for (var i = 0; i < list.Count; i++)
+        {
+            var (label, jumlah, total) = list[i];
+            var pct = (int)Math.Round(total * 100.0 / max);
+            rows.Add(new BarRow
+            {
+                Label = label,
+                Sub = $"{jumlah} tamu",
+                TotalRp = GuestRow.FormatRp(total),
+                PctText = $"{pct}%",
+                Top = i == 0,
+                Fill = new System.Windows.GridLength(pct, System.Windows.GridUnitType.Star),
+                Rest = new System.Windows.GridLength(Math.Max(0, 100 - pct), System.Windows.GridUnitType.Star),
+            });
+        }
+        return rows;
+    }
+
     private static string Pct(long part, long total) =>
         total > 0 ? $"{(int)Math.Round(part * 100.0 / total)}%" : "0%";
 
@@ -1729,6 +1764,21 @@ public partial class EventDetailView : UserControl
                 TotalRp = GuestRow.FormatRp(x.GetProperty("total").GetInt64()),
                 Porsi = Pct(x.GetProperty("total").GetInt64(), _lastTotalNominal),
             }).ToList();
+            // Per Meja + Per Kasir cermin 4 kartu web.
+            var mejaRows = ToBarRows(r.GetProperty("perMeja").EnumerateArray().Select(x => (
+                label: x.GetProperty("mejaLabel").GetString() ?? "Tanpa Meja",
+                jumlah: x.GetProperty("jumlah").GetInt32(),
+                total: x.GetProperty("total").GetInt64())));
+            MejaList.ItemsSource = mejaRows;
+            MejaEmpty.Visibility = mejaRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            var kasirRows = ToBarRows(r.GetProperty("perKasir").EnumerateArray().Select(x => (
+                label: x.TryGetProperty("name", out var kn) && !string.IsNullOrWhiteSpace(kn.GetString())
+                    ? kn.GetString() ?? ""
+                    : x.GetProperty("petugasId").GetString() ?? "",
+                jumlah: x.GetProperty("jumlah").GetInt32(),
+                total: x.GetProperty("total").GetInt64())));
+            KasirList.ItemsSource = kasirRows;
+            KasirEmpty.Visibility = kasirRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         catch
         {
@@ -1749,6 +1799,17 @@ public partial class EventDetailView : UserControl
                 TotalRp = GuestRow.FormatRp(g.Sum(x => x.Nominal)),
                 Porsi = Pct(g.Sum(x => x.Nominal), total),
             }).ToList();
+            // Offline: meja dari MejaLabel, kasir dari nama petugas lokal.
+            var mejaLocal = ToBarRows(_guests
+                .GroupBy(g => string.IsNullOrWhiteSpace(g.MejaLabel) ? "Tanpa Meja" : g.MejaLabel)
+                .Select(g => (label: g.Key, jumlah: g.Count(), total: g.Sum(x => x.Nominal))));
+            MejaList.ItemsSource = mejaLocal;
+            MejaEmpty.Visibility = mejaLocal.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            var kasirLocal = ToBarRows(_guests
+                .GroupBy(g => g.PetugasId ?? "")
+                .Select(g => (label: KasirName(g.First()), jumlah: g.Count(), total: g.Sum(x => x.Nominal))));
+            KasirList.ItemsSource = kasirLocal;
+            KasirEmpty.Visibility = kasirLocal.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 

@@ -416,6 +416,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     int total = 0;
     final perAlamat = <String, Map<String, int>>{};
     final perMetode = <String, Map<String, int>>{};
+    final perMeja = <String, Map<String, int>>{};
+    final perKasir = <String, Map<String, dynamic>>{};
     for (final g in guests) {
       final n = (g['nominal'] as int?) ?? 0;
       total += n;
@@ -429,6 +431,19 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         'jumlah': ((perMetode[m]?['jumlah']) ?? 0) + 1,
         'total': ((perMetode[m]?['total']) ?? 0) + n,
       };
+      final mj = ('${g['mejaLabel'] ?? ''}').trim();
+      final mejaKey = mj.isEmpty || mj == 'null' ? 'Tanpa Meja' : mj;
+      perMeja[mejaKey] = {
+        'jumlah': ((perMeja[mejaKey]?['jumlah']) ?? 0) + 1,
+        'total': ((perMeja[mejaKey]?['total']) ?? 0) + n,
+      };
+      final pid = '${g['petugasId'] ?? ''}';
+      final kasirKey = pid.isEmpty || pid == 'null' ? '—' : pid;
+      perKasir[kasirKey] = {
+        'nama': _kasirName({'petugasId': pid}),
+        'jumlah': ((perKasir[kasirKey]?['jumlah'] as int?) ?? 0) + 1,
+        'total': ((perKasir[kasirKey]?['total'] as int?) ?? 0) + n,
+      };
     }
     rekap = {
       'totalTamu': guests.length,
@@ -438,6 +453,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           .toList(),
       'perMetode': perMetode.entries
           .map((e) => {'metode': e.key, ...e.value})
+          .toList(),
+      'perMeja': perMeja.entries
+          .map((e) => {'mejaLabel': e.key, ...e.value})
+          .toList(),
+      'perKasir': perKasir.entries
+          .map((e) => {'petugasId': e.key, ...e.value})
           .toList(),
     };
   }
@@ -3454,6 +3475,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (t == null) return const Center(child: CircularProgressIndicator());
     final perAlamat = (t['perAlamat'] as List).cast<Map>();
     final perMetode = (t['perMetode'] as List).cast<Map>();
+    final perMeja = ((t['perMeja'] as List?) ?? []).cast<Map>();
+    final perKasir = ((t['perKasir'] as List?) ?? []).cast<Map>();
     return LayoutBuilder(
       builder: (context, cons) {
         final wide = WindowUi.isWide(cons.maxWidth);
@@ -3518,7 +3541,67 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     ),
                   ),
                 ],
-              )
+              ),
+            const SizedBox(height: 12),
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _rekapBarCard(
+                      title: 'Per meja',
+                      badge: 'Lokasi fisik',
+                      badgeBg:
+                          Theme.of(context).colorScheme.tertiaryContainer,
+                      badgeFg: Theme.of(context)
+                          .colorScheme
+                          .onTertiaryContainer,
+                      rows: perMeja,
+                      barColor: Theme.of(context).colorScheme.tertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _rekapBarCard(
+                      title: 'Per kasir',
+                      badge: 'Petugas',
+                      badgeBg: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer,
+                      badgeFg: Theme.of(context)
+                          .colorScheme
+                          .onSecondaryContainer,
+                      rows: perKasir,
+                      barColor:
+                          Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                ],
+              ),
+            if (!wide) ...[
+              _rekapBarCard(
+                title: 'Per meja',
+                badge: 'Lokasi fisik',
+                badgeBg: Theme.of(context).colorScheme.tertiaryContainer,
+                badgeFg:
+                    Theme.of(context).colorScheme.onTertiaryContainer,
+                rows: perMeja,
+                barColor: Theme.of(context).colorScheme.tertiary,
+              ),
+              const SizedBox(height: 8),
+              _rekapBarCard(
+                title: 'Per kasir',
+                badge: 'Petugas',
+                badgeBg:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                badgeFg: Theme.of(context)
+                    .colorScheme
+                    .onSecondaryContainer,
+                rows: perKasir,
+                barColor: Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(height: 8),
+            ]
             else if (medium) ...[
               Text(
                 'Per alamat',
@@ -3547,6 +3630,137 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ],
         );
       },
+    );
+  }
+
+  /// Kartu progress Per Meja / Per Kasir cermin web (bar + total + jumlah).
+  /// Dipakai di ketiga lebar layar (2 kolom saat wide, stacked bila sempit).
+  Widget _rekapBarCard({
+    required String title,
+    required String badge,
+    required Color badgeBg,
+    required Color badgeFg,
+    required List<Map> rows,
+    required Color barColor,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final sorted = rows.toList()
+      ..sort((a, b) => ((b['total'] as num?) ?? 0)
+          .compareTo(((a['total'] as num?) ?? 0)));
+    final max = sorted.isEmpty
+        ? 1
+        : sorted
+            .map((e) => ((e['total'] as num?) ?? 0).toInt())
+            .reduce((a, b) => a > b ? a : b)
+            .clamp(1, 1 << 62);
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: badgeBg,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Text(
+                badge,
+                style: TextStyle(fontSize: 11, color: badgeFg),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (sorted.isEmpty)
+              Text(
+                'Belum ada data',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            else
+              for (var i = 0; i < sorted.length; i++) ...[
+                Builder(builder: (_) {
+                  final e = sorted[i];
+                  final label = '${e['mejaLabel'] ?? e['nama'] ?? e['label'] ?? ''}';
+                  final jumlah = (e['jumlah'] as num?)?.toInt() ?? 0;
+                  final total = ((e['total'] as num?) ?? 0).toInt();
+                  final pct = (total / max).clamp(0.0, 1.0);
+                  final isTop = i == 0;
+                  final totalColor = isTop ? scheme.primary : barColor;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              formatRp(total),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: totalColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: pct,
+                            minHeight: 6,
+                            color: isTop ? scheme.primary : barColor,
+                            backgroundColor: scheme.surfaceContainerHighest,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '$jumlah tamu',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              '${(pct * 100).round()}%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+          ],
+        ),
+      ),
     );
   }
 
