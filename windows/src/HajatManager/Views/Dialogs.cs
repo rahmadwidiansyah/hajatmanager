@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace HajatManager.Views;
 
@@ -13,13 +14,13 @@ public sealed class CreateEventDialog : Window
     private readonly TextBox _n = new();
     private readonly TextBox _t = new();
     private readonly TextBox _l = new();
-    private readonly TextBox _c = new() { AcceptsReturn = true, Height = 48 };
+    private readonly TextBox _c = new() { AcceptsReturn = true, Height = 40 };
     private readonly DatePicker _d = new();
 
     public CreateEventDialog()
     {
         Title = "Acara baru";
-        Width = 520;
+        Width = 440;
         // Jangan fixed Height: konten (~475px) + title-bar kustom M3Chrome
         // (36px) mepet ke batas 520 sehingga baris tombol kepotong di
         // sebagian tema/skala font. Auto-fit + scroll cadangan.
@@ -28,16 +29,23 @@ public sealed class CreateEventDialog : Window
         catch { MaxHeight = 680; }
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
-        var p = new StackPanel { Margin = new Thickness(16) };
+        var p = new StackPanel { Margin = new Thickness(12) };
         p.Children.Add(Field("Nama acara *", _n, "Pernikahan Budi & Ani"));
-        p.Children.Add(Field("Tuan rumah *", _t, "H. Slamet"));
-        p.Children.Add(Field("Tanggal * (wajib pilih)", _d, null));
+        // Tuan rumah + tanggal sebaris agar dialog pendek.
+        var row2 = new UniformGrid { Columns = 2, Margin = new Thickness(0, 6, 0, 0) };
+        var left2 = new StackPanel { Margin = new Thickness(0, 0, 4, 0) };
+        left2.Children.Add(Field("Tuan rumah *", _t, "H. Slamet"));
+        var right2 = new StackPanel { Margin = new Thickness(4, 0, 0, 0) };
+        right2.Children.Add(Field("Tanggal *", _d, null));
+        row2.Children.Add(left2);
+        row2.Children.Add(right2);
+        p.Children.Add(row2);
         p.Children.Add(Field("Lokasi", _l, "Balai Desa Krajan"));
         p.Children.Add(Field("Catatan", _c, "Opsional"));
         var info = new TextBlock
         {
             Text = "Jika offline, acara disimpan lokal lalu auto-push saat online.",
-            FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap
+            FontSize = 11, Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap
         };
         info.SetResourceReference(ForegroundProperty, "OnVariantBrush");
         p.Children.Add(info);
@@ -48,7 +56,7 @@ public sealed class CreateEventDialog : Window
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 12, 0, 0)
+            Margin = new Thickness(0, 10, 0, 0)
         };
         var batal = new Button { Content = "Batal", Margin = new Thickness(0, 0, 8, 0), MinWidth = 96, IsCancel = true };
         if (TryFindResource("TextButton") is Style tbs) batal.Style = tbs;
@@ -80,7 +88,7 @@ public sealed class CreateEventDialog : Window
 
     private static StackPanel Field(string label, Control input, string? hint)
     {
-        var box = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var box = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
         var l = new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 4) };
         if (Application.Current?.TryFindResource("M3SectionTitle") is Style s) l.Style = s;
         box.Children.Add(l);

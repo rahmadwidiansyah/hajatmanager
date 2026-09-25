@@ -437,54 +437,85 @@ class _EventsScreenState extends State<EventsScreen> {
               children: [
                 TextField(
                   controller: namaC,
-                  decoration: const InputDecoration(labelText: 'Nama acara *'),
-                ),
-                TextField(
-                  controller: tuanC,
-                  decoration: const InputDecoration(labelText: 'Tuan rumah *'),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final now = DateTime.now();
-                    final d = await showDatePicker(
-                      context: ctx,
-                      initialDate: pickedDate ?? now,
-                      firstDate: DateTime(now.year - 5),
-                      lastDate: DateTime(now.year + 5),
-                    );
-                    if (d != null) setD(() => pickedDate = d);
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Tanggal *',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      prefixIcon: Icon(Icons.calendar_month_outlined),
-                    ),
-                    child: Text(
-                      pickedDate == null
-                          ? 'Pilih tanggal'
-                          : '${pickedDate!.day.toString().padLeft(2, '0')}-'
-                                '${pickedDate!.month.toString().padLeft(2, '0')}-'
-                                '${pickedDate!.year}',
-                    ),
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama acara *',
+                    isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: tuanC,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Tuan rumah *',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final now = DateTime.now();
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: pickedDate ?? now,
+                            firstDate: DateTime(now.year - 5),
+                            lastDate: DateTime(now.year + 5),
+                          );
+                          if (d != null) setD(() => pickedDate = d);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Tanggal *',
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            isDense: true,
+                            prefixIcon:
+                                Icon(Icons.calendar_month_outlined),
+                          ),
+                          child: Text(
+                            pickedDate == null
+                                ? 'Pilih'
+                                : '${pickedDate!.day.toString().padLeft(2, '0')}-'
+                                      '${pickedDate!.month.toString().padLeft(2, '0')}-'
+                                      '${pickedDate!.year}',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 TextField(
                   controller: lokC,
-                  decoration: const InputDecoration(labelText: 'Lokasi'),
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Lokasi',
+                    isDense: true,
+                  ),
                 ),
+                const SizedBox(height: 6),
                 TextField(
                   controller: catC,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Catatan'),
+                  minLines: 1,
+                  decoration: const InputDecoration(
+                    labelText: 'Catatan',
+                    isDense: true,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Text(
                   'Jika offline, acara disimpan lokal lalu auto-push saat online.',
-                  style: TextStyle(fontSize: 12),
+                  style: TextStyle(fontSize: 11),
                 ),
               ],
             ),
