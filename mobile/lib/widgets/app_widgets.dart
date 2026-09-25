@@ -17,10 +17,17 @@ Future<T?> showWideDialog<T>({
     builder: (ctx) {
       final w = MediaQuery.sizeOf(ctx).width;
       final min = w > maxWidth + 64 ? minWidth : 0.0;
+      final content = builder(ctx);
+      // Konten mentah (Column/ListView sheet) butuh permukaan Material —
+      // tanpa ini teks tak terbaca di atas scrim (terlihat "blank").
+      // AlertDialog/Dialog sudah punya permukaan sendiri, jangan dibungkus ganda.
+      final Widget surfaced = (content is Dialog || content is AlertDialog)
+          ? content
+          : Card(margin: EdgeInsets.zero, child: content);
       return Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(minWidth: min, maxWidth: maxWidth),
-          child: builder(ctx),
+          child: surfaced,
         ),
       );
     },

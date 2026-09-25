@@ -42,6 +42,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   final alamatC = TextEditingController();
   final nominalC = TextEditingController();
   final catatanC = TextEditingController();
+  final bookNamaC = TextEditingController();
+  final bookAlamatC = TextEditingController();
   String metode = 'AMPLOP';
   List<Map<String, dynamic>> suggest = [];
   List<String> alamatTop = [];
@@ -81,6 +83,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   final nominalFocus = FocusNode();
   final guestSearchFocus = FocusNode();
   final bookSearchFocus = FocusNode();
+  final bookNamaFocus = FocusNode();
+  final bookAlamatFocus = FocusNode();
   final _namaKey = GlobalKey();
   OverlayEntry? _suggestOverlay;
   Timer? _suggestDebounce;
@@ -116,7 +120,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   int _lastAt = 0;
   // Guard khusus buku tamu (dialog Simpan bisa double-tap).
   bool _bookSaving = false;
-  bool _bookDialogOpen = false;
   String _lastBookSig = '';
   int _lastBookAt = 0;
 
@@ -313,10 +316,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     nominalFocus.dispose();
     guestSearchFocus.dispose();
     bookSearchFocus.dispose();
+    bookNamaFocus.dispose();
+    bookAlamatFocus.dispose();
     namaC.dispose();
     alamatC.dispose();
     nominalC.dispose();
     catatanC.dispose();
+    bookNamaC.dispose();
+    bookAlamatC.dispose();
     tab.dispose();
     super.dispose();
   }
@@ -421,12 +428,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     for (final g in guests) {
       final n = (g['nominal'] as int?) ?? 0;
       total += n;
-      final a = '${g['alamat']}';
+      // Normalisasi kunci agar varian kapital/spasi tidak jadi grup ganda.
+      final aRaw = ('${g['alamat'] ?? ''}').trim();
+      final a = aRaw.isEmpty ? '—' : aRaw;
       perAlamat[a] = {
         'jumlah': ((perAlamat[a]?['jumlah']) ?? 0) + 1,
         'total': ((perAlamat[a]?['total']) ?? 0) + n,
       };
-      final m = '${g['metode']}';
+      final mRaw = ('${g['metode'] ?? ''}').trim().toUpperCase();
+      final m = mRaw.isEmpty ? 'AMPLOP' : mRaw;
       perMetode[m] = {
         'jumlah': ((perMetode[m]?['jumlah']) ?? 0) + 1,
         'total': ((perMetode[m]?['total']) ?? 0) + n,
@@ -1116,8 +1126,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Ctrl+S simpan pemberian dari tab Input, Ctrl+F fokus cari —
-    // standar app desktop Linux/tablet dengan keyboard.
+    // Shortcut desktop Linux cermin tabel Task 9 web/WPF:
+    // Ctrl+S simpan, Ctrl+F cari, Ctrl+1/2/3 pindah tab, Ctrl+R sync,
+    // Escape tutup suggest.
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
@@ -1129,6 +1140,19 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           } else if (tab.index == 1) {
             bookSearchFocus.requestFocus();
           }
+        },
+        const SingleActivator(LogicalKeyboardKey.digit1, control: true):
+            () => tab.index = 0,
+        const SingleActivator(LogicalKeyboardKey.digit2, control: true):
+            () => tab.index = 1,
+        const SingleActivator(LogicalKeyboardKey.digit3, control: true):
+            () => tab.index = 2,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () async {
+          await SyncEngine.instance.flush(widget.event.id);
+          await _refreshAll();
+        },
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_suggestOverlay != null) _hideSuggestOverlay();
         },
       },
       child: LayoutBuilder(
@@ -2694,15 +2718,6 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
                 child: Row(
                   children: [
-                    if (canEdit)
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _addBookDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Tamu'),
-                        ),
-                      ),
-                    if (canEdit) const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -2716,6 +2731,69 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                   ],
                 ),
               ),
+              // Form tambah inline cermin web (satset, tanpa popup).
+              // Enter di kolom Alamat = simpan.
+              if (canEdit)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: bookNamaC,
+                                  focusNode: bookNamaFocus,
+                                  textCapitalization:
+                                      TextCapitalization.words,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) => bookAlamatFocus
+                                      .requestFocus(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nama',
+                                    hintText: 'Nama tamu',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: bookAlamatC,
+                                  focusNode: bookAlamatFocus,
+                                  textCapitalization:
+                                      TextCapitalization.words,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _submitBook(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Alamat',
+                                    hintText: 'Desa/alamat',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _submitBook,
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Simpan (Enter)'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
                 child: TextField(
@@ -2745,7 +2823,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                             : 'Coba kata kunci lain.',
                         action: books.isEmpty && canEdit
                             ? FilledButton.icon(
-                                onPressed: _addBookDialog,
+                                onPressed: () =>
+                                    bookNamaFocus.requestFocus(),
                                 icon: const Icon(Icons.person_add_outlined),
                                 label: const Text('Tambah tamu pertama'),
                               )
@@ -2799,51 +2878,13 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     );
   }
 
-  Future<void> _addBookDialog() async {
+  /// Simpan buku tamu dari form inline (Enter di Alamat = simpan).
+  Future<void> _submitBook() async {
     if (denyViewer()) return;
-    // Cegah dialog berlapis saat tombol Add di-tap 2x cepat.
-    if (_bookDialogOpen || _bookSaving) return;
-    _bookDialogOpen = true;
-    final n = TextEditingController();
-    final a = TextEditingController();
-    final ok = await showWideDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Buku tamu baru'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: n,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Nama (huruf saja)',
-                helperText: 'Tanpa angka/simbol',
-              ),
-            ),
-            TextField(
-              controller: a,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Alamat'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-    _bookDialogOpen = false;
-    final nama = capitalizeWords(n.text);
-    if (ok != true || !isValidNama(nama)) {
-      if (ok == true && mounted) {
+    if (_bookSaving) return;
+    final nama = capitalizeWords(bookNamaC.text);
+    if (!isValidNama(nama)) {
+      if (mounted) {
         showTopSnack(
           context,
           const SnackBar(
@@ -2851,9 +2892,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         );
       }
+      bookNamaFocus.requestFocus();
       return;
     }
-    final alamat = a.text.trim().isEmpty ? '-' : capitalizeWords(a.text);
+    final alamat = bookAlamatC.text.trim().isEmpty
+        ? '-'
+        : capitalizeWords(bookAlamatC.text);
     // Anti-double: tolak bila masih menyimpan atau payload sama <3 dtk.
     final sig = '${widget.event.id}|$nama|$alamat';
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -2948,6 +2992,10 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         }
         // Offline / error lain — biarkan antre diam-diam.
       }
+      // Satset: kosongkan form agar langsung isi berikutnya.
+      bookNamaC.clear();
+      bookAlamatC.clear();
+      if (mounted) bookNamaFocus.requestFocus();
       await _refreshAll();
     } finally {
       _bookSaving = false;

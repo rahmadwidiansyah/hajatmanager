@@ -180,11 +180,13 @@ class _EventsScreenState extends State<EventsScreen> {
               )
               .toList();
 
-    // Ctrl+F fokus ke pencarian — standar app desktop.
+    // Ctrl+F fokus ke pencarian, Ctrl+N acara baru — standar app desktop.
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): () =>
             searchFocus.requestFocus(),
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () =>
+            _createDialog(),
       },
       child: Scaffold(
         appBar: AppBar(
