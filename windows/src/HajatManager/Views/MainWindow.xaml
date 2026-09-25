@@ -6,7 +6,7 @@
         Background="{DynamicResource SurfaceBrush}">
   <DockPanel>
     <!-- M3 TopAppBar cermin DashboardHeader.tsx: brand + status chip kiri, sync + avatar kanan -->
-    <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource SurfaceBrush}"
+    <Border DockPanel.Dock="Top" Padding="10,6" Background="{DynamicResource SurfaceBrush}"
             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1"
             SnapsToDevicePixels="True">
       <Grid>
@@ -17,7 +17,7 @@
         <!-- Kiri: Brand + status chip -->
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="Hajat Manager" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
-          <Border x:Name="StatusChip" Margin="10,0,0,0" Padding="8,3" CornerRadius="6"
+          <Border x:Name="StatusChip" Margin="10,0,0,0" Padding="6,2" CornerRadius="6"
                   Background="{DynamicResource SurfaceContainerBrush}"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                   VerticalAlignment="Center" SnapsToDevicePixels="True">
@@ -44,7 +44,7 @@
           <Button x:Name="AvatarBtn" Click="OnAvatarMenu" Style="{DynamicResource TonalButton}"
                   Padding="4,4,10,4" ToolTip="Menu akun">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <Border x:Name="AvatarCircle" Width="28" Height="28" CornerRadius="14"
+              <Border x:Name="AvatarCircle" Width="26" Height="26" CornerRadius="13"
                       Background="{DynamicResource PrimaryContainerBrush}"
                       SnapsToDevicePixels="True">
                 <TextBlock x:Name="AvatarInitial" Text="?" FontWeight="Bold" FontSize="12"
@@ -87,12 +87,12 @@
     <!-- Rail kiri M3 + konten page-shell -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="168"/>
+        <ColumnDefinition Width="160"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Border Background="{DynamicResource SurfaceBrush}"
               BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0"
-              Padding="8,4" SnapsToDevicePixels="True">
+              Padding="6,4" SnapsToDevicePixels="True">
         <ListBox x:Name="NavRail" SelectionChanged="OnNavSelect"
                  BorderThickness="0" Background="Transparent">
           <ListBoxItem x:Name="AcaraItem" Tag="events" Style="{DynamicResource M3NavRailItem}"
@@ -114,7 +114,7 @@
         </ListBox>
       </Border>
       <!-- page-shell cermin web (max 1120px, auto-center) -->
-      <ContentControl x:Name="Host" Grid.Column="1" Margin="16" MaxWidth="1120"
+      <ContentControl x:Name="Host" Grid.Column="1" Margin="12" MaxWidth="1120"
                       HorizontalAlignment="Stretch" FontFamily="{DynamicResource AppFont}"/>
     </Grid>
   </DockPanel>

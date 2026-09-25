@@ -24,7 +24,7 @@ public static class M3Field
         try
         {
             if (Application.Current?.TryFindResource("M3Card") is Style s) b.Style = s;
-            else b.Padding = new Thickness(16);
+            else b.Padding = new Thickness(12);
         }
         catch { }
         return b;

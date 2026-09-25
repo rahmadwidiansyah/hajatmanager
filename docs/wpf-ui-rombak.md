@@ -1,9 +1,18 @@
 # Rombak UI WPF Desktop — Cermin Web
 
 **Dibuat:** 2026-09-24  
-**Status:** Planning  
+**Status:** Done (Task 1–10) + Revisi compact density  
 **Platform pertama:** Windows (WPF .NET 9 + C#)  
 **Menyusul:** Linux (Flutter desktop — lihat bagian terpisah di akhir)
+
+> **Revisi compact density (2026-09-24):** nilai token di dokumen ini (Task 1:
+> `M3CardPadding=16`, `RowHeight=36`, `TabItem=16,8`, rail 168px, dsb) telah
+> disupersede oleh refinement — `M3CardPadding=12`, `RowHeight=32`,
+> `TabItem=12,6`, rail 160px, dan ~40 penurunan spacing lain di `M3Styles.xaml`,
+> file C# (`M3Segmented`, `M3Feedback`, `BuildInputPanel`, `AccountSubs`,
+> `M3Field`), dan XAML per-halaman. Visual language/warna/radius tetap identik
+> web; hanya density yang dirapatkan untuk desktop. Field Catatan kini
+> textarea 2-baris (`AcceptsReturn`, `MinHeight=56`).
 
 ---
 

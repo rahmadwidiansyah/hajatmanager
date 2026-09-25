@@ -42,7 +42,7 @@ public sealed class M3Segmented : Border
             var btn = new Button
             {
                 Margin = new Thickness(2),
-                Padding = new Thickness(12, 6, 12, 6),
+                Padding = new Thickness(10, 5, 10, 5),
                 FontWeight = FontWeights.SemiBold,
                 Cursor = System.Windows.Input.Cursors.Hand,
             };
@@ -57,7 +57,7 @@ public sealed class M3Segmented : Border
                     FontFamily = new FontFamily(M3Icons.Font),
                     FontSize = 14,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0),
+                    Margin = new Thickness(0, 0, 4, 0),
                 });
                 sp.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
                 btn.Content = sp;

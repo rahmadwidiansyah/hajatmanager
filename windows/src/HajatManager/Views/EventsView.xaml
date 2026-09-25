@@ -20,7 +20,7 @@
     <TextBlock DockPanel.Dock="Top" Text="Pilih acara untuk input, buku tamu, dan rekap."
                Style="{DynamicResource M3SectionTitle}" Margin="0,0,0,8"/>
     <!-- Search M3: Border + ikon + TextBox transparan + placeholder (cermin /dashboard) -->
-    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
       <Border Background="{DynamicResource CardBrush}"
               BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
               CornerRadius="8" SnapsToDevicePixels="True">
@@ -33,7 +33,7 @@
                      Foreground="{DynamicResource OnVariantBrush}"
                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
           <TextBox x:Name="SearchBox" Grid.Column="1" BorderThickness="0"
-                   Background="Transparent" Padding="0,8" FontSize="13"
+                   Background="Transparent" Padding="0,6" FontSize="13"
                    TextChanged="OnSearch"/>
         </Grid>
       </Border>
@@ -66,14 +66,14 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Border Margin="0,0,12,12" Style="{DynamicResource M3Card}"
+              <Border Margin="0,0,8,8" Style="{DynamicResource M3Card}"
                       Cursor="Hand" Focusable="True"
                       ToolTip="Buka acara (Enter)"
                       MouseLeftButtonUp="OnOpen" KeyDown="OnOpenKey"
                       MouseEnter="OnCardHover" MouseLeave="OnCardLeave">
                 <StackPanel>
                   <!-- Baris atas: kotak tanggal + info + role chip -->
-                  <Grid Margin="0,0,0,10">
+                  <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="52"/>
                       <ColumnDefinition Width="*"/>
@@ -94,7 +94,7 @@
                       </StackPanel>
                     </Border>
                     <!-- Info tengah -->
-                    <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center">
                       <TextBlock Text="{Binding NamaAcara}" FontWeight="SemiBold" FontSize="14"
                                  TextTrimming="CharacterEllipsis"/>
                       <TextBlock FontSize="12" Foreground="{DynamicResource OnVariantBrush}"
@@ -151,7 +151,7 @@
                     </Border>
                   </Grid>
                   <!-- Separator -->
-                  <Border Height="1" Background="{DynamicResource OutlineBrush}" Margin="0,0,0,10"
+                  <Border Height="1" Background="{DynamicResource OutlineBrush}" Margin="0,0,0,8"
                           SnapsToDevicePixels="True"/>
                   <!-- Baris bawah: "Buka Acara →" -->
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -168,9 +168,9 @@
         </ItemsControl>
       </ScrollViewer>
       <!-- Empty state ala Linux/Web -->
-      <Border x:Name="EmptyPanel" Visibility="Collapsed" Margin="0,16,0,0"
+      <Border x:Name="EmptyPanel" Visibility="Collapsed" Margin="0,12,0,0"
               Style="{DynamicResource M3Card}" HorizontalAlignment="Center" VerticalAlignment="Top"
-              MaxWidth="480" Padding="16">
+              MaxWidth="480">
         <StackPanel HorizontalAlignment="Center">
           <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="40"
                      Foreground="{DynamicResource OnVariantBrush}" HorizontalAlignment="Center"/>

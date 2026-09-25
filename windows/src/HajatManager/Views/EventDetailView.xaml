@@ -7,7 +7,7 @@
     <!-- TopBar cermin TopBar.tsx: kembali + info acara + aksi kanan -->
     <Border DockPanel.Dock="Top" Background="{DynamicResource CardBrush}"
             BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
-            CornerRadius="10" Padding="10,8" Margin="0,0,0,8" SnapsToDevicePixels="True">
+            CornerRadius="10" Padding="8,6" Margin="0,0,0,6" SnapsToDevicePixels="True">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto"/>
@@ -24,10 +24,10 @@
           <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="14"
                      TextTrimming="CharacterEllipsis" MaxWidth="220" VerticalAlignment="Center"/>
           <!-- Dropdown meja kasir -->
-          <ComboBox x:Name="MejaBox" Margin="8,0,0,0" Width="90" VerticalAlignment="Center"
+          <ComboBox x:Name="MejaBox" Margin="8,0,0,0" Width="84" VerticalAlignment="Center"
                     SelectionChanged="OnMejaChanged" ToolTip="Meja kasir aktif"/>
           <!-- Nominal pill (cermin nominalPill web) -->
-          <Border Margin="8,0,0,0" Padding="8,3" CornerRadius="12"
+          <Border Margin="8,0,0,0" Padding="6,2" CornerRadius="12"
                   Background="{DynamicResource PrimaryContainerBrush}"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                   VerticalAlignment="Center" SnapsToDevicePixels="True">
@@ -46,7 +46,7 @@
             </StackPanel>
           </Border>
           <!-- Kasir chip -->
-          <Border Margin="8,0,0,0" Padding="8,3" CornerRadius="12"
+          <Border Margin="8,0,0,0" Padding="6,2" CornerRadius="12"
                   Background="{DynamicResource SurfaceContainerBrush}"
                   BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1"
                   VerticalAlignment="Center" SnapsToDevicePixels="True">
@@ -95,7 +95,7 @@
             </TextBlock>
           </Border>
           <Button Content="Export" Click="OnExport" Style="{DynamicResource TonalButton}"
-                  Margin="0,0,6,0" Padding="10,5" VerticalAlignment="Center"
+                  Margin="0,0,6,0" Padding="8,4" VerticalAlignment="Center"
                   ToolTip="Export PDF / Excel"/>
           <Grid Margin="0,0,6,0" VerticalAlignment="Center">
             <Button x:Name="SyncCloudBtn" Style="{DynamicResource M3SyncButton}" Click="OnSync"
@@ -149,7 +149,7 @@
                              Foreground="{DynamicResource OnVariantBrush}"
                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <TextBox x:Name="BookSearch" Grid.Column="1" BorderThickness="0"
-                           Background="Transparent" Padding="0,8" FontSize="13"
+                           Background="Transparent" Padding="0,6" FontSize="13"
                            TextChanged="OnBookSearch"/>
                 </Grid>
               </Border>
@@ -206,7 +206,7 @@
       <TabItem Header="Rekap">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="4">
-            <Border Padding="20" Margin="0,0,0,12" Style="{DynamicResource M3Card}">
+            <Border Padding="16" Margin="0,0,0,12" Style="{DynamicResource M3Card}">
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*"/>
@@ -216,7 +216,7 @@
                   <TextBlock x:Name="TotalTamuText" FontSize="14"
                              Foreground="{DynamicResource OnVariantBrush}"/>
                   <StackPanel Orientation="Horizontal" Margin="0,4,0,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="TotalNominalText" FontSize="28" FontWeight="Bold"
+                    <TextBlock x:Name="TotalNominalText" FontSize="24" FontWeight="Bold"
                                FontFamily="{DynamicResource NumericFont}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                     <Button x:Name="HideRekapNominalBtn" Style="{DynamicResource TextButton}"
@@ -230,7 +230,7 @@
                         ToolTip="Export PDF / Excel"/>
               </Grid>
             </Border>
-            <UniformGrid x:Name="RekapGrid" Columns="2" Margin="0,12,0,0">
+            <UniformGrid x:Name="RekapGrid" Columns="2" Margin="0,8,0,0">
               <DataGrid x:Name="AlamatGrid" AutoGenerateColumns="False" IsReadOnly="True"
                         Margin="0,0,6,0" HeadersVisibility="Column">
                 <DataGrid.Columns>
@@ -270,7 +270,7 @@
       <TabItem Header="Setting">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel x:Name="SettingPanel" Margin="4">
-            <GroupBox Header="Info Acara" Margin="0,0,0,8">
+            <GroupBox Header="Info Acara" Margin="0,0,0,6">
               <StackPanel>
                 <UniformGrid Columns="2">
                   <StackPanel Margin="0,0,6,0">
@@ -289,20 +289,20 @@
                              VerticalContentAlignment="Top"/>
                   </StackPanel>
                 </UniformGrid>
-                <TextBlock x:Name="SettingViewerNote" FontSize="12" Margin="0,8,0,0"
+                <TextBlock x:Name="SettingViewerNote" FontSize="12" Margin="0,6,0,0"
                            Foreground="{DynamicResource OnVariantBrush}" Visibility="Collapsed"
                            Text="Hanya OWNER/ADMIN yang bisa mengubah info acara."/>
                 <Button x:Name="SettingSaveBtn" Content="Simpan Perubahan (Ctrl+S)"
                         Style="{DynamicResource PrimaryButton}" HorizontalAlignment="Right"
-                        Margin="0,10,0,0" Click="OnSaveInfo"
+                        Margin="0,8,0,0" Click="OnSaveInfo"
                         ToolTip="Simpan info acara (Ctrl+S)"/>
               </StackPanel>
             </GroupBox>
-            <GroupBox Header="Meja (maks 10)" Margin="0,0,0,8">
+            <GroupBox Header="Meja (maks 10)" Margin="0,0,0,6">
               <StackPanel>
-                <WrapPanel x:Name="SettingMejaChips" Margin="0,0,0,8"/>
+                <WrapPanel x:Name="SettingMejaChips" Margin="0,0,0,6"/>
                 <StackPanel Orientation="Horizontal">
-                  <TextBox x:Name="SettingMejaBox" Width="160" VerticalAlignment="Center"
+                  <TextBox x:Name="SettingMejaBox" Width="150" VerticalAlignment="Center"
                            ToolTip="Nama meja baru, mis. MEJA-3"/>
                   <Button Content="+ Tambah" Click="OnAddSettingMeja" Margin="8,0,0,0"
                           Style="{DynamicResource OutlineButton}" VerticalAlignment="Center"
@@ -310,7 +310,7 @@
                 </StackPanel>
               </StackPanel>
             </GroupBox>
-            <GroupBox x:Name="SettingMemberBox" Header="Anggota" Margin="0,0,0,8">
+            <GroupBox x:Name="SettingMemberBox" Header="Anggota" Margin="0,0,0,6">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                   <TextBox x:Name="SettingUserSearch" Width="220" VerticalAlignment="Center"
@@ -349,7 +349,7 @@
                 </DataGrid>
               </StackPanel>
             </GroupBox>
-            <GroupBox Header="Audit Log" Margin="0,0,0,8">
+            <GroupBox Header="Audit Log" Margin="0,0,0,6">
               <StackPanel>
                 <TextBox x:Name="LogSearchBox" TextChanged="OnLogSearch" Margin="0,0,0,8"
                          ToolTip="Cari log…"/>
@@ -363,7 +363,7 @@
                 </DataGrid>
               </StackPanel>
             </GroupBox>
-            <Border Style="{DynamicResource M3DangerZone}" Margin="0,4,0,0">
+            <Border Style="{DynamicResource M3DangerZone}" Margin="0,2,0,0">
               <StackPanel>
                 <TextBlock Text="Zona Berbahaya" FontWeight="SemiBold"
                            Foreground="{DynamicResource ErrorBrush}" Margin="0,0,0,4"/>

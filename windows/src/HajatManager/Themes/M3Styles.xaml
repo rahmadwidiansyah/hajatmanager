@@ -14,17 +14,18 @@
   <FontFamily x:Key="NumericFont">/HajatManager;component/Assets/Fonts/#Geist Mono, Geist Mono, JetBrains Mono, Consolas, Segoe UI, monospace</FontFamily>
 
   <!-- Token density compact — cermin web (px → WPF unit 1:1).
-       Referensi: globals.css p-4=16, px-3 py-1=12/4, gap-3=12, gap-2=8.
+       Referensi: globals.css px-3=12 py-1=4 py-1.5=6, gap-2=8, gap-3=12.
+       Windows desktop: sedikit lebih compact dari web agar informasi lebih padat.
        Semua nilai dibulatkan ke bilangan genap agar SnapsToDevicePixels tepat. -->
-  <Thickness x:Key="M3BtnPadding">14,7</Thickness>
-  <Thickness x:Key="M3InputPadding">12,7</Thickness>
-  <Thickness x:Key="M3CardPadding">16</Thickness>
-  <Thickness x:Key="M3ChipPadding">10,4</Thickness>
-  <Thickness x:Key="M3ChipSmallPadding">6,2</Thickness>
+  <Thickness x:Key="M3BtnPadding">12,6</Thickness>
+  <Thickness x:Key="M3InputPadding">10,6</Thickness>
+  <Thickness x:Key="M3CardPadding">12</Thickness>
+  <Thickness x:Key="M3ChipPadding">8,3</Thickness>
+  <Thickness x:Key="M3ChipSmallPadding">5,2</Thickness>
   <!-- Gap / jarak antar elemen (dipakai sebagai Margin) -->
-  <Thickness x:Key="M3SectionGap">0,12,0,0</Thickness>
-  <Thickness x:Key="M3ItemGap">0,0,0,8</Thickness>
-  <Thickness x:Key="M3CardGap">0,0,0,12</Thickness>
+  <Thickness x:Key="M3SectionGap">0,8,0,0</Thickness>
+  <Thickness x:Key="M3ItemGap">0,0,0,6</Thickness>
+  <Thickness x:Key="M3CardGap">0,0,0,8</Thickness>
 
   <!-- Skala radius ala GTK/Adwaita Linux:
        RFull = tombol & chip (6), 8 = kartu & grup, 6 = input,
@@ -45,7 +46,7 @@
     <Setter Property="FontSize" Value="11"/>
     <Setter Property="FontWeight" Value="Medium"/>
     <Setter Property="Foreground" Value="{DynamicResource OnVariantBrush}"/>
-    <Setter Property="Margin" Value="0,0,0,8"/>
+    <Setter Property="Margin" Value="0,0,0,4"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
   </Style>
 
@@ -211,7 +212,7 @@
        TargetType=Border bukan Button — hanya display, tidak klik.
        ═══════════════════════════════════════════════════════════════════════ -->
   <Style x:Key="M3RoleChipBase" TargetType="Border">
-    <Setter Property="Padding" Value="10,3"/>
+    <Setter Property="Padding" Value="8,2"/>
     <Setter Property="CornerRadius" Value="6"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
@@ -246,7 +247,7 @@
        ═══════════════════════════════════════════════════════════════════════ -->
   <Style x:Key="M3BannerBase" TargetType="Border">
     <Setter Property="CornerRadius" Value="10"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Padding" Value="10,6"/>
     <Setter Property="Margin" Value="{StaticResource M3ItemGap}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
@@ -282,8 +283,8 @@
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="FontWeight" Value="Normal"/>
-    <Setter Property="Padding" Value="12,10"/>
-    <Setter Property="Margin" Value="0,2"/>
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Margin" Value="0,1"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -488,7 +489,7 @@
     <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceLowBrush}"/>
     <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource OutlineBrush}"/>
-    <Setter Property="RowHeight" Value="36"/>
+    <Setter Property="RowHeight" Value="32"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
   </Style>
@@ -499,7 +500,7 @@
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="Padding" Value="10,7"/>
+    <Setter Property="Padding" Value="8,6"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="0,0,0,1"/>
   </Style>
@@ -520,7 +521,7 @@
 
   <Style TargetType="DataGridCell">
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
-    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="Padding" Value="8,0"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="DataGridCell">
@@ -545,7 +546,7 @@
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Padding" Value="14"/>
+    <Setter Property="Padding" Value="12"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="GroupBox">
@@ -559,7 +560,7 @@
                 <ContentPresenter.Resources>
                   <Style TargetType="TextBlock">
                     <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="Margin" Value="0,0,0,10"/>
+                    <Setter Property="Margin" Value="0,0,0,8"/>
                   </Style>
                 </ContentPresenter.Resources>
               </ContentPresenter>
@@ -580,7 +581,7 @@
   <Style TargetType="MenuItem">
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Padding" Value="10,6"/>
   </Style>
 
   <Style TargetType="StatusBar">
@@ -593,7 +594,7 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="0,1,0,0"/>
-    <Setter Property="Padding" Value="0,8,0,0"/>
+    <Setter Property="Padding" Value="0,6,0,0"/>
   </Style>
 
   <Style TargetType="TabItem">
@@ -602,7 +603,7 @@
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="FontSize" Value="13"/>
-    <Setter Property="Padding" Value="16,8"/>
+    <Setter Property="Padding" Value="12,6"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
@@ -613,7 +614,7 @@
               <ContentPresenter ContentSource="Header"
                                 HorizontalAlignment="Center"/>
               <Border x:Name="Indicator" Height="2" CornerRadius="2"
-                      Background="Transparent" Margin="0,6,0,0"/>
+                      Background="Transparent" Margin="0,4,0,0"/>
             </StackPanel>
           </Border>
           <ControlTemplate.Triggers>
@@ -669,7 +670,7 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="6" Padding="10,6"
+                          CornerRadius="6" Padding="8,5"
                           SnapsToDevicePixels="True">
                       <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
                           Fill="{TemplateBinding Foreground}"
@@ -694,7 +695,7 @@
                               Content="{TemplateBinding SelectionBoxItem}"
                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                              Margin="10,6,30,6" VerticalAlignment="Center" HorizontalAlignment="Left"
+                              Margin="8,5,28,5" VerticalAlignment="Center" HorizontalAlignment="Left"
                               IsHitTestVisible="False"/>
             <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden"
                      Background="Transparent" BorderThickness="0"
@@ -744,7 +745,7 @@
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="FontSize" Value="13"/>
-    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="Padding" Value="8,4"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
@@ -807,12 +808,12 @@
                                  SelectionBrush="{DynamicResource PrimaryBrush}"
                                  FontFamily="{TemplateBinding FontFamily}"
                                  FontSize="{TemplateBinding FontSize}"
-                                 Padding="10,6,0,6"
+                                 Padding="8,5,0,5"
                                  VerticalAlignment="Center" Focusable="True"/>
               <Button x:Name="PART_Button" Grid.Column="1"
                       Background="Transparent" BorderThickness="0"
                       Foreground="{TemplateBinding Foreground}"
-                      Padding="8,0,10,0"
+                      Padding="6,0,8,0"
                       VerticalAlignment="Center" Focusable="False">
                 <Button.Content>
                   <TextBlock Text="&#xE787;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
@@ -966,7 +967,7 @@
     <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
     <Setter Property="FontSize" Value="13"/>
-    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="Padding" Value="8,4"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
@@ -1205,7 +1206,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="8"/>
-    <Setter Property="Padding" Value="16"/>
+    <Setter Property="Padding" Value="12"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
   </Style>
 
@@ -1218,7 +1219,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="12"/>
-    <Setter Property="Padding" Value="20"/>
+    <Setter Property="Padding" Value="16"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
   </Style>
 
@@ -1227,7 +1228,7 @@
        Lebih besar dari ListBoxItem biasa (lebih lega untuk sentuh/klik).
        ═══════════════════════════════════════════════════════════════════════ -->
   <Style x:Key="M3SuggestItem" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Padding" Value="8,6"/>
     <Setter Property="Margin" Value="0,1"/>
   </Style>
 

@@ -515,7 +515,7 @@ public partial class EventDetailView : UserControl
         _dupTimer?.Stop();
         if (!_ev.CanEdit)
         {
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 6) };
+            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 4) };
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
             InputPanel.Children.Add(_guestSearchBox);
             InputPanel.Children.Add(BuildFilterBar());
@@ -525,7 +525,7 @@ public partial class EventDetailView : UserControl
             // Form 2 kolom cermin tab pemberian web (Task 5):
             // kiri nama+alamat, kanan nominal+metode, catatan full-width.
             // Pilihan meja milik TopBar (Task 4), tidak lagi di form.
-            var grid = new UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 8) };
+            var grid = new UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 6) };
             // Kolom kiri: Nama (+ suggest) + Alamat (+ chips)
             var left = new StackPanel { Margin = new Thickness(0, 0, 6, 0) };
             left.Children.Add(M3Title("NAMA *"));
@@ -564,11 +564,11 @@ public partial class EventDetailView : UserControl
                 StaysOpen = false,
             };
             // Popup mandiri (jangan masuk panel.Children — Popup bukan UIElement panel).
-            left.Children.Add(M3Title("ALAMAT *", new Thickness(0, 8, 0, 8)));
+            left.Children.Add(M3Title("ALAMAT *", new Thickness(0, 6, 0, 4)));
             _alamatBox = new TextBox { TabIndex = 1 };
             _alamatBox.TextChanged += (_, _) => ScheduleDupCheck();
             left.Children.Add(_alamatBox);
-            _alamatChips = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+            _alamatChips = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
             left.Children.Add(_alamatChips);
             grid.Children.Add(left);
             // Kolom kanan: Nominal (preview + input + chips) + Metode
@@ -594,9 +594,9 @@ public partial class EventDetailView : UserControl
                 RefreshChips();
             };
             right.Children.Add(_nominalBox);
-            _nominalChips = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+            _nominalChips = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
             right.Children.Add(_nominalChips);
-            right.Children.Add(M3Title("METODE", new Thickness(0, 10, 0, 8)));
+            right.Children.Add(M3Title("METODE", new Thickness(0, 8, 0, 4)));
             // Metode = ChoiceChip cermin Flutter (AMPLOP/QRIS/TRANSFER + fallback
             // "(lama)" bila nilai tersimpan di luar ketiganya, cermin web).
             _metodeChips = new WrapPanel();
@@ -605,15 +605,23 @@ public partial class EventDetailView : UserControl
             grid.Children.Add(right);
             InputPanel.Children.Add(grid);
 
-            // Catatan: full-width di bawah 2 kolom.
+            // Catatan: full-width di bawah 2 kolom (textarea 2 baris cermin web).
             InputPanel.Children.Add(M3Title("CATATAN (wajib jika duplikat)"));
-            _catatanBox = new TextBox { TabIndex = 3 };
+            _catatanBox = new TextBox
+            {
+                TabIndex = 3,
+                AcceptsReturn = true,
+                MinHeight = 56,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalContentAlignment = VerticalAlignment.Top,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            };
             _catatanBox.TextChanged += (_, _) => RefreshDupBanner();
             InputPanel.Children.Add(_catatanBox);
 
             _dupBanner = new Border
             {
-                Margin = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, 6, 0, 0),
                 Visibility = Visibility.Collapsed,
             };
             _dupBannerText = new TextBlock { TextWrapping = TextWrapping.Wrap };
@@ -633,7 +641,7 @@ public partial class EventDetailView : UserControl
             {
                 Content = "Simpan (Ctrl+S)",
                 Style = M3("PrimaryButton") ?? (Style)FindResource("PrimaryButton"),
-                Margin = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, 6, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 TabIndex = 4,
                 ToolTip = "Simpan pemberian (Ctrl+S)",
@@ -642,11 +650,11 @@ public partial class EventDetailView : UserControl
             InputPanel.Children.Add(_saveBtn);
 
             // Search + filter editor (cermin web + mobile).
-            var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 8, 0, 6) };
+            var title0 = new TextBlock { Text = "CARI & FILTER", Margin = new Thickness(0, 6, 0, 4) };
             if (M3("M3SectionTitle") is Style sts) title0.Style = sts;
             else title0.FontWeight = FontWeights.SemiBold;
             InputPanel.Children.Add(title0);
-            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 6) };
+            _guestSearchBox = new TextBox { Margin = new Thickness(0, 0, 0, 4) };
             _guestSearchBox.TextChanged += (_, _) => { _guestQ = _guestSearchBox.Text; _guestLimit = 50; ApplyGuestFilter(); };
             InputPanel.Children.Add(_guestSearchBox);
             InputPanel.Children.Add(BuildFilterBar());
@@ -656,7 +664,7 @@ public partial class EventDetailView : UserControl
         var title = new TextBlock
         {
             Text = "TERAKHIR DI PERANGKAT INI",
-            Margin = new Thickness(0, 8, 0, 6)
+            Margin = new Thickness(0, 6, 0, 4)
         };
         if (M3("M3SectionTitle") is Style m3st) title.Style = m3st;
         else title.FontWeight = FontWeights.SemiBold;
@@ -665,7 +673,7 @@ public partial class EventDetailView : UserControl
         {
             AutoGenerateColumns = false,
             IsReadOnly = true,
-            MaxHeight = 420,
+            MaxHeight = 380,
             HeadersVisibility = DataGridHeadersVisibility.Column,
         };
         _guestGrid.Columns.Add(new DataGridTextColumn { Header = "#", Binding = new System.Windows.Data.Binding("No"), Width = 50 });

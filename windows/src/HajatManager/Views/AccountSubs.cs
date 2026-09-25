@@ -47,13 +47,13 @@ internal sealed class SubPage : UserControl
             root.Children.Add(sub);
         }
         var card = M3Field.Card(body);
-        card.Margin = new Thickness(0, 8, 0, 0);
+        card.Margin = new Thickness(0, 6, 0, 0);
         root.Children.Add(card);
         _snack = new TextBlock
         {
             Visibility = Visibility.Collapsed,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 8, 0, 0),
+            Margin = new Thickness(0, 6, 0, 0),
         };
         root.Children.Add(_snack);
         _snackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
