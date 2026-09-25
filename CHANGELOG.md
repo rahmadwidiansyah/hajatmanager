@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.2...v1.19.0) (2026-09-25)
+
+
+### Features
+
+* installer Setup.exe untuk Flutter Windows ([ceef864](https://github.com/rahmadwidiansyah/hajatmanager/commit/ceef86479c0e453437f6ee4e86d9e1733695a9cf))
+
 ## [1.18.2](https://github.com/rahmadwidiansyah/hajatmanager/compare/v1.18.1...v1.18.2) (2026-09-25)
 
 
