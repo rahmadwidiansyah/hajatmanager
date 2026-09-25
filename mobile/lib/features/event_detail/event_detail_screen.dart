@@ -2561,21 +2561,41 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   /// Tabel buku tamu — cermin tabel web (No/Nama/Alamat/Aksi + footer Total).
   /// Dipakai di tablet (>=600px) dan desktop; HP kecil tetap list.
+  /// Kolom Nama/Alamat dilebarkan proporsional mengisi viewport (cermin w-full).
   Widget _bookTable(List<Map<String, dynamic>> shown) {
     final data = shown.take(bookLimit).toList();
-    return Card(
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 520),
-              child: DataTable(
-                columnSpacing: 12,
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final avail = cons.maxWidth;
+        // Estimasi kolom fix: #36 + Aksi150 + card padding 24 + spacing*3.
+        const fixedCols = 36.0 + 150.0 + 24.0;
+        const spacing = 12.0;
+        final flex = avail - fixedCols - spacing * 3;
+        // Bagi sisa ruang Nama 50% : Alamat 50%; bila tak muat, fallback
+        // natural + scroll horizontal.
+        double? namaW;
+        double? alamatW;
+        if (flex >= 260) {
+          final w = (flex / 2).clamp(120.0, 460.0);
+          namaW = w;
+          alamatW = w;
+        }
+        return Card(
+          margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth:
+                        (namaW != null && alamatW != null) ? avail : 520,
+                  ),
+                  child: DataTable(
+                    columnSpacing: spacing,
                 headingRowHeight: 40,
                 dataRowMinHeight: 48,
                 columns: const [
@@ -2601,9 +2621,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ),
                       DataCell(
                         ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 220,
-                            minWidth: 120,
+                          constraints: BoxConstraints(
+                            maxWidth: namaW ?? 220,
+                            minWidth: namaW ?? 120,
                           ),
                           child: Text(
                             '${b['nama']}',
@@ -2615,9 +2635,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ),
                       DataCell(
                         ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 260,
-                            minWidth: 120,
+                          constraints: BoxConstraints(
+                            maxWidth: alamatW ?? 260,
+                            minWidth: alamatW ?? 120,
                           ),
                           child: Text(
                             '${b['alamat']}',
@@ -2686,6 +2706,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -2947,59 +2969,85 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         id: id,
       );
 
-      // 3) Coba POST langsung ke server.
-      try {
-        final dio = await ApiClient.instance.dio();
-        final r = await dio.post(
-          '/api/events/${widget.event.id}/guestbooks',
-          data: {
-            'nama': nama,
-            'alamat': alamat,
-            // localId dikirim agar server cek idempoten by localId.
-            'localId': localId,
-          },
-        );
-        // 201 = baru dibuat, 200 = idempoten (sudah ada, return existing).
-        if (r.statusCode == 201 || r.statusCode == 200) {
-          final srv =
-              r.data is Map ? Map<String, dynamic>.from(r.data as Map) : null;
-          if (srv != null && '${srv['id']}'.isNotEmpty) {
-            final serverId = '${srv['id']}';
-            if (serverId != localId) {
-              // Rekonsiliasi: UPDATE guest_books SET id=serverId WHERE localId=localId
-              await LocalDb.instance.updateBookServerId(
-                localId: localId,
-                serverId: serverId,
-              );
-              // Hapus outbox by serverId (outbox id sudah diupdate oleh updateBookServerId).
-              await LocalDb.instance.outboxRemove([serverId]);
-            } else {
-              await LocalDb.instance.outboxRemove([localId]);
-            }
-          }
-        }
-      } on DioException catch (e) {
-        // 409 duplicate atau offline — data tetap aman di outbox lokal.
-        if (e.response?.statusCode == 409 && mounted) {
-          showTopSnack(
-            context,
-            const SnackBar(
-              content: Text(
-                'Nama+alamat sudah ada di buku tamu (tersimpan lokal, antre sync).',
-              ),
-            ),
-          );
-        }
-        // Offline / error lain — biarkan antre diam-diam.
-      }
-      // Satset: kosongkan form agar langsung isi berikutnya.
+      // 3) Optimistic UI: tampilkan langsung (<1 frame), sinkron belakangan.
+      // Daftar + hitungan ter-update instan; POST + refresh jalan background.
+      books.add({
+        'id': id,
+        'eventId': widget.event.id,
+        'nama': nama,
+        'alamat': alamat,
+        'localId': localId,
+        'createdAt': createdAt,
+      });
       bookNamaC.clear();
       bookAlamatC.clear();
-      if (mounted) bookNamaFocus.requestFocus();
-      await _refreshAll();
+      if (mounted) {
+        setState(() {});
+        bookNamaFocus.requestFocus();
+      }
+      unawaited(_postBookAndRefresh(
+        id: id,
+        localId: localId,
+        nama: nama,
+        alamat: alamat,
+      ));
     } finally {
       _bookSaving = false;
     }
+  }
+
+  /// POST buku tamu + rekonsiliasi id + refresh penuh (background, tak blok UI).
+  Future<void> _postBookAndRefresh({
+    required String id,
+    required String localId,
+    required String nama,
+    required String alamat,
+  }) async {
+    try {
+      final dio = await ApiClient.instance.dio();
+      final r = await dio.post(
+        '/api/events/${widget.event.id}/guestbooks',
+        data: {
+          'nama': nama,
+          'alamat': alamat,
+          // localId dikirim agar server cek idempoten by localId.
+          'localId': localId,
+        },
+      );
+      // 201 = baru dibuat, 200 = idempoten (sudah ada, return existing).
+      if (r.statusCode == 201 || r.statusCode == 200) {
+        final srv =
+            r.data is Map ? Map<String, dynamic>.from(r.data as Map) : null;
+        if (srv != null && '${srv['id']}'.isNotEmpty) {
+          final serverId = '${srv['id']}';
+          if (serverId != localId) {
+            // Rekonsiliasi: UPDATE guest_books SET id=serverId WHERE localId=localId
+            await LocalDb.instance.updateBookServerId(
+              localId: localId,
+              serverId: serverId,
+            );
+            // Hapus outbox by serverId (outbox id sudah diupdate oleh updateBookServerId).
+            await LocalDb.instance.outboxRemove([serverId]);
+          } else {
+            await LocalDb.instance.outboxRemove([localId]);
+          }
+        }
+      }
+    } on DioException catch (e) {
+      // 409 duplicate atau offline — data tetap aman di outbox lokal.
+      if (e.response?.statusCode == 409 && mounted) {
+        showTopSnack(
+          context,
+          const SnackBar(
+            content: Text(
+              'Nama+alamat sudah ada di buku tamu (tersimpan lokal, antre sync).',
+            ),
+          ),
+        );
+      }
+      // Offline / error lain — biarkan antre diam-diam.
+    }
+    await _refreshAll();
   }
 
   /// Bottom-sheet daftar konflik duplikat → isi catatan / buang.
@@ -3571,7 +3619,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                           'Per alamat',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        _rekapAlamatTable(perAlamat),
+                        _rekapAlamatTable(perAlamat, (t['totalNominal'] as num?)?.toInt() ?? 0),
                       ],
                     ),
                   ),
@@ -3655,7 +3703,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 'Per alamat',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              _rekapAlamatTable(perAlamat),
+              _rekapAlamatTable(perAlamat, (t['totalNominal'] as num?)?.toInt() ?? 0),
               const SizedBox(height: 8),
               Text(
                 'Per metode',
@@ -3842,7 +3890,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   /// Tabel rekap tablet/desktop: kolom ala rekap web (dipakai >=600px,
   /// stacked vertikal di tablet, side-by-side di desktop lebar).
-  Widget _rekapAlamatTable(List<Map> rows) => Card(
+  Widget _rekapAlamatTable(List<Map> rows, int totalNominal) => Card(
     margin: const EdgeInsets.symmetric(vertical: 4),
     clipBehavior: Clip.antiAlias,
     child: SingleChildScrollView(
@@ -3856,34 +3904,42 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             DataColumn(label: Text('Alamat')),
             DataColumn(label: Text('Jumlah'), numeric: true),
             DataColumn(label: Text('Total'), numeric: true),
+            DataColumn(label: Text('Porsi'), numeric: true),
           ],
           rows: rows
               .map(
-                (e) => DataRow(
-                  cells: [
-                    DataCell(
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 220,
-                          minWidth: 120,
-                        ),
-                        child: Text(
-                          '${e['alamat']}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                (e) {
+                  final total = (e['total'] as num?)?.toInt() ?? 0;
+                  final porsi = totalNominal > 0
+                      ? '${(total * 100 / totalNominal).round()}%'
+                      : '0%';
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 220,
+                            minWidth: 120,
+                          ),
+                          child: Text(
+                            '${e['alamat']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
-                    ),
-                    DataCell(Text('${e['jumlah']}')),
-                    DataCell(
-                      Text(
-                        formatRp(e['total'] as int),
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      DataCell(Text('${e['jumlah']}')),
+                      DataCell(
+                        Text(
+                          formatRp(e['total'] as int),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      DataCell(Text(porsi)),
+                    ],
+                  );
+                },
               )
               .toList(),
         ),
